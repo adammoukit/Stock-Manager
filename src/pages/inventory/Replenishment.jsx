@@ -123,12 +123,12 @@ const Replenishment = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f]">Réapprovisionnement</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e]">Réapprovisionnement</h2>
                     <p className="text-gray-500">Gérez vos commandes fournisseurs et stocks entrants</p>
                 </div>
                 <button
                     onClick={() => setShowNewOrderModal(true)}
-                    className="bg-[#018f8f] hover:bg-teal-700 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold"
+                    className="bg-[#1c398e] hover:bg-blue-800 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold"
                 >
                     <Plus className="w-5 h-5" />
                     Nouvelle Commande
@@ -157,7 +157,7 @@ const Replenishment = () => {
             <div className="bg-white rounded-sm border border-gray-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
+                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
                             <tr>
                                 <th className="px-6 py-4">N° Commande</th>
                                 <th className="px-6 py-4">Fournisseur</th>
@@ -216,7 +216,7 @@ const Replenishment = () => {
                                             {order.status !== 'Completed' && (
                                                 <button
                                                     onClick={() => openReceiveModal(order)}
-                                                    className="flex items-center gap-2 bg-[#018f8f] hover:bg-teal-700 cursor-pointer text-white font-medium text-sm px-4 py-2 rounded-sm transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                                    className="flex items-center gap-2 bg-[#1c398e] hover:bg-blue-800 cursor-pointer text-white font-medium text-sm px-4 py-2 rounded-sm transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                                                 >
                                                     <Truck className="w-4 h-4" />
                                                     Réceptionner
@@ -254,7 +254,7 @@ const Replenishment = () => {
                                 <select
                                     value={newOrderData.supplier}
                                     onChange={(e) => setNewOrderData({ ...newOrderData, supplier: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]"
                                 >
                                     <option value="">Sélectionner un fournisseur</option>
                                     {suppliers.map(s => (<option key={s.id || s.name || s} value={s.name || s}>{s.name || s}</option>))}
@@ -280,7 +280,7 @@ const Replenishment = () => {
                                                 type="checkbox"
                                                 checked={onlyLowStock}
                                                 onChange={(e) => setOnlyLowStock(e.target.checked)}
-                                                className="rounded-sm text-[#018f8f] focus:ring-[#018f8f]"
+                                                className="rounded-sm text-[#1c398e] focus:ring-[#1c398e]"
                                             />
                                             Uniquement stock faible
                                         </label>
@@ -372,7 +372,7 @@ const Replenishment = () => {
                             <button
                                 onClick={handleCreateOrder}
                                 disabled={!newOrderData.supplier || newOrderData.items.length === 0}
-                                className="px-6 py-2 bg-[#018f8f] text-white hover:bg-teal-700 cursor-pointer font-bold rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-[#018f8f]/20"
+                                className="px-6 py-2 bg-[#1c398e] text-white hover:bg-blue-800 cursor-pointer font-bold rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-[#1c398e]/20"
                             >
                                 Créer la Commande
                             </button>
@@ -398,7 +398,7 @@ const Replenishment = () => {
                                     value={receivedBy}
                                     onChange={(e) => setReceivedBy(e.target.value)}
                                     placeholder="Nom du réceptionneur"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f] focus:outline-none"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:outline-none"
                                 />
                             </div>
                             <label className="flex items-center gap-2 cursor-pointer bg-white p-3 border border-gray-200 rounded-sm">
@@ -406,7 +406,7 @@ const Replenishment = () => {
                                     type="checkbox" 
                                     checked={isPaidCash}
                                     onChange={(e) => setIsPaidCash(e.target.checked)}
-                                    className="w-4 h-4 text-[#018f8f] rounded-sm focus:ring-[#018f8f]"
+                                    className="w-4 h-4 text-[#1c398e] rounded-sm focus:ring-[#1c398e]"
                                 />
                                 <div>
                                     <span className="text-sm font-bold text-gray-900 block">Payé au comptant (Cash/Virement)</span>
@@ -417,7 +417,7 @@ const Replenishment = () => {
 
                         <div className="flex-1 overflow-y-auto p-6">
                             <table className="w-full text-left text-sm">
-                                <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
+                                <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
                                     <tr>
                                         <th className="px-4 py-3">Produit</th>
                                         <th className="px-4 py-3">Commandé</th>
@@ -437,7 +437,7 @@ const Replenishment = () => {
                                                     min="0"
                                                     max={item.quantityOrdered - item.quantityReceived}
                                                     placeholder="0"
-                                                    className="w-24 px-2 py-1 border border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f] focus:outline-none"
+                                                    className="w-24 px-2 py-1 border border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:outline-none"
                                                     onChange={(e) => setReceiveData({
                                                         ...receiveData,
                                                         [item.productId]: e.target.value
@@ -460,7 +460,7 @@ const Replenishment = () => {
                             </button>
                             <button
                                 onClick={handleReceiveOrder}
-                                className="px-6 py-2 bg-[#018f8f] text-white font-bold rounded-sm hover:bg-teal-700 transition-colors shadow-lg shadow-[#018f8f]/20"
+                                className="px-6 py-2 bg-[#1c398e] text-white font-bold rounded-sm hover:bg-blue-800 transition-colors shadow-lg shadow-[#1c398e]/20"
                             >
                                 Valider la Réception
                             </button>
@@ -503,7 +503,7 @@ const Replenishment = () => {
 
                             {/* Items Table */}
                             <table className="w-full text-left text-sm">
-                                <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
+                                <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
                                     <tr>
                                         <th className="px-4 py-3">Produit</th>
                                         <th className="px-4 py-3 text-right">Prix Achat</th>

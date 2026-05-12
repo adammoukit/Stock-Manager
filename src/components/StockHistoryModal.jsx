@@ -30,8 +30,8 @@ const StockHistoryModal = ({ product, movements, onClose }) => {
             <div className="bg-white rounded-sm border-2 border-gray-300 shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b-2 border-gray-300" style={{ backgroundColor: '#e6ecf2' }}>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#018f8f]/10 rounded-sm">
-                            <History className="w-6 h-6 text-[#018f8f]" />
+                        <div className="p-2 bg-[#1c398e]/10 rounded-sm">
+                            <History className="w-6 h-6 text-[#1c398e]" />
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-gray-900">Historique des Mouvements</h2>

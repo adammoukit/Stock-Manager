@@ -168,7 +168,7 @@ const ProductList = () => {
                 tier: 'DÉTAIL',
                 price: p.price,
                 unit: p.unit || 'Unité',
-                accent: '#018f8f'
+                accent: '#1c398e'
             });
 
             // 2. Prix au lot (si activé)
@@ -219,7 +219,7 @@ const ProductList = () => {
 
         const allLabels = selected.map(p => `
             <div style="margin-bottom:12px;">
-                <div style="font-size:10px;font-weight:bold;color:#333;margin-bottom:4px;padding-left:6px;border-left:3px solid #018f8f;">${p.name}</div>
+                <div style="font-size:10px;font-weight:bold;color:#333;margin-bottom:4px;padding-left:6px;border-left:3px solid #1c398e;">${p.name}</div>
                 ${buildLabels(p)}
             </div>
         `).join('<hr style="border:none;border-top:1px dashed #ddd;margin:12px 0;">');
@@ -269,11 +269,11 @@ const ProductList = () => {
 
             let priceDisplay = `${formatPrice(p.price)} <span style="font-size:10px;font-weight:normal;color:#64748b;">/ ${p.unit || 'Unité'}</span>`;
             if (p.hasLot && p.lotPrice) {
-                priceDisplay += `<div style="font-size:10px;margin-top:4px;color:#018f8f;">${formatPrice(p.lotPrice)} / Lot de ${p.retailStepQuantity || 10}</div>`;
+                priceDisplay += `<div style="font-size:10px;margin-top:4px;color:#1c398e;">${formatPrice(p.lotPrice)} / Lot de ${p.retailStepQuantity || 10}</div>`;
             }
             if (p.packagings && p.packagings.length > 0) {
                 priceDisplay += p.packagings.map(pkg =>
-                    `<div style="font-size:10px;margin-top:4px;color:#018f8f;">${formatPrice(pkg.price)} / ${pkg.name}</div>`
+                    `<div style="font-size:10px;margin-top:4px;color:#1c398e;">${formatPrice(pkg.price)} / ${pkg.name}</div>`
                 ).join('');
             }
 
@@ -301,15 +301,15 @@ const ProductList = () => {
                 <title>${title}</title>
                 <style>
                     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; margin: 0; background: #fff; }
-                    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #018f8f; padding-bottom: 20px; }
+                    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #1c398e; padding-bottom: 20px; }
                     .header-left { display: flex; align-items: center; gap: 15px; }
-                    .logo-placeholder { width: 60px; height: 60px; background: #018f8f; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 8px; }
+                    .logo-placeholder { width: 60px; height: 60px; background: #1c398e; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 8px; }
                     .company-logo { max-width: 80px; max-height: 80px; object-fit: contain; }
                     .company-name { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; }
                     .company-nif { font-size: 12px; color: #64748b; margin-top: 4px; font-weight: 500; }
                     .header-right { text-align: right; font-size: 12px; color: #475569; line-height: 1.6; font-weight: 500; }
                     .title { text-align: center; font-size: 18px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 30px; }
-                    .title span { border-bottom: 3px solid #018f8f; padding-bottom: 4px; }
+                    .title span { border-bottom: 3px solid #1c398e; padding-bottom: 4px; }
                     table { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #cbd5e1; }
                     th, td { border: 1px solid #cbd5e1; }
                     th { background: #f8fafc; padding: 12px 10px; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #94a3b8; font-weight: 700; letter-spacing: 0.5px; }
@@ -335,7 +335,7 @@ const ProductList = () => {
                         <div>${company?.address || ''}</div>
                         <div>${company?.email || ''}</div>
                         <div>${company?.phone || ''}</div>
-                        <div style="margin-top: 8px; font-weight: bold; color: #018f8f;">
+                        <div style="margin-top: 8px; font-weight: bold; color: #1c398e;">
                             Imprimé le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}
                         </div>
                     </div>
@@ -473,15 +473,23 @@ const ProductList = () => {
     const selectedCount = selectedProductIds.length;
 
     return (
-        <div className="space-y-6">
+        <div className="p-6 h-full flex flex-col gap-6 overflow-y-auto custom-scrollbar bg-[#f0f4f8]">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Catalogue Produits</h2>
+                    <p className="text-gray-500 text-sm mt-1 font-medium">Gestion et inventaire du stock de la quincaillerie</p>
+                </div>
+            </div>
+
+            <div className="space-y-6">
             {/* Top Insight Bar: Statistiques de Classe Mondiale */}
             {/* Top Insight Bar: Texture Dashboard de Classe Mondiale */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Total Catalogue */}
                 <div className="bg-white p-4 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden">
                     <div className="relative z-10">
-                        <p className="text-[11px] font-bold text-teal-600/70 uppercase tracking-widest mb-1">Total Catalogue</p>
-                        <h3 className="text-3xl font-semibold text-[#005f5f]">{totalProducts}</h3>
+                        <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">Total Catalogue</p>
+                        <h3 className="text-xl sm:text-2xl font-semibold text-[#1c398e]">{totalProducts}</h3>
                         <p className="text-xs text-gray-400 mt-2 font-medium">Produits référencés</p>
                     </div>
                     <img
@@ -494,8 +502,8 @@ const ProductList = () => {
                 {/* Alertes Stock */}
                 <div className="bg-white p-4 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden">
                     <div className="relative z-10">
-                        <p className="text-[11px] font-bold text-teal-600/70 uppercase tracking-widest mb-1">Alertes Stock</p>
-                        <h3 className={`text-3xl font-semibold ${lowStockCount > 0 ? 'text-red-600' : 'text-[#005f5f]'}`}>
+                        <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">Alertes Stock</p>
+                        <h3 className={`text-xl sm:text-2xl font-semibold ${lowStockCount > 0 ? 'text-red-600' : 'text-[#1c398e]'}`}>
                             {lowStockCount}
                         </h3>
                         <p className="text-xs text-gray-400 mt-2 font-medium">Articles en rupture</p>
@@ -510,8 +518,8 @@ const ProductList = () => {
                 {/* Valeur Stock */}
                 <div className="bg-white p-4 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden">
                     <div className="relative z-10">
-                        <p className="text-[11px] font-bold text-teal-600/70 uppercase tracking-widest mb-1">Valeur Stock</p>
-                        <h3 className="text-2xl font-semibold text-[#005f5f]">{formatPrice(totalStockValue)}</h3>
+                        <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">Valeur Stock</p>
+                        <h3 className="text-xl sm:text-2xl font-semibold text-[#1c398e]">{formatPrice(totalStockValue)}</h3>
                         <p className="text-xs text-gray-400 mt-2 font-medium">Prix d'achat total</p>
                     </div>
                     <img
@@ -527,13 +535,13 @@ const ProductList = () => {
                 {/* Upper Toolbar: Search & Main Actions */}
                 <div className="p-4 border-b-2 border-gray-100 flex flex-col lg:flex-row lg:items-center gap-4 bg-white">
                     <div className="flex-1 relative group">
-                        <i className="uil uil-search text-xl absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#018f8f] transition-colors"></i>
+                        <i className="uil uil-search text-xl absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#1c398e] transition-colors"></i>
                         <input
                             type="text"
                             placeholder="Rechercher un produit, une catégorie ou biper un code-barres..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-16 py-3 border-2 border-gray-200 rounded-sm focus:outline-none focus:border-[#018f8f] focus:ring-4 focus:ring-[#018f8f]/5 bg-white transition-all text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-medium"
+                            className="w-full pl-11 pr-16 py-3 border-2 border-gray-200 rounded-sm focus:outline-none focus:border-[#1c398e] focus:ring-4 focus:ring-[#1c398e]/5 bg-white transition-all text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-medium"
                         />
                         <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2">
                             {searchTerm && (
@@ -578,7 +586,7 @@ const ProductList = () => {
                     <div className="flex flex-wrap items-center gap-3">
                         {/* Filtre Catégorie */}
                         <div className="flex items-center gap-2 bg-white px-3 py-1.5 border-2 border-gray-300 rounded-sm">
-                            <i className="uil uil-tag-alt text-[#018f8f] text-lg"></i>
+                            <i className="uil uil-tag-alt text-[#1c398e] text-lg"></i>
                             <select
                                 value={filterCategory}
                                 onChange={(e) => setFilterCategory(e.target.value)}
@@ -614,7 +622,7 @@ const ProductList = () => {
                         {/* Bulk Actions Menu (si sélection) */}
                         {selectedCount > 0 && (
                             <div className="flex items-center gap-2 animate-in slide-in-from-right-2 duration-300">
-                                <span className="text-[11px] font-black text-[#018f8f] uppercase tracking-widest mr-2 bg-[#018f8f]/10 px-2 py-1 rounded-sm border border-[#018f8f]/20">
+                                <span className="text-[11px] font-black text-[#1c398e] uppercase tracking-widest mr-2 bg-[#1c398e]/10 px-2 py-1 rounded-sm border border-[#1c398e]/20">
                                     {selectedCount} Sélectionnés
                                 </span>
                                 <button
@@ -653,7 +661,7 @@ const ProductList = () => {
                                 <th style={{ width: `${colWidths.checkbox}px`, minWidth: `${colWidths.checkbox}px` }} className="px-1 py-1.5 border-r-2 border-[#e6e6e6]/40 text-center">
                                     <input
                                         type="checkbox"
-                                        className="w-4 h-4 rounded-sm border-white/20 accent-[#018f8f] cursor-pointer"
+                                        className="w-4 h-4 rounded-sm border-white/20 accent-[#1c398e] cursor-pointer"
                                         checked={sortedProducts.length > 0 && selectedProductIds.length === sortedProducts.length}
                                         onChange={handleSelectAll}
                                     />
@@ -717,40 +725,40 @@ const ProductList = () => {
                         </thead>
                         <tbody className="divide-y-2 divide-[#e6e6e6]">
                             {sortedProducts.map((product) => (
-                                <tr key={product.id} className={`divide-x-2 divide-[#e6e6e6] transition-colors ${selectedProductIds.includes(product.id) ? 'bg-teal-50' : 'odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-teal-50/40'}`}>
+                                <tr key={product.id} className={`divide-x-2 divide-[#e6e6e6] transition-colors ${selectedProductIds.includes(product.id) ? 'bg-blue-50' : 'odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40'}`}>
                                     <td className="px-1 py-4 truncate text-center">
                                         <input
                                             type="checkbox"
-                                            className="w-4 h-4 rounded-sm border-gray-300 accent-[#018f8f] cursor-pointer"
+                                            className="w-4 h-4 rounded-sm border-gray-300 accent-[#1c398e] cursor-pointer"
                                             checked={selectedProductIds.includes(product.id)}
                                             onChange={() => handleSelectProduct(product.id)}
                                         />
                                     </td>
-                                    <td className="px-1 py-1.5 font-semibold text-[#005f5f] truncate text-[14px] tracking-wide">{product.name?.toUpperCase()}</td>
-                                    <td className="px-1 py-1.5 text-[#005f5f] truncate text-[13px] font-semibold">
-                                        <span className="bg-[#005f5f]/10 px-2 py-1 rounded-sm text-xs border border-[#005f5f]/20">
+                                    <td className="px-1 py-1.5 font-semibold text-[#1c398e] truncate text-[14px] tracking-wide">{product.name?.toUpperCase()}</td>
+                                    <td className="px-1 py-1.5 text-[#1c398e] truncate text-[13px] font-semibold">
+                                        <span className="bg-[#1c398e]/10 px-2 py-1 rounded-sm text-xs border border-[#1c398e]/20">
                                             {product.category}
                                         </span>
                                     </td>
-                                    <td className="px-1 py-1.5 font-semibold text-[#005f5f] text-[14px] truncate text-center">
+                                    <td className="px-1 py-1.5 font-semibold text-[#1c398e] text-[14px] truncate text-center">
                                         {product.purchasePrice ? formatPrice(product.purchasePrice) : <span className="text-gray-300 italic text-xs">—</span>}
                                     </td>
                                     <td className="px-1 py-1.5 truncate text-center">
                                         <div className="flex flex-col items-center">
-                                            <div className="font-semibold text-[#005f5f] text-[14px]">
+                                            <div className="font-semibold text-[#1c398e] text-[14px]">
                                                 {formatPrice(product.price)} <span className="text-gray-400 text-xs font-normal">/ {product.unit || 'Unité'}</span>
                                             </div>
                                             {product.hasLot && product.lotPrice && (
-                                                <div style={{ color: '#018f8f' }} className="text-[11px] font-semibold mt-1.5 flex items-center gap-1.5 bg-teal-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#018f8f]/20">
-                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#018f8f' }}></div>
+                                                <div style={{ color: '#1c398e' }} className="text-[11px] font-semibold mt-1.5 flex items-center gap-1.5 bg-blue-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#1c398e]/20">
+                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1c398e' }}></div>
                                                     {formatPrice(product.lotPrice)} / Lot de {product.retailStepQuantity || 10}
                                                 </div>
                                             )}
                                             {/* Modèles de vente fractionnée */}
                                             {product.packagings?.map(pkg => {
                                                 return (
-                                                    <div key={pkg.modelId} style={{ color: '#018f8f' }} className="text-[10px] font-bold mt-1.5 flex items-center gap-1.5 uppercase bg-teal-50 w-fit px-2 py-0.5 rounded-sm">
-                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#018f8f' }}></div>
+                                                    <div key={pkg.modelId} style={{ color: '#1c398e' }} className="text-[10px] font-bold mt-1.5 flex items-center gap-1.5 uppercase bg-blue-50 w-fit px-2 py-0.5 rounded-sm">
+                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1c398e' }}></div>
                                                         {formatPrice(pkg.price)} / {pkg.name}
                                                     </div>
                                                 );
@@ -803,12 +811,12 @@ const ProductList = () => {
                                             );
                                         })()}
                                     </td>
-                                    <td className="px-1 py-1.5 font-semibold text-[#005f5f] text-[13px] truncate">{product.supplier}</td>
+                                    <td className="px-1 py-1.5 font-semibold text-[#1c398e] text-[13px] truncate">{product.supplier}</td>
                                     <td className="px-2 py-1.5 text-center">
                                         <div className="flex justify-center gap-1">
                                             <button
                                                 onClick={() => handleEditClick(product)}
-                                                className="p-2 text-gray-400 cursor-pointer hover:text-[#018f8f] hover:bg-teal-50 rounded-sm transition-colors"
+                                                className="p-2 text-gray-400 cursor-pointer hover:text-[#1c398e] hover:bg-blue-50 rounded-sm transition-colors"
                                                 title="Modifier"
                                             >
                                                 <i className="uil uil-pen text-lg"></i>
@@ -875,7 +883,7 @@ const ProductList = () => {
                                     {bulkModal === 'minStock' && 'Mettre à jour le stock minimum'}
                                 </h3>
                                 <p className="text-sm text-gray-500 mt-1">
-                                    Applicable à <span className="font-bold text-[#018f8f]">{selectedProductIds.length} produit{selectedProductIds.length > 1 ? 's' : ''}</span>
+                                    Applicable à <span className="font-bold text-[#1c398e]">{selectedProductIds.length} produit{selectedProductIds.length > 1 ? 's' : ''}</span>
                                 </p>
                             </div>
                             <button onClick={() => { setBulkModal(null); setBulkValue(''); }} className="p-1 hover:bg-gray-100 rounded-sm transition-colors">
@@ -886,7 +894,7 @@ const ProductList = () => {
                         <div className="space-y-2 mb-4 max-h-32 overflow-y-auto border border-gray-100 rounded-sm p-3 bg-gray-50">
                             {products.filter(p => selectedProductIds.includes(p.id)).map(p => (
                                 <div key={p.id} className="text-sm text-gray-700 flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-[#018f8f] flex-shrink-0" />
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[#1c398e] flex-shrink-0" />
                                     {p.name}
                                 </div>
                             ))}
@@ -902,7 +910,7 @@ const ProductList = () => {
                             value={bulkValue}
                             onChange={e => setBulkValue(e.target.value)}
                             placeholder={bulkModal === 'minStock' ? 'Ex: 10' : bulkModal === 'supplier' ? 'Ex: Cimco Togo' : 'Ex: Construction'}
-                            className="w-full p-3 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] bg-gray-50 mb-5"
+                            className="w-full p-3 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] bg-gray-50 mb-5"
                             autoFocus
                             onKeyDown={e => e.key === 'Enter' && handleBulkApply()}
                         />
@@ -912,7 +920,7 @@ const ProductList = () => {
                                 Annuler
                             </button>
                             <button onClick={handleBulkApply}
-                                className="flex-1 py-2.5 bg-[#018f8f] hover:bg-teal-700 text-white rounded-sm text-sm font-semibold transition-colors">
+                                className="flex-1 py-2.5 bg-[#1c398e] hover:bg-blue-700 text-white rounded-sm text-sm font-semibold transition-colors">
                                 Appliquer aux {selectedProductIds.length} produit{selectedProductIds.length > 1 ? 's' : ''}
                             </button>
                         </div>
@@ -920,7 +928,8 @@ const ProductList = () => {
                 </div>
             )}
         </div>
-    );
+    </div>
+);
 };
 
 export default ProductList;

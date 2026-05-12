@@ -115,7 +115,7 @@ const Quotes = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f]">Devis & Proformas</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e]">Devis & Proformas</h2>
                     <p className="text-gray-500">Gérez les devis clients et convertissez-les en ventes</p>
                 </div>
                 <button
@@ -130,7 +130,7 @@ const Quotes = () => {
             <div className="bg-white rounded-sm border border-gray-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
+                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
                             <tr>
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Client</th>
@@ -239,7 +239,7 @@ const Quotes = () => {
 
                                 <div className="flex-1 overflow-y-auto border border-gray-200 rounded-sm">
                                     <table className="w-full text-left text-sm">
-                                        <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
+                                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
                                             <tr>
                                                 <th className="px-4 py-3">Produit</th>
                                                 <th className="px-4 py-3">Catégorie</th>

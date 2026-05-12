@@ -96,7 +96,7 @@ const Reports = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f]">Rapports & Historique</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e]">Rapports & Historique</h2>
                     <p className="text-gray-500">Consultez l'historique des ventes et exportez vos données</p>
                 </div>
                 <div className="flex gap-3">
@@ -134,7 +134,7 @@ const Reports = () => {
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
+                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
                             <tr>
                                 <th className="px-6 py-4">ID Transaction</th>
                                 <th className="px-6 py-4">Date</th>

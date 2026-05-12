@@ -109,7 +109,7 @@ const Sessions = () => {
         <div className="p-6 h-full flex flex-col gap-6 overflow-y-auto custom-scrollbar bg-[#f0f4f8]">
             <div className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f] tracking-tight">Gestion de Caisse</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Gestion de Caisse</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Ouvrez une session pour commencer à vendre, et clôturez-la en fin de journée.</p>
                 </div>
                 {/* Bandeau d'état en haut à droite */}
@@ -145,13 +145,13 @@ const Sessions = () => {
                 <div className="lg:col-span-1 flex flex-col gap-4">
                     {!activeSession ? (
                         <div className="bg-white rounded-sm shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-[#018f8f] p-4 flex items-center gap-3">
+                            <div className="bg-[#1c398e] p-4 flex items-center gap-3">
                                 <div className="bg-white/20 p-2 rounded-sm border border-white/30 backdrop-blur-sm">
                                     <Unlock className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
                                     <h2 className="text-white font-semibold uppercase tracking-[0.1em] text-sm">Ouvrir la Caisse</h2>
-                                    <p className="text-teal-100 text-[10px] uppercase tracking-wider font-medium">Initiez une nouvelle session</p>
+                                    <p className="text-blue-100 text-[10px] uppercase tracking-wider font-medium">Initiez une nouvelle session</p>
                                 </div>
                             </div>
 
@@ -165,14 +165,14 @@ const Sessions = () => {
                                             value={initialAmountInput}
                                             onChange={(e) => setInitialAmountInput(e.target.value)}
                                             onWheel={(e) => e.currentTarget.blur()}
-                                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-sm focus:outline-none focus:border-[#018f8f] font-semibold text-2xl text-slate-800 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-sm focus:outline-none focus:border-[#1c398e] font-semibold text-2xl text-slate-800 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                             placeholder="Ex: 15000"
                                             required
                                             min="0"
                                         />
                                     </div>
                                 </div>
-                                <button type="submit" className="w-full py-3 bg-[#018f8f] hover:bg-teal-700 text-white font-semibold rounded-sm transition-colors uppercase tracking-widest flex items-center justify-center gap-2 mt-2 cursor-pointer">
+                                <button type="submit" className="w-full py-3 bg-[#1c398e] hover:bg-blue-800 text-white font-semibold rounded-sm transition-colors uppercase tracking-widest flex items-center justify-center gap-2 mt-2 cursor-pointer">
                                     <Unlock size={18} />
                                     Démarrer la session
                                 </button>
@@ -198,7 +198,7 @@ const Sessions = () => {
                             <form onSubmit={handleCloseSession} className="flex flex-col gap-4 p-5">
                                 <div className="p-4 bg-slate-50 rounded-sm border border-slate-200 flex flex-col gap-1">
                                     <p className="text-[11px] font-bold text-slate-500 uppercase">Montant Attendu (Théorique)</p>
-                                    <h3 className="text-2xl sm:text-3xl font-semibold text-[#005f5f] border-t border-slate-200 pt-1 mt-1">{formatPrice(sessionStats.expectedAmount)}</h3>
+                                    <h3 className="text-xl sm:text-2xl font-semibold text-[#1c398e] border-t border-slate-200 pt-1 mt-1">{formatPrice(sessionStats.expectedAmount)}</h3>
                                 </div>
 
                                 <div>
@@ -248,8 +248,8 @@ const Sessions = () => {
                                 </legend>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <div className="flex items-baseline mt-1 font-semibold" style={{ color: '#005f5f' }}>
-                                            <h3 className="text-2xl sm:text-3xl font-semibold">{formatPrice(activeSession.initialAmount)}</h3>
+                                        <div className="flex items-baseline mt-1 font-semibold" style={{ color: '#1c398e' }}>
+                                            <h3 className="text-xl sm:text-2xl font-semibold">{formatPrice(activeSession.initialAmount)}</h3>
                                         </div>
                                         <p className="text-sm text-gray-500 mt-2 font-medium pr-16 sm:pr-20">Déclaré à {format(new Date(activeSession.startTime), 'HH:mm', { locale: fr })}</p>
                                     </div>
@@ -266,8 +266,8 @@ const Sessions = () => {
                                 </legend>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <div className="flex items-baseline mt-1 font-semibold" style={{ color: '#005f5f' }}>
-                                            <h3 className="text-2xl sm:text-3xl font-semibold">+{formatPrice(sessionStats.totalSales)}</h3>
+                                        <div className="flex items-baseline mt-1 font-semibold" style={{ color: '#1c398e' }}>
+                                            <h3 className="text-xl sm:text-2xl font-semibold">+{formatPrice(sessionStats.totalSales)}</h3>
                                         </div>
                                         <p className="text-sm text-gray-500 mt-2 font-medium pr-16 sm:pr-20">Ventes en espèces uniquement</p>
                                     </div>
@@ -284,8 +284,8 @@ const Sessions = () => {
                                 </legend>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <div className="flex items-baseline mt-1 font-semibold" style={{ color: '#005f5f' }}>
-                                            <h3 className="text-2xl sm:text-3xl font-semibold text-red-600">-{formatPrice(sessionStats.totalExpenses)}</h3>
+                                        <div className="flex items-baseline mt-1 font-semibold" style={{ color: '#1c398e' }}>
+                                            <h3 className="text-xl sm:text-2xl font-semibold text-red-600">-{formatPrice(sessionStats.totalExpenses)}</h3>
                                         </div>
                                         <p className="text-sm text-gray-500 mt-2 font-medium pr-16 sm:pr-20">Dépenses de la session courante</p>
                                     </div>

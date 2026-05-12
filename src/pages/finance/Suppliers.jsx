@@ -116,17 +116,17 @@ const Suppliers = () => {
             {loading ? (
                 <div className="flex flex-col items-center justify-center space-y-3 py-2">
                     <div className="relative h-8 w-8">
-                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#018f8f]"></div>
+                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#1c398e]"></div>
                         <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500] opacity-60"></div>
                     </div>
-                    <p className="text-[9px] font-black text-[#018f8f] uppercase tracking-[0.2em] animate-pulse">Sync...</p>
+                    <p className="text-[9px] font-black text-[#1c398e] uppercase tracking-[0.2em] animate-pulse">Sync...</p>
                 </div>
             ) : (
                 <>
                     <div className="relative z-10">
-                        <p className="text-[11px] font-bold text-teal-600/70 uppercase tracking-widest mb-1">{title}</p>
-                        <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#005f5f' }}>
-                            <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+                        <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">{title}</p>
+                        <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                            <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
                                 {isCurrency ? formatPrice(value) : value}
                             </h3>
                         </div>
@@ -153,12 +153,12 @@ const Suppliers = () => {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f]">Mes Fournisseurs</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e]">Mes Fournisseurs</h2>
                     <p className="text-gray-500 text-sm mt-1">Gérez votre répertoire de fournisseurs et leurs soldes</p>
                 </div>
                 <button
                     onClick={() => handleOpenModal()}
-                    className="bg-[#018f8f] hover:bg-teal-700 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold text-sm"
+                    className="bg-[#1c398e] hover:bg-blue-800 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold text-sm"
                 >
                     <i className="uil uil-plus text-lg"></i>
                     Nouveau Fournisseur
@@ -208,14 +208,14 @@ const Suppliers = () => {
                             placeholder="Rechercher par nom ou contact..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] bg-white transition-colors text-sm"
+                            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] bg-white transition-colors text-sm"
                         />
                     </div>
                 </div>
 
                 <div className="overflow-y-auto flex-1">
                     <table className="w-full text-left text-sm">
-                        <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold sticky top-0 z-10 uppercase tracking-wider text-[11px]">
+                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold sticky top-0 z-10 uppercase tracking-wider text-[11px]">
                             <tr>
                                 <th className="px-6 py-4">Fournisseur</th>
                                 <th className="px-6 py-4">Contact & Coordonnées</th>
@@ -269,7 +269,7 @@ const Suppliers = () => {
                                                 {supplier.balance > 0 && (
                                                     <button
                                                         onClick={() => handleOpenPaymentModal(supplier)}
-                                                        className="px-2 py-1 text-xs font-bold bg-[#018f8f] text-white hover:bg-teal-700 rounded-sm transition-colors shadow-sm"
+                                                        className="px-2 py-1 text-xs font-bold bg-[#1c398e] text-white hover:bg-blue-800 rounded-sm transition-colors shadow-sm"
                                                         title="Enregistrer un paiement"
                                                     >
                                                         Payer
@@ -277,7 +277,7 @@ const Suppliers = () => {
                                                 )}
                                                 <button
                                                     onClick={() => handleOpenModal(supplier)}
-                                                    className="p-1.5 text-gray-400 hover:text-[#018f8f] hover:bg-teal-50 rounded-sm transition-colors"
+                                                    className="p-1.5 text-gray-400 hover:text-[#1c398e] hover:bg-blue-50 rounded-sm transition-colors"
                                                     title="Modifier"
                                                 >
                                                     <i className="uil uil-pen text-lg"></i>
@@ -319,7 +319,7 @@ const Suppliers = () => {
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] text-sm"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
                                     placeholder="Ex: Cimco Togo"
                                 />
                             </div>
@@ -329,7 +329,7 @@ const Suppliers = () => {
                                     type="text"
                                     value={formData.contact}
                                     onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] text-sm"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
                                     placeholder="Ex: Jean Dupont"
                                 />
                             </div>
@@ -340,7 +340,7 @@ const Suppliers = () => {
                                         type="tel"
                                         value={formData.phone}
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] text-sm"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
                                         placeholder="+228..."
                                     />
                                 </div>
@@ -350,7 +350,7 @@ const Suppliers = () => {
                                         type="email"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] text-sm"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
                                         placeholder="contact@..."
                                     />
                                 </div>
@@ -360,7 +360,7 @@ const Suppliers = () => {
                                 <textarea
                                     value={formData.address}
                                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] text-sm resize-none"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm resize-none"
                                     rows="2"
                                     placeholder="Adresse complète"
                                 />
@@ -373,7 +373,7 @@ const Suppliers = () => {
                                         min="0"
                                         value={formData.balance}
                                         onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
-                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] text-sm"
+                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
                                     />
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
                                         FCFA
@@ -392,7 +392,7 @@ const Suppliers = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 py-2 bg-[#018f8f] hover:bg-teal-700 text-white font-bold rounded-sm text-sm transition-colors"
+                                    className="flex-1 py-2 bg-[#1c398e] hover:bg-blue-800 text-white font-bold rounded-sm text-sm transition-colors"
                                 >
                                     {selectedSupplier ? 'Mettre à jour' : 'Enregistrer'}
                                 </button>
@@ -431,7 +431,7 @@ const Suppliers = () => {
                                         max={selectedSupplierForPayment.balance}
                                         value={paymentAmount}
                                         onChange={(e) => setPaymentAmount(e.target.value)}
-                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f] text-sm font-medium"
+                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm font-medium"
                                         placeholder="Ex: 50000"
                                     />
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
@@ -451,7 +451,7 @@ const Suppliers = () => {
                                 <button
                                     type="submit"
                                     disabled={isPaying}
-                                    className="flex-1 py-2 bg-[#018f8f] hover:bg-teal-700 text-white font-bold rounded-sm text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                                    className="flex-1 py-2 bg-[#1c398e] hover:bg-blue-800 text-white font-bold rounded-sm text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
                                 >
                                     {isPaying ? (
                                         <>

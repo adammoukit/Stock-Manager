@@ -266,7 +266,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                             {/* ── Nom ── */}
                             <div className="col-span-2">
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#018f8f] uppercase tracking-wide mb-2">
+                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#1c398e] uppercase tracking-wide mb-2">
                                     NOM DU PRODUIT
                                 </label>
                                 <p className="text-xs text-gray-500 mb-2">Désignation complète du produit et sa marque</p>
@@ -276,14 +276,14 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                     required
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white"
+                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white"
                                     placeholder="Ex: Ciment gris 35kg"
                                 />
                             </div>
 
                             {/* ── Catégorie ── */}
                             <div>
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#018f8f] uppercase tracking-wide mb-2">
+                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#1c398e] uppercase tracking-wide mb-2">
                                     CATÉGORIE / TYPE
                                 </label>
                                 <p className="text-xs text-gray-500 mb-2">Sélectionnez la catégorie du produit</p>
@@ -292,7 +292,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                     required
                                     value={formData.category}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white"
+                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white"
                                 >
                                     <option value="" disabled>Sélectionnez une catégorie...</option>
                                     {[...new Set([
@@ -315,7 +315,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                             {/* ── Fournisseur ── */}
                             <div>
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#018f8f] uppercase tracking-wide mb-2">
+                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#1c398e] uppercase tracking-wide mb-2">
                                     <img src="/icons8/color_96_supplier.png" alt="" className="w-7 h-7" />
                                     FOURNISSEUR
                                 </label>
@@ -338,7 +338,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                             <div className="col-span-2">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <label className="flex items-center gap-3 text-[12px] font-semibold text-[#018f8f] uppercase tracking-wide">
+                                    <label className="flex items-center gap-3 text-[12px] font-semibold text-[#1c398e] uppercase tracking-wide">
                                         TYPE DE CONDITIONNEMENT
                                     </label>
                                     <button type="button" onClick={() => setShowUnitInfo(!showUnitInfo)} className="text-primary-600 hover:text-primary-800 transition-colors">
@@ -351,7 +351,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                     {[
                                         { id: 'UNIT', label: 'Unité Unique', sub: 'Outils, Machines...', bg: 'bg-blue-50', text: 'text-blue-700' },
                                         { id: 'BOX', label: 'Boîte / Carton', sub: 'Vis, Clous, Chevilles...', bg: 'bg-amber-50', text: 'text-amber-700' },
-                                        { id: 'BULK', label: 'Vrac (Sac de ciment, Litre...)', sub: 'Ciment, Peinture, Fer...', bg: 'bg-teal-50', text: 'text-teal-700' }
+                                        { id: 'BULK', label: 'Vrac (Sac de ciment, Litre...)', sub: 'Ciment, Peinture, Fer...', bg: 'bg-blue-50', text: 'text-blue-700' }
                                     ].map(arch => (
                                         <button
                                             key={arch.id}
@@ -365,12 +365,12 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                 setFormData({ ...formData, ...defaults });
                                             }}
                                             className={`p-3 text-left transition-all rounded-sm border-2 ${formData.unitArchetype === arch.id
-                                                ? 'border-[#018f8f] bg-[#018f8f]/10 text-[#018f8f] font-bold'
+                                                ? 'border-[#1c398e] bg-[#1c398e]/10 text-[#1c398e] font-bold'
                                                 : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
                                                 }`}
                                         >
                                             <div className="text-sm">{arch.label}</div>
-                                            <div className={`text-xs mt-1 ${formData.unitArchetype === arch.id ? 'text-[#018f8f]' : 'text-gray-500'}`}>{arch.sub}</div>
+                                            <div className={`text-xs mt-1 ${formData.unitArchetype === arch.id ? 'text-[#1c398e]' : 'text-gray-500'}`}>{arch.sub}</div>
                                         </button>
                                     ))}
                                 </div>
@@ -430,7 +430,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                     type="number"
                                                     value={helperParams.qtyPerContainer}
                                                     onChange={(e) => handleAssistantChange('qtyPerContainer', e.target.value)}
-                                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 bg-white"
+                                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 bg-white"
                                                     placeholder="Ex: 100"
                                                 />
                                             </div>
@@ -443,7 +443,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                     type="number"
                                                     value={helperParams.containerCount}
                                                     onChange={(e) => handleAssistantChange('containerCount', e.target.value)}
-                                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 bg-white"
+                                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 bg-white"
                                                     placeholder="Ex: 5"
                                                 />
                                             </div>
@@ -485,7 +485,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                             {/* Prix d'achat en gros / Montant payé */}
                             <div>
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#018f8f] uppercase tracking-wide mb-2">
+                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#1c398e] uppercase tracking-wide mb-2">
                                     MONTANT PAYÉ (CASH/DETTE) <span className="text-red-500">*</span>
                                 </label>
                                 <p className="text-xs text-gray-500 mb-2">Le montant total que vous avez payé pour cette livraison</p>
@@ -496,7 +496,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                     min="0"
                                     value={formData.bulkPurchasePrice}
                                     onChange={handleBulkPriceOrContenanceChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 hide-arrows bg-white font-semibold text-gray-900"
+                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 hide-arrows bg-white font-semibold text-gray-900"
                                     placeholder="Ex: 5000"
                                 />
                             </div>
@@ -520,7 +520,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                             {/* Prix d'achat estimé (auto-calculé + modifiable) */}
                             <div className="col-span-2 md:col-span-1">
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#018f8f] uppercase tracking-wide mb-2">
+                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#1c398e] uppercase tracking-wide mb-2">
                                     {`COÛT UNITAIRE ESTIMÉ (${formData.unit})`}
                                 </label>
                                 <p className="text-xs text-gray-500 mb-2">
@@ -573,17 +573,17 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormData(prev => ({ ...prev, hasLot: !prev.hasLot }))}
-                                                    className={`p-4 rounded-sm border-2 text-left transition-all flex flex-col justify-between ${formData.hasLot ? 'border-[#018f8f] bg-[#018f8f]/10 text-[#018f8f]' : 'border-gray-200 hover:border-gray-400'}`}
+                                                    className={`p-4 rounded-sm border-2 text-left transition-all flex flex-col justify-between ${formData.hasLot ? 'border-[#1c398e] bg-[#1c398e]/10 text-[#1c398e]' : 'border-gray-200 hover:border-gray-400'}`}
                                                 >
                                                     <div className="flex justify-between items-start w-full mb-2">
-                                                        <div className={`font-bold ${formData.hasLot ? 'text-[#018f8f]' : 'text-gray-900'}`}>
+                                                        <div className={`font-bold ${formData.hasLot ? 'text-[#1c398e]' : 'text-gray-900'}`}>
                                                             + Option Petit Lot
                                                         </div>
-                                                        <div className={`h-5 w-5 rounded-sm border flex items-center justify-center ${formData.hasLot ? 'bg-[#018f8f] border-[#018f8f] text-white' : 'border-gray-300'}`}>
+                                                        <div className={`h-5 w-5 rounded-sm border flex items-center justify-center ${formData.hasLot ? 'bg-[#1c398e] border-[#1c398e] text-white' : 'border-gray-300'}`}>
                                                             {formData.hasLot && <Check className="w-3.5 h-3.5" />}
                                                         </div>
                                                     </div>
-                                                    <div className={`text-xs mt-1 ${formData.hasLot ? 'text-[#018f8f]' : 'text-gray-500'}`}>Ex: Lot de 10 pièces</div>
+                                                    <div className={`text-xs mt-1 ${formData.hasLot ? 'text-[#1c398e]' : 'text-gray-500'}`}>Ex: Lot de 10 pièces</div>
                                                 </button>
                                             )}
 
@@ -592,17 +592,17 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                 <button
                                                     type="button"
                                                     onClick={() => setFormData(prev => ({ ...prev, hasSubUnit: !prev.hasSubUnit }))}
-                                                    className={`p-4 rounded-sm border-2 text-left transition-all flex flex-col justify-between ${formData.hasSubUnit ? 'border-[#018f8f] bg-[#018f8f]/10 text-[#018f8f]' : 'border-gray-200 hover:border-gray-400'}`}
+                                                    className={`p-4 rounded-sm border-2 text-left transition-all flex flex-col justify-between ${formData.hasSubUnit ? 'border-[#1c398e] bg-[#1c398e]/10 text-[#1c398e]' : 'border-gray-200 hover:border-gray-400'}`}
                                                 >
                                                     <div className="flex justify-between items-start w-full mb-2">
-                                                        <div className={`font-bold ${formData.hasSubUnit ? 'text-[#018f8f]' : 'text-gray-900'}`}>
+                                                        <div className={`font-bold ${formData.hasSubUnit ? 'text-[#1c398e]' : 'text-gray-900'}`}>
                                                             + Vente Modèles
                                                         </div>
-                                                        <div className={`h-5 w-5 rounded-sm border flex items-center justify-center ${formData.hasSubUnit ? 'bg-[#018f8f] border-[#018f8f] text-white' : 'border-gray-300'}`}>
+                                                        <div className={`h-5 w-5 rounded-sm border flex items-center justify-center ${formData.hasSubUnit ? 'bg-[#1c398e] border-[#1c398e] text-white' : 'border-gray-300'}`}>
                                                             {formData.hasSubUnit && <Check className="w-3.5 h-3.5" />}
                                                         </div>
                                                     </div>
-                                                    <div className={`text-xs mt-1 ${formData.hasSubUnit ? 'text-[#018f8f]' : 'text-gray-500'}`}>Fractionnement (ex: 500g)</div>
+                                                    <div className={`text-xs mt-1 ${formData.hasSubUnit ? 'text-[#1c398e]' : 'text-gray-500'}`}>Fractionnement (ex: 500g)</div>
                                                 </button>
                                             )}
                                         </div>
@@ -726,7 +726,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                     } : p)
                                                                 }));
                                                             }}
-                                                            className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white font-medium"
+                                                            className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-medium"
                                                             placeholder="Ex: 5"
                                                         />
                                                     </div>
@@ -743,7 +743,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                     packagings: prev.packagings.map(p => p.modelId === pkg.modelId ? { ...p, price: val } : p)
                                                                 }));
                                                             }}
-                                                            className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 font-semibold text-[#018f8f] bg-white"
+                                                            className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 font-semibold text-[#1c398e] bg-white"
                                                             placeholder="Ex: 750"
                                                         />
                                                     </div>
@@ -787,7 +787,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                             {/* Stock est maintenant synchronisé avec la quantité reçue ci-dessus */}
 
                             <div>
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#018f8f] uppercase tracking-wide mb-2">
+                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#1c398e] uppercase tracking-wide mb-2">
                                     <img src="/icons8/color_96_high-priority.png" alt="" className="w-7 h-7" />
                                     STOCK MINIMUM D'ALERTE
                                 </label>
@@ -800,7 +800,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                     step="any"
                                     value={formData.minStock}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 hide-arrows bg-white font-medium"
+                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 hide-arrows bg-white font-medium"
                                     placeholder="Ex: 50"
                                 />
                             </div>
@@ -817,7 +817,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="bg-[#018f8f] hover:bg-[#017a7a] text-white px-8 py-2.5 rounded-sm font-bold shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="bg-[#1c398e] hover:bg-[#142b6b] text-white px-8 py-2.5 rounded-sm font-bold shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {isLoading ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                                 {product ? 'Mettre à jour' : 'Enregistrer le produit'}
@@ -831,7 +831,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
             {isLoading && (
                 <div className="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
                     <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-sm shadow-xl">
-                        <div className="w-12 h-12 border-4 border-[#018f8f]/20 border-t-[#018f8f] rounded-full animate-spin"></div>
+                        <div className="w-12 h-12 border-4 border-[#1c398e]/20 border-t-[#1c398e] rounded-full animate-spin"></div>
                         <p className="text-gray-700 font-medium animate-pulse">
                             {product ? 'Modification du produit...' : 'Création du produit...'}
                         </p>

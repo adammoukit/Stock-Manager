@@ -135,19 +135,19 @@ const Movements = () => {
             {/* Header avec boutons d'action */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-sm border-2 border-gray-300 shadow-sm">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f]">Mouvements & Ajustements</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e]">Mouvements & Ajustements</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Tracez chaque changement de stock et effectuez des corrections</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     <button 
                         className="flex items-center justify-center gap-2 bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-sm font-bold shadow-sm transition-all active:scale-95"
                     >
-                        <FileText className="w-5 h-5 text-teal-600" />
+                        <FileText className="w-5 h-5 text-blue-600" />
                         Exporter PDF
                     </button>
                     <button 
                         onClick={() => setIsTransferModalOpen(true)}
-                        className="flex items-center justify-center gap-2 bg-[#018f8f] hover:bg-[#017a7a] text-white px-5 py-2.5 rounded-sm font-bold shadow-md transition-all active:scale-95"
+                        className="flex items-center justify-center gap-2 bg-[#1c398e] hover:bg-[#142b6b] text-white px-5 py-2.5 rounded-sm font-bold shadow-md transition-all active:scale-95"
                     >
                         <History className="w-5 h-5" />
                         Transférer Stock
@@ -173,9 +173,9 @@ const Movements = () => {
                 ].map((card, idx) => (
                     <div key={idx} className="bg-white p-5 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-center min-h-[120px]">
                         <div className="relative z-10">
-                            <p className="text-[11px] font-bold text-teal-600/70 uppercase tracking-widest mb-1">{card.label}</p>
-                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#005f5f' }}>
-                                <h3 className={`text-2xl sm:text-3xl font-semibold tracking-tight`}>
+                            <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">{card.label}</p>
+                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                                <h3 className={`text-xl sm:text-2xl font-semibold tracking-tight`}>
                                     {card.value}
                                 </h3>
                             </div>
@@ -197,8 +197,8 @@ const Movements = () => {
                         {/* Modal Header */}
                         <div className="px-6 py-4 border-b-2 border-gray-300 flex items-center justify-between" style={{ backgroundColor: '#e6ecf2' }}>
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-[#018f8f]/10 rounded-sm">
-                                    <RefreshCcw className="w-5 h-5 text-[#018f8f]" />
+                                <div className="p-2 bg-[#1c398e]/10 rounded-sm">
+                                    <RefreshCcw className="w-5 h-5 text-[#1c398e]" />
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-900">Nouvel Ajustement de Stock</h3>
                             </div>
@@ -220,7 +220,7 @@ const Movements = () => {
                                     <img src="/icons8/color_96_product.png" alt="" className="w-7 h-7" />
                                     Sélectionner le Produit
                                 </label>
-                                <select className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 outline-none font-medium">
+                                <select className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 outline-none font-medium">
                                     <option value="">-- Choisir un produit --</option>
                                     {products.map(p => (
                                         <option key={p.id} value={p.id}>{p.name.toUpperCase()}</option>
@@ -234,7 +234,7 @@ const Movements = () => {
                                     <img src="/icons8/color_96_shop.png" alt="" className="w-7 h-7" />
                                     Boutique concernée
                                 </label>
-                                <select className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 outline-none font-medium">
+                                <select className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 outline-none font-medium">
                                     {stores.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
@@ -251,7 +251,7 @@ const Movements = () => {
                                     <input
                                         type="number"
                                         placeholder="Ex: -5 ou 10"
-                                        className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 outline-none font-black text-lg"
+                                        className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 outline-none font-black text-lg"
                                     />
                                 </div>
                                 {/* Motif */}
@@ -260,7 +260,7 @@ const Movements = () => {
                                         <img src="/icons8/color_96_edit-property.png" alt="" className="w-7 h-7" />
                                         Motif
                                     </label>
-                                    <select className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 outline-none font-medium">
+                                    <select className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 outline-none font-medium">
                                         <option value="CORRECTION">Correction d'inventaire</option>
                                         <option value="LOSS">Perte / Vol</option>
                                         <option value="DAMAGE">Casse / Dommage</option>
@@ -276,7 +276,7 @@ const Movements = () => {
                                 <textarea
                                     rows="3"
                                     placeholder="Expliquez la raison de cet ajustement..."
-                                    className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 outline-none text-sm italic"
+                                    className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 outline-none text-sm italic"
                                 ></textarea>
                             </div>
                         </div>
@@ -290,7 +290,7 @@ const Movements = () => {
                                 Annuler
                             </button>
                             <button
-                                className="bg-[#018f8f] hover:bg-[#017a7a] text-white px-8 py-2.5 rounded-sm font-bold shadow-md transition-all active:scale-95"
+                                className="bg-[#1c398e] hover:bg-[#142b6b] text-white px-8 py-2.5 rounded-sm font-bold shadow-md transition-all active:scale-95"
                             >
                                 Valider l'ajustement
                             </button>
@@ -399,7 +399,7 @@ const Movements = () => {
                         <input
                             type="text"
                             placeholder="Rechercher par nom de produit..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-300 rounded-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#018f8f] transition-all text-sm font-semibold"
+                            className="w-full pl-10 pr-4 py-2.5 bg-white border-2 border-gray-300 rounded-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1c398e] transition-all text-sm font-semibold"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -418,7 +418,7 @@ const Movements = () => {
                                 onClick={() => setPeriod(opt.key)}
                                 className={`px-4 py-1.5 text-[11px] font-bold rounded-sm transition-all uppercase tracking-wider ${
                                     period === opt.key 
-                                        ? 'bg-[#018f8f] text-white shadow-md' 
+                                        ? 'bg-[#1c398e] text-white shadow-md' 
                                         : 'text-gray-500 hover:bg-gray-100'
                                 }`}
                             >
@@ -428,7 +428,7 @@ const Movements = () => {
                     </div>
                     {/* Filtre Type */}
                     <div className="flex items-center gap-2 bg-white px-3 py-1.5 border-2 border-gray-300 rounded-sm">
-                        <Filter className="w-4 h-4 text-[#018f8f]" />
+                        <Filter className="w-4 h-4 text-[#1c398e]" />
                         <select
                             className="bg-transparent text-xs font-bold uppercase tracking-tight outline-none cursor-pointer text-gray-700 min-w-[120px]"
                             value={filterType}
@@ -444,7 +444,7 @@ const Movements = () => {
 
                     {/* Filtre Boutique */}
                     <div className="flex items-center gap-2 bg-white px-3 py-1.5 border-2 border-gray-300 rounded-sm">
-                        <StoreIcon className="w-4 h-4 text-[#018f8f]" />
+                        <StoreIcon className="w-4 h-4 text-[#1c398e]" />
                         <select
                             className="bg-transparent text-xs font-bold uppercase tracking-tight outline-none cursor-pointer text-gray-700 min-w-[150px]"
                             value={filterStore}
@@ -464,13 +464,13 @@ const Movements = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-separate border-spacing-0">
                         <thead>
-                            <tr style={{ backgroundColor: '#018f8f' }}>
-                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-teal-700/50">Date & Heure</th>
-                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-teal-700/50">Produit</th>
-                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-teal-700/50">Type</th>
-                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] text-right border-r border-teal-700/50">Quantité</th>
-                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-teal-700/50">Boutique</th>
-                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-teal-700/50">Motif</th>
+                            <tr style={{ backgroundColor: '#1c398e' }}>
+                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-blue-700/50">Date & Heure</th>
+                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-blue-700/50">Produit</th>
+                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-blue-700/50">Type</th>
+                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] text-right border-r border-blue-700/50">Quantité</th>
+                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-blue-700/50">Boutique</th>
+                                <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] border-r border-blue-700/50">Motif</th>
                                 <th className="px-4 py-4 text-[11px] font-black text-white uppercase tracking-[0.2em] text-right">User</th>
                             </tr>
                         </thead>
@@ -479,12 +479,12 @@ const Movements = () => {
                                 <tr key={m.id} className="hover:bg-gray-50 transition-colors group">
                                     <td className="px-4 py-3 text-[13px] text-gray-700 whitespace-nowrap font-bold border-r border-gray-200">
                                         <div className="flex items-center gap-2">
-                                            <Calendar className="w-3.5 h-3.5 text-teal-600 opacity-50" />
+                                            <Calendar className="w-3.5 h-3.5 text-blue-600 opacity-50" />
                                             {formatDate(m.date)}
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 border-r border-gray-200">
-                                        <div className="text-sm font-bold text-gray-900 group-hover:text-[#018f8f] transition-colors uppercase tracking-tight">
+                                        <div className="text-sm font-bold text-gray-900 group-hover:text-[#1c398e] transition-colors uppercase tracking-tight">
                                             {m.productName}
                                         </div>
                                     </td>
@@ -494,7 +494,7 @@ const Movements = () => {
                                     <td className={clsx(
                                         "px-4 py-3 text-right whitespace-nowrap border-r border-gray-200",
                                     )}>
-                                        <div className="flex items-baseline justify-end gap-1 font-semibold tracking-tight" style={{ color: '#005f5f' }}>
+                                        <div className="flex items-baseline justify-end gap-1 font-semibold tracking-tight" style={{ color: '#1c398e' }}>
                                             <span className="text-sm">
                                                 {m.quantity > 0 ? '+' : ''}{m.quantity}
                                             </span>
@@ -503,7 +503,7 @@ const Movements = () => {
                                     </td>
                                     <td className="px-4 py-3 text-xs text-gray-600 font-black uppercase tracking-tight border-r border-gray-200">
                                         <div className="flex items-center gap-1.5">
-                                            <StoreIcon className="w-3.5 h-3.5 text-teal-600/40" />
+                                            <StoreIcon className="w-3.5 h-3.5 text-blue-600/40" />
                                             {m.storeName}
                                         </div>
                                     </td>
@@ -515,7 +515,7 @@ const Movements = () => {
                                     <td className="px-4 py-3 text-sm text-gray-600 text-right">
                                         <div className="flex items-center justify-end gap-2">
                                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{m.user}</span>
-                                            <div className="w-7 h-7 rounded-sm bg-gray-100 border border-gray-200 flex items-center justify-center text-[10px] font-black text-[#018f8f]">
+                                            <div className="w-7 h-7 rounded-sm bg-gray-100 border border-gray-200 flex items-center justify-center text-[10px] font-black text-[#1c398e]">
                                                 {m.user.substring(0, 1)}
                                             </div>
                                         </div>

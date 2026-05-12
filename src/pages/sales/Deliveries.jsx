@@ -38,7 +38,7 @@ const ResizableHeader = ({ columnId, title, width, onResize }) => {
     return (
         <th
             style={{ width: `${width}px`, minWidth: `${width}px` }}
-            className="px-4 py-4 relative group border-r-2 border-[#e6e6e6]/40 hover:bg-teal-800 transition-colors select-none"
+            className="px-4 py-4 relative group border-r-2 border-[#e6e6e6]/40 hover:bg-[#1c398e] transition-colors select-none"
         >
             <div className="flex items-center overflow-hidden whitespace-nowrap">
                 {title}
@@ -46,10 +46,10 @@ const ResizableHeader = ({ columnId, title, width, onResize }) => {
             {/* Poignée de redimensionnement (Drag Handle) */}
             <div
                 onMouseDown={handleMouseDown}
-                className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20 transition-colors flex justify-center items-center ${isResizing ? 'bg-teal-400' : 'hover:bg-teal-400/50'}`}
+                className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20 transition-colors flex justify-center items-center ${isResizing ? 'bg-blue-400' : 'hover:bg-blue-400/50'}`}
                 title="Glisser pour redimensionner"
             >
-                <div className={`w-0.5 h-1/3 rounded-full ${isResizing ? 'bg-white' : 'bg-transparent group-hover:bg-teal-200'}`}></div>
+                <div className={`w-0.5 h-1/3 rounded-full ${isResizing ? 'bg-white' : 'bg-transparent group-hover:bg-blue-200'}`}></div>
             </div>
         </th>
     );
@@ -130,10 +130,10 @@ const Deliveries = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f] tracking-tight">Bons de Livraison</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Bons de Livraison</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Gestion des expéditions et livraisons clients</p>
                 </div>
-                <button className="px-4 py-2 bg-teal-600 text-white rounded-sm font-black uppercase text-xs tracking-widest shadow-[0_4px_0_rgb(17,94,89)] hover:shadow-none hover:translate-y-1 transition-all active:scale-95 flex items-center gap-2">
+                <button className="px-4 py-2 bg-[#1c398e] shadow-[0_4px_0_#10255c] hover:shadow-none hover:translate-y-1 transition-all active:scale-95 flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Nouveau BL
                 </button>
@@ -141,12 +141,12 @@ const Deliveries = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* KPI: En attente */}
-                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#018f8f]/30 transition-colors">
+                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#1c398e]/30 transition-colors">
                     <div className="relative z-10 flex flex-col h-full justify-between">
                         <div className="flex-1">
-                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-teal-600/70">À Préparer</p>
-                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#005f5f' }}>
-                                <h3 className="text-2xl sm:text-3xl font-semibold">
+                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70">À Préparer</p>
+                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                                <h3 className="text-xl sm:text-2xl font-semibold">
                                     {pendingCount}
                                 </h3>
                             </div>
@@ -159,12 +159,12 @@ const Deliveries = () => {
                 </div>
 
                 {/* KPI: En Transit */}
-                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#018f8f]/30 transition-colors">
+                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#1c398e]/30 transition-colors">
                     <div className="relative z-10 flex flex-col h-full justify-between">
                         <div className="flex-1">
-                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-teal-600/70">En Transit</p>
-                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#005f5f' }}>
-                                <h3 className="text-2xl sm:text-3xl font-semibold">
+                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70">En Transit</p>
+                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                                <h3 className="text-xl sm:text-2xl font-semibold">
                                     {transitCount}
                                 </h3>
                             </div>
@@ -178,12 +178,12 @@ const Deliveries = () => {
                 </div>
 
                 {/* KPI: Livrés */}
-                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#018f8f]/30 transition-colors">
+                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#1c398e]/30 transition-colors">
                     <div className="relative z-10 flex flex-col h-full justify-between">
                         <div className="flex-1">
-                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-teal-600/70">Livrés (Mois)</p>
-                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#005f5f' }}>
-                                <h3 className="text-2xl sm:text-3xl font-semibold">
+                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70">Livrés (Mois)</p>
+                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                                <h3 className="text-xl sm:text-2xl font-semibold">
                                     {deliveredCount}
                                 </h3>
                             </div>
@@ -206,14 +206,14 @@ const Deliveries = () => {
                             placeholder="Rechercher par n° BL ou client..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-200 rounded-sm font-semibold text-sm focus:outline-none focus:border-teal-600 focus:ring-0 transition-colors shadow-sm"
+                            className="w-full pl-10 pr-4 py-2 bg-white border-2 border-gray-200 rounded-sm font-semibold text-sm focus:outline-none focus:border-blue-600 focus:ring-0 transition-colors shadow-sm"
                         />
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         {/* Filtre par Date */}
-                        <div className="flex items-center gap-2 bg-white border-2 border-gray-200 rounded-sm px-3 py-1.5 shadow-sm focus-within:border-teal-600 transition-colors">
-                            <Calendar className="w-4 h-4 text-teal-600" />
+                        <div className="flex items-center gap-2 bg-white border-2 border-gray-200 rounded-sm px-3 py-1.5 shadow-sm focus-within:border-blue-600 transition-colors">
+                            <Calendar className="w-4 h-4 text-blue-600" />
                             <input
                                 type="date"
                                 value={dateFrom}
@@ -230,8 +230,8 @@ const Deliveries = () => {
                         </div>
 
                         {/* Filtre par Statut */}
-                        <div className="flex items-center bg-white border-2 border-gray-200 rounded-sm px-3 py-1.5 shadow-sm focus-within:border-teal-600 transition-colors">
-                            <Filter className="w-4 h-4 text-teal-600 mr-2" />
+                        <div className="flex items-center bg-white border-2 border-gray-200 rounded-sm px-3 py-1.5 shadow-sm focus-within:border-blue-600 transition-colors">
+                            <Filter className="w-4 h-4 text-blue-600 mr-2" />
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -248,7 +248,7 @@ const Deliveries = () => {
 
                 <div className="overflow-x-auto pb-4">
                     <table className="w-full text-left text-sm table-fixed" style={{ minWidth: '1000px' }}>
-                        <thead className="bg-[#018f8f] border-b-2 border-teal-800 text-white font-black uppercase tracking-widest text-[11px]">
+                        <thead className="bg-[#1c398e] border-b-2 border-blue-800 text-white font-black uppercase tracking-widest text-[11px]">
                             <tr>
                                 <ResizableHeader columnId="id" title="N° BL" width={colWidths.id} onResize={handleResize} />
                                 <ResizableHeader columnId="client" title="Client" width={colWidths.client} onResize={handleResize} />
@@ -276,38 +276,38 @@ const Deliveries = () => {
                                     return (
                                         <tr
                                             key={delivery.id}
-                                            className={`transition-all duration-300 divide-x-2 divide-[#e6e6e6] ${delivery.status === 'delivered' ? 'opacity-50 hover:opacity-100 bg-gray-50/50 grayscale-[20%]' : 'odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-teal-50/40'}`}
+                                            className={`transition-all duration-300 divide-x-2 divide-[#e6e6e6] ${delivery.status === 'delivered' ? 'opacity-50 hover:opacity-100 bg-gray-50/50 grayscale-[20%]' : 'odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40'}`}
                                         >
                                             <td className="px-4 py-4 truncate">
-                                                <span className="font-semibold text-[#005f5f] bg-teal-50/50 px-2 py-1 border border-[#005f5f]/20 rounded-sm text-[13px]">
+                                                <span className="font-semibold text-[#1c398e] bg-blue-50/50 px-2 py-1 border border-[#1c398e]/20 rounded-sm text-[13px]">
                                                     {delivery.id}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-4 truncate" title={delivery.customerName}>
-                                                <span className="font-semibold text-[#005f5f] uppercase text-[13px] tracking-wide">
+                                                <span className="font-semibold text-[#1c398e] uppercase text-[13px] tracking-wide">
                                                     {delivery.customerName}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-4 font-semibold text-[#005f5f] text-[13px] truncate">
+                                            <td className="px-4 py-4 font-semibold text-[#1c398e] text-[13px] truncate">
                                                 {new Date(delivery.createdAt).toLocaleDateString('fr-FR')}
                                             </td>
                                             <td className="px-4 py-4 font-semibold text-gray-500 text-[13px] truncate">
                                                 {delivery.deliveryDate ? (
-                                                    <span className="text-[#005f5f]">{new Date(delivery.deliveryDate).toLocaleDateString('fr-FR')}</span>
+                                                    <span className="text-[#1c398e]">{new Date(delivery.deliveryDate).toLocaleDateString('fr-FR')}</span>
                                                 ) : (
                                                     '-'
                                                 )}
                                             </td>
                                             <td className="px-4 py-4 truncate">
-                                                <span className="font-semibold text-[#005f5f] text-[14px]">{delivery.itemsCount} unités</span>
+                                                <span className="font-semibold text-[#1c398e] text-[14px]">{delivery.itemsCount} unités</span>
                                             </td>
-                                            <td className="px-4 py-4 font-semibold text-[#005f5f] text-[14px] truncate">
+                                            <td className="px-4 py-4 font-semibold text-[#1c398e] text-[14px] truncate">
                                                 {formatRowPrice(delivery.totalValue)}
                                             </td>
                                             <td className="px-4 py-4 font-semibold text-gray-400 text-[13px] truncate">
                                                 0
                                             </td>
-                                            <td className="px-4 py-4 font-semibold text-[#005f5f] text-[15px] truncate">
+                                            <td className="px-4 py-4 font-semibold text-[#1c398e] text-[15px] truncate">
                                                 {formatRowPrice(delivery.totalValue)}
                                             </td>
                                             <td className="px-4 py-4 relative overflow-hidden truncate">
@@ -333,7 +333,7 @@ const Deliveries = () => {
                                                 <div className="relative inline-block text-left ml-auto">
                                                     <button
                                                         onClick={() => setOpenMenuId(openMenuId === delivery.id ? null : delivery.id)}
-                                                        className="p-2 text-gray-500 bg-white border-2 border-gray-200 hover:border-teal-500 hover:text-teal-600 rounded-sm transition-all shadow-sm active:scale-95"
+                                                        className="p-2 text-gray-500 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 rounded-sm transition-all shadow-sm active:scale-95"
                                                         title="Actions"
                                                     >
                                                         <MoreVertical className="w-5 h-5" />
@@ -372,7 +372,7 @@ const Deliveries = () => {
                                                                 </button>
                                                                 <button
                                                                     onClick={() => setOpenMenuId(null)}
-                                                                    className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#005f5f] hover:bg-teal-50 flex items-center gap-2"
+                                                                    className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#1c398e] hover:bg-blue-50 flex items-center gap-2"
                                                                 >
                                                                     <Eye className="w-4 h-4" />
                                                                     Voir les détails

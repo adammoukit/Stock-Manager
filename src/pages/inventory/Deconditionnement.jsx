@@ -70,7 +70,7 @@ const Deconditionnement = () => {
         <div className="p-8 pb-32">
             <div className="flex justify-between items-start mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-[#1c398e] flex items-center gap-3">
                         <Package className="w-8 h-8 text-primary-600" />
                         Modèles de Déconditionnement
                     </h1>

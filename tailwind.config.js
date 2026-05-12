@@ -8,16 +8,16 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+          50: '#f0f4ff',
+          100: '#e1e9fe',
+          200: '#c7d5fd',
+          300: '#9fb5fb',
+          400: '#6d8bf7',
+          500: '#4762f0',
+          600: '#1c398e', // Brand Blue (Main)
+          700: '#162d70', // Brand Blue (Dark)
+          800: '#102152', // Brand Blue (Darker)
+          900: '#0b1638',
         },
         secondary: {
           50: '#f8fafc',

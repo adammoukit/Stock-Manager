@@ -269,10 +269,10 @@ const Sidebar = () => {
 
             {/* Modal de Confirmation de Déconnexion */}
             {showLogoutConfirm && (
-                <div className="fixed inset-0 bg-teal-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-sm rounded-sm border-2 border-teal-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden transform animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 bg-blue-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-sm rounded-sm border-2 border-blue-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden transform animate-in zoom-in-95 duration-200">
                         {/* En-tête */}
-                        <div className="bg-[#1c398e] p-4 flex items-center gap-3 border-b-2 border-teal-800">
+                        <div className="bg-[#1c398e] p-4 flex items-center gap-3 border-b-2 border-blue-800">
                             <div className="bg-white/20 p-2 rounded-sm border border-white/30 backdrop-blur-sm">
                                 <LogOut className="w-6 h-6 text-white" />
                             </div>
@@ -300,7 +300,7 @@ const Sidebar = () => {
                         <div className="p-5 bg-gray-50 flex gap-3 border-t border-gray-100">
                             <button
                                 onClick={() => setShowLogoutConfirm(false)}
-                                className="flex-1 px-4 py-3 rounded-sm border-2 border-gray-300 text-gray-700 font-black uppercase text-xs tracking-widest hover:bg-white hover:border-teal-600 hover:text-teal-600 transition-all active:scale-95"
+                                className="flex-1 px-4 py-3 rounded-sm border-2 border-gray-300 text-gray-700 font-black uppercase text-xs tracking-widest hover:bg-white hover:border-[#1c398e] hover:text-[#1c398e] transition-all active:scale-95"
                             >
                                 Annuler
                             </button>

@@ -51,7 +51,7 @@ const Expenses = () => {
     const StatCard = ({ title, value, subValue, icon, colorClass, delay = "0" }) => (
         <div className="bg-white p-5 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-center min-h-[120px]">
             <div className="relative z-10">
-                <p className="text-[11px] font-bold text-teal-600/70 uppercase tracking-widest mb-1">{title}</p>
+                <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">{title}</p>
                 <h3 className={`text-2xl font-black ${colorClass}`}>{value}</h3>
                 {subValue && <p className="text-[10px] text-gray-400 mt-1 font-medium italic">{subValue}</p>}
             </div>
@@ -67,12 +67,12 @@ const Expenses = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f]">Gestion des Dépenses</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e]">Gestion des Dépenses</h2>
                     <p className="text-gray-500">Enregistrez et suivez vos dépenses mensuelles</p>
                 </div>
                 <button
                     onClick={() => setShowForm(!showForm)}
-                    className="bg-[#018f8f] hover:bg-teal-700 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold"
+                    className="bg-[#1c398e] hover:bg-blue-800 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold"
                 >
                     <Plus className="w-5 h-5" />
                     Nouvelle Dépense
@@ -99,7 +99,7 @@ const Expenses = () => {
                     value={categories.length}
                     subValue="Types de frais"
                     icon="/icons8/fluency_240_tags.png"
-                    colorClass="text-[#018f8f]"
+                    colorClass="text-[#1c398e]"
                 />
             </div>
 
@@ -121,7 +121,7 @@ const Expenses = () => {
                                     type="text"
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white font-medium"
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-medium"
                                     placeholder="Ex: Facture d'électricité Mai"
                                     required
                                 />
@@ -135,7 +135,7 @@ const Expenses = () => {
                                     type="number"
                                     value={formData.amount}
                                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white font-black text-lg"
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-black text-lg"
                                     placeholder="0"
                                     required
                                 />
@@ -148,7 +148,7 @@ const Expenses = () => {
                                 <select
                                     value={formData.category}
                                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white font-bold"
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-bold"
                                 >
                                     {categories.map(cat => (
                                         <option key={cat} value={cat}>{cat}</option>
@@ -164,7 +164,7 @@ const Expenses = () => {
                                     type="date"
                                     value={formData.date}
                                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white font-bold"
+                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-bold"
                                     required
                                 />
                             </div>
@@ -172,7 +172,7 @@ const Expenses = () => {
                         <div className="flex gap-4 pt-4">
                             <button
                                 type="submit"
-                                className="bg-[#018f8f] hover:bg-teal-700 text-white px-8 py-3 rounded-sm font-black uppercase tracking-wider shadow-md active:scale-95 transition-all"
+                                className="bg-[#1c398e] hover:bg-blue-800 text-white px-8 py-3 rounded-sm font-black uppercase tracking-wider shadow-md active:scale-95 transition-all"
                             >
                                 Enregistrer la dépense
                             </button>
@@ -192,8 +192,8 @@ const Expenses = () => {
             <div className="bg-white rounded-sm border-2 border-gray-300 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-separate border-spacing-0">
-                        <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
-                            <tr className="divide-x-2 divide-teal-700/40">
+                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
+                            <tr className="divide-x-2 divide-blue-800/40">
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Désignation / Motif</th>
                                 <th className="px-6 py-4">Catégorie</th>
@@ -214,9 +214,9 @@ const Expenses = () => {
                                         <td className="px-6 py-3 text-gray-600 font-bold text-xs uppercase">
                                             {new Date(expense.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </td>
-                                        <td className="px-6 py-3 font-extrabold text-gray-900 group-hover:text-[#018f8f] transition-colors">{expense.description.toUpperCase()}</td>
+                                        <td className="px-6 py-3 font-extrabold text-gray-900 group-hover:text-[#1c398e] transition-colors">{expense.description.toUpperCase()}</td>
                                         <td className="px-6 py-3">
-                                            <span className="bg-teal-50 text-[#018f8f] px-3 py-1 rounded-sm text-[10px] font-black border border-teal-100 uppercase">
+                                            <span className="bg-blue-50 text-[#1c398e] px-3 py-1 rounded-sm text-[10px] font-black border border-blue-100 uppercase">
                                                 {expense.category}
                                             </span>
                                         </td>

@@ -223,13 +223,13 @@ const POS = () => {
     if (!activeSession) {
         return (
             <div className="flex flex-col items-center justify-center h-[calc(100vh-5.5rem)] gap-6 bg-[#f0f4f8]">
-                <div className="bg-white p-10 rounded-md shadow-sm border-t-4 border-[#018f8f] text-center max-w-md w-full">
+                <div className="bg-white p-10 rounded-md shadow-sm border-t-4 border-[#1c398e] text-center max-w-md w-full">
                     <div className="bg-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <i className="uil uil-lock text-5xl text-[#018f8f]"></i>
+                        <i className="uil uil-lock text-5xl text-[#1c398e]"></i>
                     </div>
                     <h2 className="text-2xl font-black text-slate-800 uppercase tracking-wide mb-3">Caisse Verrouillée</h2>
                     <p className="text-slate-500 mb-8 font-medium">Vous devez obligatoirement ouvrir une session de caisse pour pouvoir effectuer des ventes.</p>
-                    <button onClick={() => navigate('/sessions')} className="w-full py-4 bg-[#018f8f] hover:bg-teal-700 text-white font-black rounded-md uppercase tracking-wider transition-colors flex items-center justify-center gap-2">
+                    <button onClick={() => navigate('/sessions')} className="w-full py-4 bg-[#1c398e] hover:bg-blue-800 text-white font-black rounded-md uppercase tracking-wider transition-colors flex items-center justify-center gap-2">
                         <i className="uil uil-unlock"></i>
                         Ouvrir la Caisse
                     </button>
@@ -247,7 +247,7 @@ const POS = () => {
                     <div className="relative w-full max-w-sm">
                         {isSearching ? (
                             <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                                <div className="w-5 h-5 border-2 border-[#018f8f] border-t-transparent rounded-full animate-spin"></div>
+                                <div className="w-5 h-5 border-2 border-[#1c398e] border-t-transparent rounded-full animate-spin"></div>
                             </div>
                         ) : (
                             <i className="uil uil-search text-xl absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
@@ -257,7 +257,7 @@ const POS = () => {
                             placeholder="Rechercher un produit..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-10 py-2 bg-white border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-[#018f8f] focus:border-[#018f8f] font-semibold text-gray-800"
+                            className="w-full pl-10 pr-10 py-2 bg-white border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-[#1c398e] focus:border-[#1c398e] font-semibold text-gray-800"
                         />
                         {searchTerm && (
                             <button
@@ -274,7 +274,7 @@ const POS = () => {
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="px-4 py-2 bg-white border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-[#018f8f] focus:border-[#018f8f] font-bold text-gray-700 uppercase text-xs flex-shrink-0"
+                        className="px-4 py-2 bg-white border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-[#1c398e] focus:border-[#1c398e] font-bold text-gray-700 uppercase text-xs flex-shrink-0"
                     >
                         {categories.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
@@ -331,23 +331,23 @@ const POS = () => {
                                                 const stockQty = product.stockLevels?.[currentStoreId] || 0;
                                                 const isLow = stockQty <= (product.minStockLevels?.[currentStoreId] || product.minStock || 0);
                                                 return (
-                                                    <tr key={product.id} className="divide-x-2 divide-[#e6e6e6] odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-teal-50/40 transition-colors">
-                                                        <td className="px-2 py-1.5 font-semibold text-[#005f5f] truncate text-[13px] tracking-wide">
+                                                    <tr key={product.id} className="divide-x-2 divide-[#e6e6e6] odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40 transition-colors">
+                                                        <td className="px-2 py-1.5 font-semibold text-[#1c398e] truncate text-[13px] tracking-wide">
                                                             {highlightText(product.name || '', searchTerm)}
                                                         </td>
                                                         <td className="px-2 py-1.5 truncate">
-                                                            <div className="font-semibold text-[#005f5f] text-[14px]">
+                                                            <div className="font-semibold text-[#1c398e] text-[14px]">
                                                                 {formatPrice(product.price)} <span className="text-gray-400 text-xs font-normal">/ {product.unit || 'Unité'}</span>
                                                             </div>
                                                             {product.hasLot && product.lotPrice && (
-                                                                <div style={{ color: '#018f8f' }} className="text-[11px] font-semibold mt-1.5 flex items-center gap-1.5 bg-teal-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#018f8f]/20">
-                                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#018f8f' }}></div>
+                                                                <div style={{ color: '#1c398e' }} className="text-[11px] font-semibold mt-1.5 flex items-center gap-1.5 bg-blue-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#1c398e]/20">
+                                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1c398e' }}></div>
                                                                     {formatPrice(product.lotPrice)} / Lot de {product.retailStepQuantity || 10} {getUnitModel(product.unit).subUnit || 'Pièces'}
                                                                 </div>
                                                             )}
                                                             {product.packagings?.map(pkg => (
-                                                                <div key={pkg.modelId} style={{ color: '#018f8f' }} className="text-[10px] font-bold mt-1.5 flex items-center gap-1.5 uppercase bg-teal-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#018f8f]/20">
-                                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#018f8f' }}></div>
+                                                                <div key={pkg.modelId} style={{ color: '#1c398e' }} className="text-[10px] font-bold mt-1.5 flex items-center gap-1.5 uppercase bg-blue-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#1c398e]/20">
+                                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1c398e' }}></div>
                                                                     {formatPrice(pkg.price)} / {pkg.name}
                                                                 </div>
                                                             ))}
@@ -382,7 +382,7 @@ const POS = () => {
                                                                         onClick={() => setOpenPackagingPicker(openPackagingPicker === product.id ? null : product.id)}
                                                                         disabled={stockQty <= 0}
                                                                         className="px-3 py-2 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
-                                                                        style={{ backgroundColor: '#018f8f' }}
+                                                                        style={{ backgroundColor: '#1c398e' }}
                                                                     >
                                                                         <i className="uil uil-box text-lg"></i>
                                                                         <span className="text-sm font-medium">Options</span>
@@ -394,18 +394,18 @@ const POS = () => {
                                                                             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); setOpenPackagingPicker(null); }}></div>
 
                                                                             {/* Modal Content */}
-                                                                            <div className="relative bg-white border-2 border-[#018f8f] rounded-[2px] shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-fade-in">
-                                                                                <div className="bg-[#018f8f] px-4 py-2.5 flex items-center justify-between">
+                                                                            <div className="relative bg-white border-2 border-[#1c398e] rounded-[2px] shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-fade-in">
+                                                                                <div className="bg-[#1c398e] px-4 py-2.5 flex items-center justify-between">
                                                                                     <span className="text-white font-black uppercase tracking-wider text-xs">Options : {product.name}</span>
                                                                                     <button onClick={(e) => { e.stopPropagation(); setOpenPackagingPicker(null); }} className="text-white/80 hover:text-white transition-colors">
                                                                                         <i className="uil uil-times text-xl"></i>
                                                                                     </button>
                                                                                 </div>
                                                                                 <div className="p-2.5 flex flex-col gap-2 bg-gray-50">
-                                                                                    <button className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-teal-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
+                                                                                    <button className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-blue-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
                                                                                         onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'base' }); setOpenPackagingPicker(null); toast.success(`${product.name} ajouté`, { icon: '🛒' }); }}>
-                                                                                        <span className="font-bold text-gray-700 group-hover:text-[#018f8f]">{product.unit || 'Unité'} (Entière)</span>
-                                                                                        <span className="text-[#018f8f] font-black">{formatPrice(product.price)}</span>
+                                                                                        <span className="font-bold text-gray-700 group-hover:text-[#1c398e]">{product.unit || 'Unité'} (Entière)</span>
+                                                                                        <span className="text-[#1c398e] font-black">{formatPrice(product.price)}</span>
                                                                                     </button>
                                                                                     {product.hasLot && product.lotPrice && (
                                                                                         <button className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-amber-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
@@ -415,10 +415,10 @@ const POS = () => {
                                                                                         </button>
                                                                                     )}
                                                                                     {product.packagings?.map(pkg => (
-                                                                                        <button key={pkg.modelId} className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-teal-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
+                                                                                        <button key={pkg.modelId} className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-blue-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
                                                                                             onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'packaging', ...pkg, name: pkg.name }); setOpenPackagingPicker(null); toast.success(`${pkg.name} ajouté`, { icon: '📏' }); }}>
-                                                                                            <span className="font-bold text-gray-700 group-hover:text-[#018f8f]">{pkg.name}</span>
-                                                                                            <span style={{ color: '#018f8f' }} className="font-black">{formatPrice(pkg.price)}</span>
+                                                                                            <span className="font-bold text-gray-700 group-hover:text-[#1c398e]">{pkg.name}</span>
+                                                                                            <span style={{ color: '#1c398e' }} className="font-black">{formatPrice(pkg.price)}</span>
                                                                                         </button>
                                                                                     ))}
                                                                                 </div>
@@ -469,9 +469,9 @@ const POS = () => {
                                         <tr className="h-full">
                                             <td colSpan="7" className="py-20 text-center opacity-40 select-none border-b border-gray-200 h-full">
                                                 <div className="flex flex-col items-center justify-center gap-4 h-full">
-                                                    <i className="uil uil-shopping-basket text-7xl text-[#018f8f]"></i>
+                                                    <i className="uil uil-shopping-basket text-7xl text-[#1c398e]"></i>
                                                     <div className="flex flex-col gap-1">
-                                                        <p className="text-lg font-black text-[#018f8f] uppercase tracking-[0.2em]">Panier Vide</p>
+                                                        <p className="text-lg font-black text-[#1c398e] uppercase tracking-[0.2em]">Panier Vide</p>
                                                         <p className="text-sm text-gray-400 font-medium">Scannez ou recherchez un produit pour commencer la vente</p>
                                                     </div>
                                                 </div>
@@ -486,11 +486,11 @@ const POS = () => {
                                             const totalTTC = priceTTC * item.inputQuantity;
 
                                             return (
-                                                <tr key={item.cartKey} className="divide-x-[3px] divide-gray-300 group transition-colors odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-teal-50/40">
+                                                <tr key={item.cartKey} className="divide-x-[3px] divide-gray-300 group transition-colors odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40">
                                                     {/* Produit */}
                                                     <td className="px-4 py-4 border-b border-gray-200">
                                                         <div className="flex flex-col gap-0.5">
-                                                            <span className="font-bold text-[#005f5f] text-[14px] uppercase tracking-wide">
+                                                            <span className="font-bold text-[#1c398e] text-[14px] uppercase tracking-wide">
                                                                 {item.name}
                                                             </span>
                                                             <span className="text-[11px] text-gray-400 font-bold uppercase">
@@ -501,7 +501,7 @@ const POS = () => {
 
                                                     {/* Quantité */}
                                                     <td className="px-4 py-4 border-b border-gray-200">
-                                                        <div className="flex items-center gap-2 bg-gray-50 border-2 border-gray-200 rounded-sm p-1 w-fit group-hover:border-[#018f8f]/30 transition-colors">
+                                                        <div className="flex items-center gap-2 bg-gray-50 border-2 border-gray-200 rounded-sm p-1 w-fit group-hover:border-[#1c398e]/30 transition-colors">
                                                             <button
                                                                 onClick={() => updateCartItem(item.cartKey, { inputQuantity: Math.max(1, item.inputQuantity - 1) })}
                                                                 className="w-7 h-7 flex items-center justify-center bg-white border border-gray-300 rounded-sm hover:text-red-600 hover:border-red-200 transition-colors shadow-sm"
@@ -512,7 +512,7 @@ const POS = () => {
                                                                 type="number"
                                                                 value={item.inputQuantity}
                                                                 onChange={(e) => updateCartItem(item.cartKey, { inputQuantity: Math.max(1, parseFloat(e.target.value) || 0) })}
-                                                                className="w-12 text-center bg-transparent font-semibold text-[#005f5f] text-sm focus:outline-none"
+                                                                className="w-12 text-center bg-transparent font-semibold text-[#1c398e] text-sm focus:outline-none"
                                                             />
                                                             <button
                                                                 onClick={() => updateCartItem(item.cartKey, { inputQuantity: item.inputQuantity + 1 })}
@@ -534,13 +534,13 @@ const POS = () => {
                                                     </td>
 
                                                     {/* Prix TTC */}
-                                                    <td className="px-4 py-4 font-semibold text-[#005f5f] text-sm border-b border-gray-200">
+                                                    <td className="px-4 py-4 font-semibold text-[#1c398e] text-sm border-b border-gray-200">
                                                         {formatPrice(priceTTC)}
                                                     </td>
 
                                                     {/* Total TTC */}
                                                     <td className="px-4 py-4 border-b border-gray-200">
-                                                        <span className="px-3 py-1.5 bg-[#018f8f]/5 border border-[#018f8f]/10 rounded-sm font-semibold text-[#018f8f] text-sm tracking-tight">
+                                                        <span className="px-3 py-1.5 bg-[#1c398e]/5 border border-[#1c398e]/10 rounded-sm font-semibold text-[#1c398e] text-sm tracking-tight">
                                                             {formatPrice(totalTTC)}
                                                         </span>
                                                     </td>
@@ -582,11 +582,11 @@ const POS = () => {
                         <fieldset className={`border-[3px] ${paymentError ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-[#e3e9ef]'} rounded-[2px] p-2 pt-0.5 transition-colors`}>
                             <legend className={`text-[16px] font-bold uppercase tracking-wider ${paymentError ? 'text-red-600 bg-red-50' : 'text-gray-600 bg-[#e3e9ef]'} px-2 ml-1 transition-colors`}>Moyen De Paiement</legend>
                             <div className="flex flex-col gap-1.5 mt-1">
-                                <label className={`flex items-center gap-3 px-2 py-1.5 rounded-[2px] cursor-pointer transition-colors ${paymentMethod === 'cash' ? 'bg-teal-50/50' : 'hover:bg-gray-50'}`}>
-                                    <input type="checkbox" checked={paymentMethod === 'cash'} onChange={() => { setPaymentMethod('cash'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-teal-600 border-gray-300 rounded-[2px] focus:ring-teal-600 accent-[#018f8f]" />
+                                <label className={`flex items-center gap-3 px-2 py-1.5 rounded-[2px] cursor-pointer transition-colors ${paymentMethod === 'cash' ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
+                                    <input type="checkbox" checked={paymentMethod === 'cash'} onChange={() => { setPaymentMethod('cash'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded-[2px] focus:ring-blue-600 accent-[#1c398e]" />
                                     <div className="flex items-center gap-2">
-                                        <i className={`uil uil-money-bill text-lg ${paymentMethod === 'cash' ? 'text-teal-600' : 'text-gray-400'}`}></i>
-                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'cash' ? 'text-teal-800' : 'text-gray-500'}`}>Espèces</span>
+                                        <i className={`uil uil-money-bill text-lg ${paymentMethod === 'cash' ? 'text-blue-600' : 'text-gray-400'}`}></i>
+                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'cash' ? 'text-blue-800' : 'text-gray-500'}`}>Espèces</span>
                                     </div>
                                 </label>
 
@@ -661,9 +661,9 @@ const POS = () => {
                                     </div>
                                 </div>
                                 <div className="flex flex-col flex-1 mt-0.5">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-[#005f5f] mb-1 block">Net à Payer</span>
-                                    <div className="w-full flex-1 border-2 border-[#018f8f] rounded-[2px] px-3 py-1 bg-white shadow-sm flex items-center justify-center min-h-[40px]">
-                                        <span className="block text-2xl font-semibold text-[#018f8f] tracking-tighter text-center">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-[#1c398e] mb-1 block">Net à Payer</span>
+                                    <div className="w-full flex-1 border-2 border-[#1c398e] rounded-[2px] px-3 py-1 bg-white shadow-sm flex items-center justify-center min-h-[40px]">
+                                        <span className="block text-2xl font-semibold text-[#1c398e] tracking-tighter text-center">
                                             {formatPrice(cartTotal)}
                                         </span>
                                     </div>
@@ -673,7 +673,7 @@ const POS = () => {
 
                         {/* Colonne 4 : Actions (Fieldset) */}
                         <fieldset className="border-[3px] border-gray-200 bg-[#e3e9ef] rounded-[2px] p-2 pt-0.5">
-                            <legend className="text-[16px] font-bold uppercase tracking-wider text-[#018f8f] px-2 ml-1 bg-[#e3e9ef] border-[3px] border-[#018f8f]/30 rounded-sm">Actions de Caisse</legend>
+                            <legend className="text-[16px] font-bold uppercase tracking-wider text-[#1c398e] px-2 ml-1 bg-[#e3e9ef] border-[3px] border-[#1c398e]/30 rounded-sm">Actions de Caisse</legend>
                             <div className="flex flex-col gap-2 mt-1 h-full justify-center px-1">
                                 <button
                                     onClick={() => handleCheckout(paymentMethod)}
@@ -686,7 +686,7 @@ const POS = () => {
                                 <button
                                     onClick={handleSaveQuote}
                                     disabled={cart.length === 0}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-[2px] bg-white border-2 border-[#018f8f] text-[#018f8f] text-xs font-bold uppercase tracking-wide hover:bg-teal-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-[2px] bg-white border-2 border-[#1c398e] text-[#1c398e] text-xs font-bold uppercase tracking-wide hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                                 >
                                     <i className="uil uil-file-alt text-base"></i>
                                     <span>Créer Devis</span>

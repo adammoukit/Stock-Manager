@@ -148,27 +148,27 @@ const Dashboard = () => {
                 {loading ? (
                     <div className="flex flex-col items-center justify-center space-y-3 py-2">
                         <div className="relative h-8 w-8">
-                            <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#018f8f]"></div>
+                            <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#1c398e]"></div>
                             <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500] opacity-60"></div>
                         </div>
-                        <p className="text-[9px] font-black text-[#018f8f] uppercase tracking-[0.2em] animate-pulse">Synchronisation...</p>
+                        <p className="text-[9px] font-black text-[#1c398e] uppercase tracking-[0.2em] animate-pulse">Synchronisation...</p>
                     </div>
                 ) : (
                     <>
                         <div className="flex justify-between items-start relative z-10">
                             <div className="flex-1">
                                 <div className="flex items-center gap-1.5">
-                                    <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-teal-600/70">{title}</p>
+                                    <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70">{title}</p>
                                     {tooltip && (
                                         <button
                                             ref={btnRef}
                                             onClick={handleToggle}
-                                            className={`w-4 h-4 rounded-full text-[10px] font-black leading-none flex-shrink-0 flex items-center justify-center transition-colors cursor-pointer ${isOpen ? 'bg-[#018f8f] text-white' : 'bg-gray-200 hover:bg-[#018f8f] text-gray-500 hover:text-white'}`}
+                                            className={`w-4 h-4 rounded-full text-[10px] font-black leading-none flex-shrink-0 flex items-center justify-center transition-colors cursor-pointer ${isOpen ? 'bg-[#1c398e] text-white' : 'bg-gray-200 hover:bg-[#1c398e] text-gray-500 hover:text-white'}`}
                                         >?</button>
                                     )}
                                 </div>
-                                <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#005f5f' }}>
-                                    <h3 className="text-2xl sm:text-3xl font-semibold">
+                                <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                                    <h3 className="text-xl sm:text-2xl font-semibold">
                                         {isCurrency ? formatPrice(value) : value}
                                     </h3>
                                 </div>
@@ -198,7 +198,7 @@ const Dashboard = () => {
                         {onAction && (
                             <button
                                 onClick={onAction}
-                                className="absolute top-4 right-4 p-2 bg-gray-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-teal-50 hover:text-teal-600"
+                                className="absolute top-4 right-4 p-2 bg-gray-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-50 hover:text-blue-600"
                                 title="Voir les détails"
                             >
                                 <Eye className="w-4 h-4" />
@@ -214,10 +214,10 @@ const Dashboard = () => {
     const LoadingOverlay = () => (
         <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex flex-col items-center justify-center z-20 space-y-3">
             <div className="relative h-10 w-10">
-                <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-t-transparent border-[#018f8f]"></div>
+                <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-t-transparent border-[#1c398e]"></div>
                 <div className="absolute inset-1.5 animate-spin-reverse rounded-full border-[3px] border-b-transparent border-[#f77500] opacity-70"></div>
             </div>
-            <p className="text-[10px] font-black text-[#018f8f] uppercase tracking-[0.3em] animate-pulse">Sync. en cours...</p>
+            <p className="text-[10px] font-black text-[#1c398e] uppercase tracking-[0.3em] animate-pulse">Sync. en cours...</p>
         </div>
     );
 
@@ -225,7 +225,7 @@ const Dashboard = () => {
         <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f] tracking-tight">Tableau de bord</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Tableau de bord</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Vue d'ensemble de votre activité financière</p>
                 </div>
 
@@ -241,7 +241,7 @@ const Dashboard = () => {
                             key={opt.key}
                             onClick={() => setPeriod(opt.key)}
                             className={`px-3 py-1.5 text-xs font-bold rounded-sm transition-all ${period === opt.key
-                                ? 'bg-white text-[#018f8f] shadow-sm ring-1 ring-gray-200/50'
+                                ? 'bg-white text-[#1c398e] shadow-sm ring-1 ring-gray-200/50'
                                 : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
@@ -300,7 +300,7 @@ const Dashboard = () => {
                     {!showData && <LoadingOverlay />}
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h3 className="text-sm font-semibold tracking-wide uppercase text-[11px] text-teal-600/70">Évolution des Ventes</h3>
+                            <h3 className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70">Évolution des Ventes</h3>
                             <p className="text-xs text-gray-500 mt-0.5">7 derniers jours — Total : {formatPrice(salesData.reduce((s, d) => s + d.sales, 0))}</p>
                         </div>
                     </div>
@@ -318,10 +318,10 @@ const Dashboard = () => {
                                 <Line
                                     type="monotone"
                                     dataKey="sales"
-                                    stroke="#018f8f"
+                                    stroke="#1c398e"
                                     strokeWidth={3}
-                                    dot={{ r: 4, fill: '#018f8f', strokeWidth: 2, stroke: '#fff' }}
-                                    activeDot={{ r: 6, fill: '#018f8f', stroke: '#fff', strokeWidth: 2 }}
+                                    dot={{ r: 4, fill: '#1c398e', strokeWidth: 2, stroke: '#fff' }}
+                                    activeDot={{ r: 6, fill: '#1c398e', stroke: '#fff', strokeWidth: 2 }}
                                 />
                             </LineChart>
                         </ResponsiveContainer>
@@ -404,7 +404,7 @@ const Dashboard = () => {
                 {/* Top Produits */}
                 <div className="lg:col-span-2 bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm mt-0 relative overflow-hidden">
                     {!showData && <LoadingOverlay />}
-                    <h3 className="text-sm font-semibold tracking-wide uppercase text-[11px] text-teal-600/70 mb-4">Top Produits (Plus Grand Stock)</h3>
+                    <h3 className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70 mb-4">Top Produits (Plus Grand Stock)</h3>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={[...products]
@@ -439,15 +439,15 @@ const Dashboard = () => {
                     <>
                         <div className="fixed inset-0 z-[9998]" onClick={() => setActiveTooltip(null)} />
                         <div
-                            className="fixed z-[9999] w-64 bg-[#005f5f] text-white text-xs rounded-md p-3 shadow-2xl leading-relaxed"
+                            className="fixed z-[9999] w-64 bg-[#1c398e] text-white text-xs rounded-md p-3 shadow-2xl leading-relaxed"
                             style={{ ...leftStyle, ...topStyle }}
                         >
                             {/* Arrow */}
                             {!flipY && (
-                                <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#005f5f] rotate-45 ${flipX ? 'right-3' : 'left-3'}`}></div>
+                                <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#1c398e] rotate-45 ${flipX ? 'right-3' : 'left-3'}`}></div>
                             )}
                             {flipY && (
-                                <div className={`absolute -top-1.5 w-3 h-3 bg-[#005f5f] rotate-45 ${flipX ? 'right-3' : 'left-3'}`}></div>
+                                <div className={`absolute -top-1.5 w-3 h-3 bg-[#1c398e] rotate-45 ${flipX ? 'right-3' : 'left-3'}`}></div>
                             )}
                             {text}
                         </div>

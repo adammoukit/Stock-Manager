@@ -208,7 +208,7 @@ const Receipt = ({ transaction, onClose }) => {
           <button
             onClick={handlePrint}
             className="flex-1 text-white px-4 py-2 rounded-sm flex items-center justify-center gap-2 transition-colors font-semibold"
-            style={{ backgroundColor: "#018f8f" }}
+            style={{ backgroundColor: "#1c398e" }}
           >
             <Printer className="w-5 h-5" />
             Imprimer

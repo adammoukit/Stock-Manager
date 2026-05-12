@@ -105,7 +105,7 @@ const StockEntryModal = ({ product, onClose, onSave }) => {
                                             type="number"
                                             value={helperParams.qtyPerContainer}
                                             onChange={(e) => handleAssistantChange('qtyPerContainer', e.target.value)}
-                                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#018f8f]/50 bg-white"
+                                            className="w-full px-3 py-2 border-2 border-gray-300 rounded-sm focus:ring-2 focus:ring-[#1c398e]/50 bg-white"
                                             placeholder="Ex: 50"
                                         />
                                     </div>
@@ -140,7 +140,7 @@ const StockEntryModal = ({ product, onClose, onSave }) => {
                                     min="1"
                                     value={formData.quantity}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 text-center font-black text-lg bg-white"
+                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 text-center font-black text-lg bg-white"
                                     placeholder="Ex: 100"
                                 />
                             </div>
@@ -169,7 +169,7 @@ const StockEntryModal = ({ product, onClose, onSave }) => {
                             placeholder="Ex: LOT-2023-001"
                             value={formData.batchNumber}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white"
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white"
                         />
                     </div>
 
@@ -194,7 +194,7 @@ const StockEntryModal = ({ product, onClose, onSave }) => {
                             name="supplier"
                             value={formData.supplier}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#018f8f]/50 bg-white"
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white"
                         />
                     </div>
 
@@ -209,7 +209,7 @@ const StockEntryModal = ({ product, onClose, onSave }) => {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="px-8 py-2.5 bg-[#018f8f] hover:bg-[#017a7a] text-white font-bold rounded-sm flex items-center gap-2 shadow-md transition-all active:scale-95 disabled:opacity-50"
+                            className="px-8 py-2.5 bg-[#1c398e] hover:bg-[#142b6b] text-white font-bold rounded-sm flex items-center gap-2 shadow-md transition-all active:scale-95 disabled:opacity-50"
                         >
                             <Save className="w-5 h-5" />
                             {isSubmitting ? 'Validation...' : 'Valider l\'entrée'}

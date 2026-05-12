@@ -9,9 +9,9 @@ const OPTIONS = [
         label: 'Reçu Thermique',
         sublabel: 'Format 80mm',
         description: 'Ticket caisse standard pour imprimante thermique.',
-        accent: '#018f8f',
-        bg: '#f0fdfa',
-        border: '#99f6e4',
+        accent: '#1c398e',
+        bg: '#eff6ff',
+        border: '#bfdbfe',
     },
     {
         id: 'a4-invoice',
@@ -45,8 +45,8 @@ const PrintOptionsDialog = ({ transaction, onSelect, onClose }) => {
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-sm flex items-center justify-center" style={{ backgroundColor: '#018f8f1a' }}>
-                            <Printer className="w-5 h-5" style={{ color: '#018f8f' }} />
+                        <div className="w-9 h-9 rounded-sm flex items-center justify-center" style={{ backgroundColor: '#1c398e1a' }}>
+                            <Printer className="w-5 h-5" style={{ color: '#1c398e' }} />
                         </div>
                         <div>
                             <h2 className="text-base font-bold text-gray-900">Format d'impression</h2>

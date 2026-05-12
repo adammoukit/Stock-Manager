@@ -66,19 +66,19 @@ const DebtBook = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#018f8f] tracking-tight">Carnet de Crédit</h2>
+                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Carnet de Crédit</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Gestion des impayés et relances clients</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {/* Total Debts Overview */}
-                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#018f8f]/30 transition-colors">
+                <div className="bg-white rounded-sm border-2 border-gray-100 p-6 shadow-sm relative overflow-hidden group hover:border-[#1c398e]/30 transition-colors">
                     <div className="relative z-10 flex flex-col h-full justify-between">
                         <div className="flex-1">
-                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-teal-600/70">Total Créances</p>
-                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#005f5f' }}>
-                                <h3 className="text-2xl sm:text-3xl font-semibold">
+                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70">Total Créances</p>
+                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                                <h3 className="text-xl sm:text-2xl font-semibold">
                                     {formatPrice(activeDebts.reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0))}
                                 </h3>
                             </div>
@@ -108,7 +108,7 @@ const DebtBook = () => {
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-[#018f8f] border-b-2 border-teal-800 text-white font-black uppercase tracking-widest text-[11px]">
+                        <thead className="bg-[#1c398e] border-b-2 border-blue-800 text-white font-black uppercase tracking-widest text-[11px]">
                             <tr>
                                 <th className="px-6 py-4">Client</th>
                                 <th className="px-6 py-4">Total Dettes</th>
@@ -129,14 +129,14 @@ const DebtBook = () => {
                                     <tr key={c.customerName} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="bg-teal-50 p-2 rounded-sm border border-teal-100">
-                                                    <User className="w-4 h-4 text-teal-700" />
+                                                <div className="bg-blue-50 p-2 rounded-sm border border-blue-100">
+                                                    <User className="w-4 h-4 text-blue-700" />
                                                 </div>
                                                 <span className="font-bold text-gray-900 uppercase text-[13px] tracking-wide">{c.customerName}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 font-semibold text-gray-700">{formatPrice(c.totalAmount)}</td>
-                                        <td className="px-6 py-4 font-semibold text-teal-600">{formatPrice(c.paidAmount)}</td>
+                                        <td className="px-6 py-4 font-semibold text-blue-600">{formatPrice(c.paidAmount)}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
@@ -154,7 +154,7 @@ const DebtBook = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => { setSelectedDebt(c); setPaymentAmount(c.remaining.toString()); }}
-                                                    className="px-3 py-2 text-white bg-teal-600 border border-teal-800 hover:bg-teal-700 rounded-sm transition-all shadow-sm active:scale-95 flex items-center gap-2"
+                                                    className="px-3 py-2 text-white bg-[#1c398e] border-[#1c398e] shadow-[0_4px_0_#10255c]"
                                                 >
                                                     <CreditCard className="w-4 h-4" />
                                                     <span className="text-[11px] font-black uppercase tracking-widest">Encaisser</span>
@@ -171,10 +171,10 @@ const DebtBook = () => {
 
             {/* Payment Modal for Debt */}
             {selectedDebt && (
-                <div className="fixed inset-0 bg-teal-900/40 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-sm border-2 border-teal-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 bg-blue-900/40 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-sm border-2 border-blue-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden transform animate-in zoom-in-95 duration-200">
                         {/* En-tête */}
-                        <div className="bg-[#018f8f] p-4 flex items-center gap-3 border-b-2 border-teal-800">
+                        <div className="bg-[#1c398e] p-4 flex items-center gap-3 border-b-2 border-blue-800">
                             <div className="bg-white/20 p-2 rounded-sm border border-white/30 backdrop-blur-sm">
                                 <img src="/icons8/fluency_48_bank-cards.png" alt="" className="w-6 h-6" />
                             </div>
@@ -207,7 +207,7 @@ const DebtBook = () => {
                                         max={selectedDebt.remaining}
                                         value={paymentAmount}
                                         onChange={(e) => setPaymentAmount(e.target.value)}
-                                        className="w-full pl-16 pr-4 py-3 bg-white border-2 border-gray-300 rounded-sm font-black text-xl text-teal-800 focus:outline-none focus:border-teal-600 focus:ring-0 transition-colors shadow-inner"
+                                        className="w-full pl-16 pr-4 py-3 bg-white border-2 border-gray-300 rounded-sm font-black text-xl text-blue-800 focus:outline-none focus:border-blue-600 focus:ring-0 transition-colors shadow-inner"
                                         autoFocus
                                     />
                                 </div>
@@ -218,13 +218,13 @@ const DebtBook = () => {
                         <div className="p-5 bg-gray-50 flex gap-3 border-t border-gray-100">
                             <button
                                 onClick={() => setSelectedDebt(null)}
-                                className="flex-1 px-4 py-3 rounded-sm border-2 border-gray-300 text-gray-700 font-black uppercase text-xs tracking-widest hover:bg-white hover:border-teal-600 hover:text-teal-600 transition-all active:scale-95"
+                                className="flex-1 px-4 py-3 rounded-sm border-2 border-gray-300 text-gray-700 font-black uppercase text-xs tracking-widest hover:bg-white hover:border-blue-600 hover:text-blue-600 transition-all active:scale-95"
                             >
                                 Annuler
                             </button>
                             <button
                                 onClick={handlePayment}
-                                className="flex-1 px-4 py-3 rounded-sm bg-teal-600 border-2 border-teal-800 text-white font-black uppercase text-xs tracking-widest shadow-[0_4px_0_rgb(17,94,89)] hover:shadow-none hover:translate-y-1 transition-all active:scale-95"
+                                className="flex-1 px-4 py-3 rounded-sm bg-[#1c398e] border-2 border-blue-900 text-white font-black uppercase text-xs tracking-widest shadow-[0_4px_0_#10255c] hover:shadow-none hover:translate-y-1 transition-all active:scale-95"
                             >
                                 Valider le Paiement
                             </button>

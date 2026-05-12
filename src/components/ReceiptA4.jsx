@@ -96,7 +96,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                 </button>
                 <button
                     onClick={handlePrint}
-                    className="flex items-center gap-2 text-sm px-4 py-2 bg-[#018f8f] hover:bg-teal-700 text-white rounded-sm font-semibold shadow transition-colors"
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-[#1c398e] hover:bg-blue-800 text-white rounded-sm font-semibold shadow transition-colors"
                 >
                     <Printer className="w-4 h-4" />
                     Imprimer A4
@@ -125,13 +125,13 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                     }}
                 >
                 {/* ===== HEADER ===== */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5mm', borderBottom: '3px solid #018f8f', paddingBottom: '5mm' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5mm', borderBottom: '3px solid #1c398e', paddingBottom: '5mm' }}>
                     {/* Company info + document title */}
                     <div style={{ flex: 1 }}>
                         {company.logo && (
                             <img src={company.logo} alt="Logo" style={{ height: '14mm', marginBottom: '3mm', objectFit: 'contain' }} />
                         )}
-                        <div style={{ fontSize: '15pt', fontWeight: '800', color: '#018f8f', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>
+                        <div style={{ fontSize: '15pt', fontWeight: '800', color: '#1c398e', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>
                             {company.name}
                         </div>
                         <div style={{ fontSize: '8.5pt', color: '#555', marginTop: '1.5mm', lineHeight: '1.6' }}>
@@ -145,7 +145,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                     {/* Invoice meta (N°, Date, Heure, Réf.) */}
                     <div style={{ textAlign: 'right', minWidth: '65mm', paddingLeft: '8mm' }}>
                         <div style={{ fontSize: '8.5pt', color: '#444', lineHeight: '2' }}>
-                            <div><span style={{ color: '#888' }}>N° :</span> <strong style={{ color: '#018f8f' }}>{invoiceNumber}</strong></div>
+                            <div><span style={{ color: '#888' }}>N° :</span> <strong style={{ color: '#1c398e' }}>{invoiceNumber}</strong></div>
                             <div><span style={{ color: '#888' }}>Date :</span> {date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                             <div><span style={{ color: '#888' }}>Heure :</span> {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
                             <div><span style={{ color: '#888' }}>Réf. :</span> <span style={{ fontFamily: 'monospace' }}>#{transaction.id}</span></div>
@@ -165,7 +165,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                         color: '#1a1a1a',
                         letterSpacing: '4px',
                         display: 'inline-block',
-                        borderBottom: '2px solid #018f8f',
+                        borderBottom: '2px solid #1c398e',
                         paddingBottom: '1mm',
                         marginBottom: '1mm'
                     }}>
@@ -185,7 +185,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                     <div style={{ display: 'flex', gap: '6mm', marginBottom: '6mm' }}>
                         {/* Client block */}
                         <div style={{ flex: 1, backgroundColor: '#f8f9fa', border: '1px solid #e9ecef', borderRadius: '2px', padding: '3mm 4mm' }}>
-                            <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#018f8f', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1.5mm' }}>
+                            <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#1c398e', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1.5mm' }}>
                                 Client
                             </div>
                             <div style={{ fontSize: '9pt', color: '#333' }}>
@@ -198,7 +198,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                 {/* ===== ITEMS TABLE ===== */}
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6mm', fontSize: '9pt' }}>
                     <thead>
-                        <tr style={{ backgroundColor: '#018f8f', color: 'white' }}>
+                        <tr style={{ backgroundColor: '#1c398e', color: 'white' }}>
                             <th style={{ padding: '3mm 3mm', textAlign: 'left', fontWeight: '700', fontSize: '8pt', width: '40%' }}>
                                 DÉSIGNATION
                             </th>
@@ -226,7 +226,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                             const lineTotal = unitPrice * item.inputQuantity;
                             const isEven = index % 2 === 0;
                             return (
-                                <tr key={index} style={{ backgroundColor: isEven ? '#fff' : '#f8fffe', borderBottom: '1px solid #e5e7eb' }}>
+                                <tr key={index} style={{ backgroundColor: isEven ? '#fff' : '#f8faff', borderBottom: '1px solid #e5e7eb' }}>
                                     <td style={{ padding: '2.5mm 3mm', verticalAlign: 'top' }}>
                                         <div style={{ fontWeight: '600', color: '#1a1a1a' }}>{item.name?.toUpperCase()}</div>
                                         {item.type !== 'base' && (
@@ -247,7 +247,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                                         {getUnitLabel(item)}
                                     </td>
                                     {!isDeliverySlip && (
-                                        <td style={{ padding: '2.5mm 3mm', textAlign: 'right', verticalAlign: 'top', fontWeight: '600', color: '#018f8f' }}>
+                                        <td style={{ padding: '2.5mm 3mm', textAlign: 'right', verticalAlign: 'top', fontWeight: '600', color: '#1c398e' }}>
                                             {formatRowPrice(lineTotal)}
                                         </td>
                                     )}
@@ -285,7 +285,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                             <div style={{
                                 display: 'flex', justifyContent: 'space-between',
                                 padding: '3mm 3mm',
-                                backgroundColor: '#018f8f',
+                                backgroundColor: '#1c398e',
                                 color: 'white',
                                 fontWeight: '800',
                                 fontSize: '12pt',
@@ -298,8 +298,8 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
 
                             {/* Payment mode block */}
                             {!isDeliverySlip && (
-                                <div style={{ marginTop: '2mm', backgroundColor: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: '2px', padding: '2mm 3mm' }}>
-                                    <div style={{ fontSize: '7pt', fontWeight: '700', color: '#018f8f', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm' }}>
+                                <div style={{ marginTop: '2mm', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '2px', padding: '2mm 3mm' }}>
+                                    <div style={{ fontSize: '7pt', fontWeight: '700', color: '#1c398e', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm' }}>
                                         Mode de paiement
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9pt', fontWeight: '600', color: '#333' }}>
@@ -341,7 +341,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                             { label: 'Reçu par', sub: 'Le client' }
                         ].map((zone) => (
                             <div key={zone.label} style={{ flex: 1, border: '1px dashed #ccc', borderRadius: '2px', padding: '3mm', minHeight: '22mm', position: 'relative' }}>
-                                <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#018f8f', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{zone.label}</div>
+                                <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#1c398e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{zone.label}</div>
                                 <div style={{ fontSize: '7pt', color: '#aaa', marginTop: '0.5mm' }}>{zone.sub}</div>
                                 <div style={{ position: 'absolute', bottom: '2mm', left: '3mm', right: '3mm', borderBottom: '1px solid #ddd', fontSize: '7pt', color: '#bbb', paddingBottom: '1mm' }}>
                                     Signature :
@@ -353,7 +353,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
 
                 {/* ===== FOOTER ===== */}
                 <div style={{
-                    borderTop: '2px solid #018f8f',
+                    borderTop: '2px solid #1c398e',
                     paddingTop: '5mm',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -365,7 +365,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                         <QRCode
                             value={`${company.name}|${invoiceNumber}|${transaction.total}|${date.toISOString()}`}
                             size={55}
-                            fgColor="#018f8f"
+                            fgColor="#1c398e"
                         />
                         <div style={{ fontSize: '6pt', color: '#aaa', marginTop: '1mm' }}>Scan pour vérifier</div>
                     </div>
