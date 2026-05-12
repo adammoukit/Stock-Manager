@@ -44,11 +44,16 @@ apiClient.interceptors.response.use(
         if (error.response) {
             console.error("API Error Response:", error.response.status, error.response.data);
 
-            // Si le token est expiré ou invalide, on notifie l'AuthContext
-            // via un événement personnalisé — on ne supprime JAMAIS le token ici directement.
-            // C'est l'AuthContext qui gère le logout proprement.
-            if (error.response.status === 401) {
-                console.warn("401 détecté : token expiré ou invalide. Notification de l'AuthContext.");
+            // Si le token est expiré, invalide ou l'accès est refusé, on force la déconnexion
+            // en vidant le localStorage et en redirigeant vers /login.
+            if (error.response.status === 401 || error.response.status === 403) {
+                console.warn("401/403 détecté : token expiré ou accès refusé. Déconnexion forcée.");
+                localStorage.removeItem('kabllix_token');
+                localStorage.removeItem('kabllix_user');
+                sessionStorage.removeItem('kabllix_token');
+                sessionStorage.removeItem('kabllix_user');
+                
+                // On notifie l'AuthContext pour mettre à jour l'état et gérer la redirection
                 window.dispatchEvent(new CustomEvent('auth:unauthorized'));
             }
 

@@ -3,6 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
     ChevronDown,
     ChevronRight,
+    Folder,
+    FileText,
     LogOut,
     Lock
 } from 'lucide-react';
@@ -18,6 +20,7 @@ const Sidebar = () => {
     const { quotes } = useSales();
     const { logout } = useAuth();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showFolderTree, setShowFolderTree] = useState(true);
 
     const activeOrdersCount = orders.filter(o => o.status !== 'Completed').length;
     const suppliersWithDebtCount = suppliers.filter(s => s.balance > 0).length;
@@ -86,9 +89,58 @@ const Sidebar = () => {
         },
     ];
 
+    const buildRouteTree = (items) => {
+        const root = {};
+
+        items.forEach((item) => {
+            const targets = item.subItems?.length ? item.subItems : [item];
+            targets.forEach((target) => {
+                if (!target.path) return;
+                const parts = target.path.split('/').filter(Boolean);
+                let current = root;
+                parts.forEach((part, idx) => {
+                    if (!current[part]) {
+                        current[part] = { __children: {}, __leaf: false };
+                    }
+                    if (idx === parts.length - 1) {
+                        current[part].__leaf = true;
+                    }
+                    current = current[part].__children;
+                });
+            });
+        });
+
+        return root;
+    };
+
+    const routeTree = buildRouteTree(navItems);
+
+    const renderTree = (node, depth = 0, basePath = '') =>
+        Object.keys(node).sort().map((segment) => {
+            const currentPath = `${basePath}/${segment}`;
+            const hasChildren = Object.keys(node[segment].__children).length > 0;
+            const isActive = location.pathname === currentPath || location.pathname.startsWith(`${currentPath}/`);
+
+            return (
+                <div key={currentPath}>
+                    <div
+                        className={clsx(
+                            'flex items-center gap-2 py-1 rounded-sm',
+                            isActive ? 'text-white font-semibold' : 'text-gray-200'
+                        )}
+                        style={{ paddingLeft: `${depth * 14}px` }}
+                    >
+                        {hasChildren ? <Folder className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
+                        <span className="text-[11px] uppercase tracking-wide">{segment}</span>
+                    </div>
+                    {hasChildren && renderTree(node[segment].__children, depth + 1, currentPath)}
+                </div>
+            );
+        });
+
     return (
         <aside className={clsx(
-            "w-64 hidden md:flex flex-col h-screen fixed left-0 top-0 bg-[#018f8f] shadow-xl transition-all duration-300",
+            "w-64 hidden md:flex flex-col h-screen fixed left-0 top-0 bg-[#1c398e] shadow-xl transition-all duration-300",
             showLogoutConfirm ? "z-[200]" : "z-10"
         )}>
             <div className="p-5 bg-white border-b border-gray-200 flex items-center justify-center gap-3 shadow-sm z-20">
@@ -110,15 +162,15 @@ const Sidebar = () => {
                                 <button
                                     onClick={() => toggleMenu(item.label)}
                                     className={clsx(
-                                        'flex items-center w-full relative justify-between px-4 py-3 rounded-sm transition-all duration-200 group text-left',
+                                        'flex items-center w-full relative justify-between px-4 py-3 rounded-sm transition-all duration-200 group text-left border',
                                         isActiveParent
-                                            ? 'bg-white text-[#018f8f] font-semibold shadow-sm'
-                                            : 'text-gray-100 hover:bg-white/10 hover:text-white'
+                                            ? 'bg-white text-[#1c398e] font-semibold shadow-sm border-transparent'
+                                            : 'bg-white/5 border-white/10 text-gray-100 hover:bg-white/10 hover:border-white/20 hover:text-white'
                                     )}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <i className={clsx(`uil uil-${item.icon} text-xl`, isActiveParent ? 'text-[#018f8f]' : 'text-gray-300 group-hover:text-white')}></i>
-                                        <span className="font-semibold tracking-wide uppercase text-[14px]">{item.label}</span>
+                                        <i className={clsx(`uil uil-${item.icon} text-xl`, isActiveParent ? 'text-[#1c398e]' : 'text-gray-300 group-hover:text-white')}></i>
+                                        <span className="font-semibold tracking-wide uppercase text-[11px]">{item.label}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {item.badge > 0 && (
@@ -126,7 +178,7 @@ const Sidebar = () => {
                                                 {item.badge}
                                             </span>
                                         )}
-                                        {isOpen ? <ChevronDown className={clsx("w-4 h-4", isActiveParent ? "text-[#018f8f]" : "text-gray-300")} strokeWidth={3} /> : <ChevronRight className={clsx("w-4 h-4", isActiveParent ? "text-[#018f8f]" : "text-gray-300")} strokeWidth={3} />}
+                                        {isOpen ? <ChevronDown className={clsx("w-4 h-4", isActiveParent ? "text-[#1c398e]" : "text-gray-300")} strokeWidth={3} /> : <ChevronRight className={clsx("w-4 h-4", isActiveParent ? "text-[#1c398e]" : "text-gray-300")} strokeWidth={3} />}
                                     </div>
                                 </button>
                             ) : (
@@ -135,16 +187,16 @@ const Sidebar = () => {
                                     end={item.path === '/'}
                                     className={({ isActive }) =>
                                         clsx(
-                                            'flex items-center relative justify-between px-4 py-3 rounded-sm transition-all duration-200 group origin-left',
+                                            'flex items-center relative justify-between px-4 py-3 rounded-sm transition-all duration-200 group origin-left border',
                                             isActive
-                                                ? 'bg-white text-[#018f8f] font-semibold shadow-sm'
-                                                : 'text-gray-100 hover:bg-white/10 hover:text-white'
+                                                ? 'bg-white text-[#1c398e] font-semibold shadow-sm border-transparent'
+                                                : 'bg-white/5 border-white/10 text-gray-100 hover:bg-white/10 hover:border-white/20 hover:text-white'
                                         )
                                     }
                                 >
                                     <div className="flex items-center gap-3">
                                         <i className={`uil uil-${item.icon} text-xl text-current opacity-90`}></i>
-                                        <span className="font-semibold tracking-wide uppercase text-[14px]">{item.label}</span>
+                                        <span className="font-semibold tracking-wide uppercase text-[11px]">{item.label}</span>
                                     </div>
                                     {item.badge > 0 && (
                                         <span className="bg-red-500 absolute -top-2 right-0 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
@@ -173,7 +225,7 @@ const Sidebar = () => {
                                         >
                                             <div className="flex items-center">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-current mr-3 opacity-60" />
-                                                <span className="font-semibold tracking-wide uppercase text-[12px]">{sub.label}</span>
+                                                <span className="font-semibold tracking-wide uppercase text-[11px]">{sub.label}</span>
                                             </div>
                                             {sub.badge > 0 && (
                                                 <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
@@ -187,6 +239,22 @@ const Sidebar = () => {
                         </div>
                     );
                 })}
+
+                <div className="mt-5 pt-4 border-t border-white/20">
+                    <button
+                        onClick={() => setShowFolderTree(prev => !prev)}
+                        className="w-full flex items-center justify-between px-2 py-2 text-gray-100 hover:bg-white/10 rounded-sm transition-colors"
+                    >
+                        <span className="font-semibold tracking-wide uppercase text-[11px]">Arborescence du dossier</span>
+                        {showFolderTree ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+
+                    {showFolderTree && (
+                        <div className="mt-2 px-2 py-2 bg-white/5 rounded-sm border border-white/10">
+                            {renderTree(routeTree)}
+                        </div>
+                    )}
+                </div>
             </nav>
 
             <div className="p-4 border-t border-white/20">
@@ -195,7 +263,7 @@ const Sidebar = () => {
                     className="flex items-center gap-3 px-4 py-3 w-full text-left text-white hover:bg-red-500 hover:text-white rounded-sm transition-colors group"
                 >
                     <i className="uil uil-signout text-xl"></i>
-                    <span className="font-semibold tracking-wide uppercase text-[14px]">Déconnexion</span>
+                    <span className="font-semibold tracking-wide uppercase text-[11px]">Déconnexion</span>
                 </button>
             </div>
 
@@ -204,7 +272,7 @@ const Sidebar = () => {
                 <div className="fixed inset-0 bg-teal-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
                     <div className="bg-white w-full max-w-sm rounded-sm border-2 border-teal-800 shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden transform animate-in zoom-in-95 duration-200">
                         {/* En-tête */}
-                        <div className="bg-[#018f8f] p-4 flex items-center gap-3 border-b-2 border-teal-800">
+                        <div className="bg-[#1c398e] p-4 flex items-center gap-3 border-b-2 border-teal-800">
                             <div className="bg-white/20 p-2 rounded-sm border border-white/30 backdrop-blur-sm">
                                 <LogOut className="w-6 h-6 text-white" />
                             </div>

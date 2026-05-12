@@ -11,7 +11,7 @@ export const SessionProvider = ({ children }) => {
     const { user } = useAuth();
 
     // Clés localStorage isolées par utilisateur — sécurité multi-comptes
-    const userId = user?.id || user?.username || 'anonymous';
+    const userId = user?.email || user?.id || user?.username || 'anonymous';
     const SESSION_KEY = `active_session_${userId}`;
     const PAST_KEY = `past_sessions_${userId}`;
 
@@ -29,7 +29,7 @@ export const SessionProvider = ({ children }) => {
 
     // Quand l'utilisateur change (déconnexion / reconnexion), recharger les bonnes données
     useEffect(() => {
-        const newUserId = user?.id || user?.username || 'anonymous';
+        const newUserId = user?.email || user?.id || user?.username || 'anonymous';
         if (prevUserIdRef.current !== newUserId) {
             prevUserIdRef.current = newUserId;
             // Charger les données du nouvel utilisateur
@@ -59,7 +59,7 @@ export const SessionProvider = ({ children }) => {
             id: `session_${Date.now()}`,
             storeId: currentStoreId,
             userId: userId,
-            cashierName: user?.name || user?.username || 'Caissier',
+            cashierName: user?.firstName ? `${user.firstName} ${user.lastName}` : (user?.name || user?.username || 'Caissier'),
             startTime: new Date().toISOString(),
             initialAmount: parseFloat(initialAmount) || 0,
             status: 'open'

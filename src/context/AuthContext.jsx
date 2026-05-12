@@ -29,7 +29,9 @@ export const AuthProvider = ({ children }) => {
 
         // Force le rechargement pour vider tous les contextes et rediriger vers /login
         setTimeout(() => {
-            window.location.href = '/login';
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
         }, 1000);
     }, []);
 
@@ -73,9 +75,11 @@ export const AuthProvider = ({ children }) => {
     // (token expiré côté serveur) — déclenche un logout propre
     useEffect(() => {
         const handleUnauthorized = () => {
-            console.warn("AuthContext: événement 'auth:unauthorized' reçu → déconnexion.");
-            toast.error("Votre session a expiré. Veuillez vous reconnecter.");
-            logout(false); // false = ne pas afficher le toast "déconnecté" en double
+            if (window.location.pathname !== '/login') {
+                console.warn("AuthContext: événement 'auth:unauthorized' reçu → déconnexion.");
+                toast.error("Votre session a expiré. Veuillez vous reconnecter.");
+                logout(false); // false = ne pas afficher le toast "déconnecté" en double
+            }
         };
 
         window.addEventListener('auth:unauthorized', handleUnauthorized);

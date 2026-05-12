@@ -71,7 +71,7 @@ const DashboardLayout = () => {
 
             <div className="md:ml-64 transition-all duration-300">
                 {/* Header */}
-                <header className="sticky top-0 z-20 px-6 py-4 flex items-center justify-between bg-[#018f8f] shadow-md">
+                <header className="sticky top-0 z-20 px-6 py-4 flex items-center justify-between bg-[#1c398e] shadow-md">
                     <div className="flex items-center gap-4">
                         <button className="md:hidden p-2 hover:bg-white/10 rounded-sm text-white transition-colors">
                             <Menu className="w-6 h-6" />
@@ -82,7 +82,7 @@ const DashboardLayout = () => {
                         {/* Session de Caisse Status */}
                         {activeSession ? (
                             <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-sm px-3 py-1.5 backdrop-blur-sm">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
+                                <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse flex-shrink-0 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span>
                                 <div className="hidden sm:block">
                                     <p className="text-white/60 font-medium text-[9px] uppercase tracking-wider leading-none">État de la caisse</p>
                                     <p className="text-white font-bold text-[11px] mt-0.5">{activeSession.cashierName} &bull; depuis {format(new Date(activeSession.startTime), 'HH:mm', { locale: fr })}</p>
@@ -91,7 +91,7 @@ const DashboardLayout = () => {
                             </div>
                         ) : (
                             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-sm px-3 py-1.5">
-                                <span className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
+                                <span className="w-3 h-3 rounded-full bg-red-400 flex-shrink-0"></span>
                                 <div className="hidden sm:block">
                                     <p className="text-white/60 font-medium text-[9px] uppercase tracking-wider leading-none">État de la caisse</p>
                                     <p className="text-white/80 font-bold text-[11px] mt-0.5">Caisse Fermée</p>
@@ -189,7 +189,7 @@ const DashboardLayout = () => {
                             <select 
                                 value={currentStoreId}
                                 onChange={(e) => handleStoreSwitch(e.target.value)}
-                                className="bg-[#017a7a] border border-white/20 text-white font-medium text-sm rounded-sm px-3 py-2 outline-none hover:bg-[#016b6b] transition-colors focus:ring-2 focus:ring-white/50 cursor-pointer"
+                                className="bg-[#152c70] border border-white/20 text-white font-medium text-sm rounded-sm px-3 py-2 outline-none hover:bg-[#0f2052] transition-colors focus:ring-2 focus:ring-white/50 cursor-pointer"
                             >
                                 {stores.map(store => (
                                     <option key={store.id} value={store.id} className="text-gray-900 bg-white font-medium">
@@ -233,7 +233,7 @@ const DashboardLayout = () => {
             {isSwitching && (
                 <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-[200] animate-in fade-in duration-150">
                     <div className="flex flex-col items-center gap-5 bg-white px-10 py-8 rounded-sm shadow-2xl border border-gray-100">
-                        <div className="w-14 h-14 border-4 border-[#018f8f]/20 border-t-[#018f8f] rounded-full animate-spin"></div>
+                        <div className="w-14 h-14 border-4 border-[#1c398e]/20 border-t-[#1c398e] rounded-full animate-spin"></div>
                         <div className="text-center">
                             <p className="text-gray-900 font-bold text-base">
                                 Chargement de la boutique...

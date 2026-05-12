@@ -307,8 +307,8 @@ const POS = () => {
                             {/* Tableau résultats */}
                             <div className={`overflow-y-auto custom-scrollbar transition-opacity duration-200 ${isSearching ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
                                 <table className="w-full text-left text-sm border-separate border-spacing-0">
-                                    <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
-                                        <tr className="divide-x-2 divide-teal-700/40">
+                                    <thead style={{ backgroundColor: '#365ac9' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
+                                        <tr className="divide-x-2 divide-[#224099]/40">
                                             <ResizableHeader columnId="name" width={colWidths.name} onResize={handleResize}>Produit</ResizableHeader>
                                             <ResizableHeader columnId="price" width={colWidths.price} onResize={handleResize}>Prix</ResizableHeader>
                                             <ResizableHeader columnId="stock" width={colWidths.stock} onResize={handleResize}>Stock</ResizableHeader>
@@ -451,8 +451,8 @@ const POS = () => {
                     <div className="flex-1 flex flex-col overflow-hidden relative">
                         <div className="flex-1 overflow-y-auto custom-scrollbar bg-white flex flex-col">
                             <table className="w-full text-left text-sm border-separate border-spacing-0 border-b-2 border-gray-300 flex-1 h-full">
-                                <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold sticky top-0 z-20 shadow-sm uppercase tracking-wider text-[11px] border-b-[3px] border-[#005f5f]">
-                                    <tr className="divide-x-[3px] divide-[#007f7f]">
+                                <thead style={{ backgroundColor: '#365ac9' }} className="text-white font-bold sticky top-0 z-20 shadow-sm uppercase tracking-wider text-[11px] border-b-[3px] border-[#1c398e]">
+                                    <tr className="divide-x-[3px] divide-[#224099]">
                                         <ResizableHeader columnId="name" width={cartColWidths.name} onResize={handleCartResize}>Produit</ResizableHeader>
                                         <ResizableHeader columnId="quantity" width={cartColWidths.quantity} onResize={handleCartResize}>Qté</ResizableHeader>
                                         <ResizableHeader columnId="priceHT" width={cartColWidths.priceHT} onResize={handleCartResize}>Prix HT</ResizableHeader>
@@ -576,17 +576,17 @@ const POS = () => {
                     </div>
 
                     {/* ── Pied de Page Financier (Financial Footer - FIXE) ── */}
-                    <div className="sticky bottom-0 bg-[#038794] border-t-4 border-[#015f5f] px-4 py-3 grid grid-cols-1 md:grid-cols-4 gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] z-30 flex-shrink-0">
+                    <div className="sticky bottom-0 bg-gray-100 border-t-4 border-gray-300 px-4 py-3 grid grid-cols-1 md:grid-cols-4 gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] z-30 flex-shrink-0">
 
                         {/* Colonne 1 : Choix du Paiement (Fieldset) */}
-                        <fieldset className={`border-[3px] ${paymentError ? 'border-red-500 bg-red-50/30' : 'border-[#014d54]/40 bg-[#e4eaf0]'} rounded-[2px] p-2 pt-0.5 transition-colors`}>
-                            <legend className={`text-[16px] font-black ${paymentError ? 'text-red-600' : 'text-teal-600/70'} capitalize tracking-wide px-2 ml-1 transition-colors bg-[#e4eaf0]`}>Moyen De Paiement</legend>
+                        <fieldset className={`border-[3px] ${paymentError ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-[#e3e9ef]'} rounded-[2px] p-2 pt-0.5 transition-colors`}>
+                            <legend className={`text-[16px] font-bold uppercase tracking-wider ${paymentError ? 'text-red-600 bg-red-50' : 'text-gray-600 bg-[#e3e9ef]'} px-2 ml-1 transition-colors`}>Moyen De Paiement</legend>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 <label className={`flex items-center gap-3 px-2 py-1.5 rounded-[2px] cursor-pointer transition-colors ${paymentMethod === 'cash' ? 'bg-teal-50/50' : 'hover:bg-gray-50'}`}>
                                     <input type="checkbox" checked={paymentMethod === 'cash'} onChange={() => { setPaymentMethod('cash'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-teal-600 border-gray-300 rounded-[2px] focus:ring-teal-600 accent-[#018f8f]" />
                                     <div className="flex items-center gap-2">
                                         <i className={`uil uil-money-bill text-lg ${paymentMethod === 'cash' ? 'text-teal-600' : 'text-gray-400'}`}></i>
-                                        <span className={`text-sm font-semibold ${paymentMethod === 'cash' ? 'text-teal-800' : 'text-gray-600'}`}>Espèces</span>
+                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'cash' ? 'text-teal-800' : 'text-gray-500'}`}>Espèces</span>
                                     </div>
                                 </label>
 
@@ -594,7 +594,7 @@ const POS = () => {
                                     <input type="checkbox" checked={paymentMethod === 'card'} onChange={() => { setPaymentMethod('card'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded-[2px] focus:ring-blue-600 accent-blue-600" />
                                     <div className="flex items-center gap-2">
                                         <i className={`uil uil-credit-card text-lg ${paymentMethod === 'card' ? 'text-blue-600' : 'text-gray-400'}`}></i>
-                                        <span className={`text-sm font-semibold ${paymentMethod === 'card' ? 'text-blue-800' : 'text-gray-600'}`}>Carte Bancaire</span>
+                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'card' ? 'text-blue-800' : 'text-gray-500'}`}>Carte Bancaire</span>
                                     </div>
                                 </label>
 
@@ -602,18 +602,18 @@ const POS = () => {
                                     <input type="checkbox" checked={paymentMethod === 'credit'} onChange={() => { setPaymentMethod('credit'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-red-600 border-gray-300 rounded-[2px] focus:ring-red-600 accent-red-600" />
                                     <div className="flex items-center gap-2">
                                         <i className={`uil uil-users-alt text-lg ${paymentMethod === 'credit' ? 'text-red-600' : 'text-gray-400'}`}></i>
-                                        <span className={`text-sm font-semibold ${paymentMethod === 'credit' ? 'text-red-800' : 'text-gray-600'}`}>Crédit Client</span>
+                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'credit' ? 'text-red-800' : 'text-gray-500'}`}>Crédit Client</span>
                                     </div>
                                 </label>
                             </div>
                         </fieldset>
 
                         {/* Colonne 2 : Encaissement (Fieldset) */}
-                        <fieldset className="border-[3px] border-[#014d54]/40 bg-[#e4eaf0] rounded-[2px] p-2 pt-0.5">
-                            <legend className="text-[16px] font-black text-blue-600/70 capitalize tracking-wide px-2 ml-1 bg-[#e4eaf0]">Encaissement</legend>
+                        <fieldset className="border-[3px] border-gray-200 bg-[#e3e9ef] rounded-[2px] p-2 pt-0.5">
+                            <legend className="text-[16px] font-bold uppercase tracking-wider text-gray-600 px-2 ml-1 bg-[#e3e9ef]">Encaissement</legend>
                             <div className="flex flex-col gap-2 mt-1 px-1">
                                 <div className="mt-4">
-                                    <label className="text-[13px] font-black text-blue-600 capitalize tracking-wide mb-1 block">Montant Reçu (Espèces)</label>
+                                    <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500 mb-1 block">Montant Reçu (Espèces)</label>
                                     <div className="relative">
                                         <input
                                             type="number"
@@ -628,7 +628,7 @@ const POS = () => {
                                 </div>
                                 {amountReceived > 0 && (
                                     <div className="animate-fade-in">
-                                        <label className="text-[10px] font-black text-blue-800 capitalize tracking-wider mb-1 block">Monnaie à Rendre</label>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1 block">Monnaie à Rendre</label>
                                         <div className="w-full bg-blue-600 border-2 border-blue-700 rounded-[2px] px-3 py-1 flex justify-between items-center shadow-md">
                                             <span className="text-white text-xl font-semibold tracking-tight">
                                                 {formatPrice(Math.max(0, amountReceived - cartTotal))}
@@ -641,11 +641,11 @@ const POS = () => {
                         </fieldset>
 
                         {/* Colonne 3 : Résumé (Fieldset) */}
-                        <fieldset className="border-[3px] border-[#014d54]/40 bg-[#e4eaf0] rounded-[2px] p-2 pt-0.5">
-                            <legend className="text-[16px] font-black text-[#005f5f]/70 capitalize tracking-wide px-2 ml-1 bg-[#e4eaf0]">Résumé Facture</legend>
+                        <fieldset className="border-[3px] border-gray-200 bg-[#e3e9ef] rounded-[2px] p-2 pt-0.5">
+                            <legend className="text-[16px] font-bold uppercase tracking-wider text-gray-600 px-2 ml-1 bg-[#e3e9ef]">Résumé Facture</legend>
                             <div className="flex flex-col gap-2 mt-1 px-1 h-[calc(100%-1rem)] pb-1">
                                 <div className="flex items-center">
-                                    <span className="text-xs font-black text-teal-600/70 capitalize tracking-wide whitespace-nowrap mr-4">Total Brut HT</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap mr-4">Total Brut HT</span>
                                     <div className="flex-1 border-2 border-gray-200 rounded-[2px] px-3 py-1 bg-white">
                                         <span className="block text-base font-semibold text-gray-600 text-right tracking-tight">
                                             {formatPrice(cartTotal)}
@@ -653,7 +653,7 @@ const POS = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center border-b border-gray-100 pb-2">
-                                    <span className="text-xs font-black text-gray-400 uppercase tracking-wide whitespace-nowrap mr-4">TVA (0.00%)</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap mr-4">TVA (0.00%)</span>
                                     <div className="flex-1 border-2 border-gray-200 rounded-[2px] px-3 py-1 bg-white">
                                         <span className="block text-sm font-semibold text-gray-300 italic text-right">
                                             0 F CFA
@@ -661,7 +661,7 @@ const POS = () => {
                                     </div>
                                 </div>
                                 <div className="flex flex-col flex-1 mt-0.5">
-                                    <span className="text-xs font-black text-[#005f5f] capitalize tracking-wider mb-1 block">Net à Payer</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-[#005f5f] mb-1 block">Net à Payer</span>
                                     <div className="w-full flex-1 border-2 border-[#018f8f] rounded-[2px] px-3 py-1 bg-white shadow-sm flex items-center justify-center min-h-[40px]">
                                         <span className="block text-2xl font-semibold text-[#018f8f] tracking-tighter text-center">
                                             {formatPrice(cartTotal)}
@@ -672,8 +672,8 @@ const POS = () => {
                         </fieldset>
 
                         {/* Colonne 4 : Actions (Fieldset) */}
-                        <fieldset className="border-[3px] border-[#014d54]/40 bg-[#e4eaf0] rounded-[2px] p-2 pt-0.5">
-                            <legend className="text-[16px] font-black text-[#018f8f] capitalize tracking-wide px-2 ml-1 bg-[#e4eaf0] border-[3px] border-[#018f8f]/30 rounded-sm">Actions de Caisse</legend>
+                        <fieldset className="border-[3px] border-gray-200 bg-[#e3e9ef] rounded-[2px] p-2 pt-0.5">
+                            <legend className="text-[16px] font-bold uppercase tracking-wider text-[#018f8f] px-2 ml-1 bg-[#e3e9ef] border-[3px] border-[#018f8f]/30 rounded-sm">Actions de Caisse</legend>
                             <div className="flex flex-col gap-2 mt-1 h-full justify-center px-1">
                                 <button
                                     onClick={() => handleCheckout(paymentMethod)}

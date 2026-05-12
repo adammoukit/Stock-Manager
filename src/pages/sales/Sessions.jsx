@@ -124,7 +124,7 @@ const Sessions = () => {
                     {/* État de la caisse */}
                     {activeSession ? (
                         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-sm px-3 py-2 shadow-sm">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
                             <div>
                                 <p className="text-emerald-700 font-bold text-[11px] uppercase tracking-wider">Caisse Ouverte</p>
                                 <p className="text-emerald-600 text-[10px] font-medium">{activeSession.cashierName} &bull; depuis {format(new Date(activeSession.startTime), 'HH:mm', { locale: fr })}</p>
@@ -132,7 +132,7 @@ const Sessions = () => {
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-sm px-3 py-2 shadow-sm">
-                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                            <span className="w-3 h-3 rounded-full bg-red-500"></span>
                             <p className="text-red-700 font-bold text-[11px] uppercase tracking-wider">Caisse Fermée</p>
                         </div>
                     )}
@@ -188,7 +188,7 @@ const Sessions = () => {
                                     <div>
                                         <h2 className="text-white font-black uppercase tracking-[0.1em] text-sm">Clôturer la Caisse</h2>
                                         <p className="text-blue-200 text-[10px] uppercase tracking-wider flex items-center gap-1 mt-1">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
                                             Session Active
                                         </p>
                                     </div>

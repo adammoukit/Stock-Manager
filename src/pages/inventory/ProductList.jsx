@@ -648,8 +648,8 @@ const ProductList = () => {
             <div className="bg-white rounded-sm border-2 border-gray-300 shadow-sm overflow-hidden flex flex-col h-[600px]">
                 <div className="overflow-y-auto flex-1">
                     <table className="w-full text-left text-sm relative">
-                        <thead style={{ backgroundColor: '#018f8f' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
-                            <tr className="divide-x-2 divide-teal-700/40">
+                        <thead style={{ backgroundColor: '#365ac9' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
+                            <tr className="divide-x-2 divide-[#224099]/40">
                                 <th style={{ width: `${colWidths.checkbox}px`, minWidth: `${colWidths.checkbox}px` }} className="px-1 py-1.5 border-r-2 border-[#e6e6e6]/40 text-center">
                                     <input
                                         type="checkbox"
