@@ -250,7 +250,7 @@ export const SalesProvider = ({ children }) => {
     };
 
     const addQuoteWithItems = (customerName, items) => {
-        const total = items.reduce((sum, item) => sum + (getItemPrice(item) * item.inputQuantity), 0);
+        const total = items.reduce((sum, item) => sum + (getItemPrice(item) * (item.quantity || item.inputQuantity || 1)), 0);
         const quote = {
             id: Date.now(),
             storeId: currentStoreId,

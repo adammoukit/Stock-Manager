@@ -248,7 +248,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="rounded-sm border-2 border-gray-300 shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" style={{ backgroundColor: '#e8eef4' }}>
+            <div className="rounded-sm border-2 border-gray-300 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" style={{ backgroundColor: '#e8eef4' }}>
                 <div className="flex justify-between items-center p-6 border-b-2 border-gray-300 flex-shrink-0" style={{ backgroundColor: '#e6ecf2' }}>
                     <div className="flex items-center gap-3">
                         <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tight">
