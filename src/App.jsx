@@ -16,6 +16,8 @@ import { PurchaseProvider } from './context/PurchaseContext';
 
 import DebtBook from './pages/sales/DebtBook';
 import Deliveries from './pages/sales/Deliveries';
+import Clients from './pages/crm/Clients';
+import { ClientProvider } from './context/ClientContext';
 
 import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -74,6 +76,7 @@ const AppRoutes = () => {
         <Route path="expenses" element={<Expenses />} />
         <Route path="debtbook" element={<DebtBook />} />
         <Route path="deliveries" element={<Deliveries />} />
+        <Route path="clients" element={<Clients />} />
         <Route path="settings/company" element={<CompanyProfile />} />
         <Route path="settings/users" element={<UsersManagement />} />
         <Route path="settings/roles" element={<RolesPermissions />} />
@@ -91,6 +94,7 @@ function App() {
         <SettingsProvider>
           <SessionProvider>
             <InventoryProvider>
+              <ClientProvider>
               <SalesProvider>
                 <PurchaseProvider>
                   <Toaster 
@@ -118,6 +122,7 @@ function App() {
                   <AppRoutes />
                 </PurchaseProvider>
               </SalesProvider>
+              </ClientProvider>
             </InventoryProvider>
           </SessionProvider>
         </SettingsProvider>

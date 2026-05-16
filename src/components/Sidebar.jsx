@@ -34,7 +34,7 @@ const Sidebar = () => {
         'Vente & Caisse': location.pathname.includes('/pos') || location.pathname.includes('/quotes'),
         'Stock & Magasin': true,   // Toujours ouvert par défaut
         'Achats & Dépenses': location.pathname.includes('/replenishment') || location.pathname.includes('/suppliers') || location.pathname.includes('/expenses'),
-        'Clients & Créances': location.pathname.includes('/debtbook'),
+        'Clients & Créances': location.pathname.includes('/debtbook') || location.pathname.includes('/clients') || location.pathname.includes('/deliveries'),
         'Configuration': location.pathname.includes('/settings')
     });
 
@@ -58,6 +58,7 @@ const Sidebar = () => {
         {
             icon: 'users-alt', label: 'Clients & Créances',
             subItems: [
+                { label: 'Répertoire Clients', path: '/clients' },
                 { label: 'Carnet de Crédit', path: '/debtbook' },
                 { label: 'Bons de Livraison', path: '/deliveries' }
             ]
