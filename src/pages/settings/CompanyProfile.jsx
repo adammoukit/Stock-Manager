@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { Save, Store, CreditCard, Building2, Phone, Mail, FileText, CheckCircle2, MapPin, ChevronRight } from 'lucide-react';
-import toast from 'react-hot-toast';
+import T from '../../utils/toast';
 
 const CompanyProfile = () => {
     const { company, setCompany, subscription, stores, setStores, currentStoreId } = useSettings();
@@ -23,7 +23,7 @@ const CompanyProfile = () => {
         if (file) {
             // Optional basic size validation (e.g. max 2MB)
             if (file.size > 2 * 1024 * 1024) {
-                toast.error("L'image est trop volumineuse (max 2MB)");
+                T.warning("L'image est trop volumineuse (max 2MB)");
                 return;
             }
             const reader = new FileReader();
@@ -39,25 +39,26 @@ const CompanyProfile = () => {
         setTimeout(() => {
             // Mettre à jour les infos générales de l'entreprise
             setCompany(formData);
+            localStorage.setItem('kabllix_company', JSON.stringify(formData));
             // Synchroniser le nom avec la boutique active dans le sélecteur du Header
             setStores(prev => prev.map(s =>
                 s.id === currentStoreId ? { ...s, name: formData.name } : s
             ));
-            toast.success("Paramètres enregistrés ! Le sélecteur de boutique a été mis à jour.");
+            T.saved("Paramètres enregistrés ! Le nom de l'entreprise a été mis à jour.");
             setIsLoading(false);
-        }, 1500);
+        }, 1000);
     };
 
     return (
         <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="sticky top-0 z-10 bg-[#e8eef4] -mt-4 -mx-4 px-4 pt-4 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-300/50 mb-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Mon Entreprise</h2>
+                    <h2 className="text-2xl font-bold text-[#001d35] tracking-tight">Mon Entreprise</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Gérez les informations de votre entreprise et vos abonnements</p>
                 </div>
                 <button 
                     onClick={handleSave}
-                    className="flex items-center gap-2 bg-[#1c398e] text-white px-4 py-2 rounded-sm hover:bg-blue-700 transition-colors shadow-md font-medium"
+                    className="flex items-center gap-2 bg-[#001d35] text-white px-4 py-2 rounded-sm hover:bg-blue-700 transition-colors shadow-md font-medium cursor-pointer"
                 >
                     <Save className="w-5 h-5" />
                     Enregistrer les modifications
@@ -72,14 +73,14 @@ const CompanyProfile = () => {
                     <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0" />
                         <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2 relative z-10">
-                            <CreditCard className="w-5 h-5 text-[#1c398e]" />
+                            <CreditCard className="w-5 h-5 text-[#001d35]" />
                             Abonnement & Licences
                         </h2>
                         
                         <div className="space-y-4 relative z-10">
                             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-sm">
                                 <span className="text-sm text-gray-600">Plan actuel</span>
-                                <span className="font-bold text-[#1c398e] bg-blue-50 px-3 py-1 rounded-full text-sm">
+                                <span className="font-bold text-[#001d35] bg-blue-50 px-3 py-1 rounded-full text-sm">
                                     {subscription.planName}
                                 </span>
                             </div>
@@ -96,11 +97,11 @@ const CompanyProfile = () => {
                                 <ul className="text-xs space-y-1.5 text-gray-600">
                                     <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500"/> 1 Boutique : 12 500 FCFA</li>
                                     <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-green-500"/> 2 Boutiques : 20 000 FCFA</li>
-                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-[#1c398e]"/> Illimité : 32 000 FCFA</li>
+                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-[#001d35]"/> Illimité : 32 000 FCFA</li>
                                 </ul>
                             </div>
 
-                            <button className="w-full mt-2 py-2 text-sm font-medium text-[#1c398e] border border-[#1c398e] rounded-sm hover:bg-blue-50 transition-colors">
+                            <button className="w-full mt-2 py-2 text-sm font-medium text-[#001d35] border border-[#001d35] rounded-sm hover:bg-blue-50 transition-colors">
                                 Gérer mon abonnement
                             </button>
                         </div>
@@ -122,23 +123,23 @@ const CompanyProfile = () => {
                                         key={store.id}
                                         className={`flex items-start gap-3 p-3 rounded-sm border transition-all ${
                                             isActive
-                                                ? 'bg-blue-50 border-[#1c398e]/30'
+                                                ? 'bg-blue-50 border-[#001d35]/30'
                                                 : 'bg-gray-50 border-gray-100 opacity-60'
                                         }`}
                                     >
                                         <div className={`mt-0.5 w-8 h-8 rounded-sm flex items-center justify-center flex-shrink-0 ${
-                                            isActive ? 'bg-[#1c398e] text-white' : 'bg-gray-200 text-gray-500'
+                                            isActive ? 'bg-[#001d35] text-white' : 'bg-gray-200 text-gray-500'
                                         }`}>
                                             <Store className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className={`text-sm font-bold truncate ${isActive ? 'text-[#1c398e]' : 'text-gray-600'}`}>
+                                            <p className={`text-sm font-bold truncate ${isActive ? 'text-[#001d35]' : 'text-gray-600'}`}>
                                                 {store.name}
                                             </p>
                                             <p className="text-xs text-gray-400 truncate mt-0.5">{store.address}</p>
                                         </div>
                                         {isActive && (
-                                            <span className="flex-shrink-0 text-[10px] font-bold bg-[#1c398e] text-white px-2 py-0.5 rounded-full">
+                                            <span className="flex-shrink-0 text-[10px] font-bold bg-[#001d35] text-white px-2 py-0.5 rounded-full">
                                                 Actif
                                             </span>
                                         )}
@@ -150,12 +151,12 @@ const CompanyProfile = () => {
 
                     {/* Carte Logo */}
                     <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm text-center">
-                        <label className="w-32 h-32 mx-auto bg-gray-100 rounded-sm border-2 border-dashed border-gray-300 flex items-center justify-center mb-4 overflow-hidden relative group cursor-pointer hover:border-[#1c398e] transition-colors">
+                        <label className="w-32 h-32 mx-auto bg-gray-100 rounded-sm border-2 border-dashed border-gray-300 flex items-center justify-center mb-4 overflow-hidden relative group cursor-pointer hover:border-[#001d35] transition-colors">
                             <input type="file" accept="image/png, image/jpeg" className="hidden" onChange={handleLogoUpload} />
                             {formData.logo ? (
                                 <img src={formData.logo} alt="Logo" className="w-full h-full object-contain bg-white" />
                             ) : (
-                                <div className="text-gray-400 flex flex-col items-center group-hover:text-[#1c398e] transition-colors">
+                                <div className="text-gray-400 flex flex-col items-center group-hover:text-[#001d35] transition-colors">
                                     <Store className="w-8 h-8 mb-2" />
                                     <span className="text-xs font-medium">Ajouter un Logo</span>
                                 </div>
@@ -177,7 +178,7 @@ const CompanyProfile = () => {
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm">
                         <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <Building2 className="w-5 h-5 text-[#1c398e]" />
+                            <Building2 className="w-5 h-5 text-[#001d35]" />
                             Informations Légales & Contact
                         </h2>
                         
@@ -191,7 +192,7 @@ const CompanyProfile = () => {
                                     name="name"
                                     value={formData.name} 
                                     onChange={handleChange}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:border-transparent outline-none transition-all"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] focus:border-transparent outline-none transition-all"
                                 />
                             </div>
                             
@@ -202,7 +203,7 @@ const CompanyProfile = () => {
                                     name="nif"
                                     value={formData.nif} 
                                     onChange={handleChange}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:border-transparent outline-none transition-all"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] focus:border-transparent outline-none transition-all"
                                 />
                             </div>
 
@@ -215,7 +216,7 @@ const CompanyProfile = () => {
                                     name="phone"
                                     value={formData.phone} 
                                     onChange={handleChange}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:border-transparent outline-none transition-all"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] focus:border-transparent outline-none transition-all"
                                 />
                             </div>
 
@@ -228,7 +229,7 @@ const CompanyProfile = () => {
                                     name="email"
                                     value={formData.email} 
                                     onChange={handleChange}
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:border-transparent outline-none transition-all"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] focus:border-transparent outline-none transition-all"
                                 />
                             </div>
 
@@ -239,7 +240,7 @@ const CompanyProfile = () => {
                                     value={formData.address} 
                                     onChange={handleChange}
                                     rows="2"
-                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:border-transparent outline-none transition-all resize-none"
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] focus:border-transparent outline-none transition-all resize-none"
                                 />
                             </div>
                         </div>
@@ -247,7 +248,7 @@ const CompanyProfile = () => {
 
                     <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm">
                         <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-[#1c398e]" />
+                            <FileText className="w-5 h-5 text-[#001d35]" />
                             Paramètres d'Impression (Tickets & Factures)
                         </h2>
                         
@@ -260,7 +261,7 @@ const CompanyProfile = () => {
                                     onChange={handleChange}
                                     rows="3"
                                     placeholder="Merci de votre visite !"
-                                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] focus:border-transparent outline-none transition-all resize-none text-sm"
+                                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] focus:border-transparent outline-none transition-all resize-none text-sm"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Ce texte sera imprimé automatiquement en bas de tous vos tickets de caisse et devis.</p>
                             </div>
@@ -271,10 +272,13 @@ const CompanyProfile = () => {
 
             {/* Full-screen Loader */}
             {isLoading && (
-                <div className="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-                    <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-sm shadow-xl">
-                        <div className="w-12 h-12 border-4 border-[#1c398e]/20 border-t-[#1c398e] rounded-full animate-spin"></div>
-                        <p className="text-gray-700 font-medium animate-pulse">Enregistrement en cours...</p>
+                <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-150">
+                    <div className="flex flex-col items-center gap-5 bg-white px-10 py-8 rounded-sm shadow-2xl border border-gray-100">
+                        <div className="w-14 h-14 border-4 border-[#001d35]/20 border-t-[#001d35] rounded-full animate-spin"></div>
+                        <div className="text-center">
+                            <p className="text-gray-900 font-bold text-base">Enregistrement en cours...</p>
+                            <p className="text-gray-500 text-sm mt-1">Mise à jour des paramètres de l'entreprise</p>
+                        </div>
                     </div>
                 </div>
             )}

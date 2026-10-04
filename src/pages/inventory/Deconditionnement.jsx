@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { Package, Plus, Search, Edit2, Trash2, X, Save, AlertCircle } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import T from '../../utils/toast';
 
 const Deconditionnement = () => {
     const { deconditionModels, addDeconditionModel, updateDeconditionModel, deleteDeconditionModel } = useInventory();
@@ -44,25 +44,25 @@ const Deconditionnement = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
         
-        if (!formData.name.trim()) return toast.error('Veuillez donner un nom au modèle');
+        if (!formData.name.trim()) return T.warning('Veuillez donner un nom au modèle');
 
         if (editingId) {
             updateDeconditionModel(editingId, formData);
-            toast.success('Modèle mis à jour');
+            T.saved('Modèle mis à jour');
         } else {
             addDeconditionModel(formData);
-            toast.success('Modèle Créé');
+            T.success('Modèle créé');
         }
         closeModal();
     };
 
     const handleDelete = (id, isStandard) => {
         if (isStandard) {
-            return toast.error('Les modèles standards ne peuvent pas être supprimés');
+            return T.error('Les modèles standards ne peuvent pas être supprimés');
         }
         if (window.confirm('Voulez-vous vraiment supprimer ce modèle ? Les produits l\'utilisant pourraient être affectés.')) {
             deleteDeconditionModel(id);
-            toast.success('Modèle supprimé');
+            T.deleted('Modèle supprimé');
         }
     };
 
@@ -70,7 +70,7 @@ const Deconditionnement = () => {
         <div className="p-8 pb-32">
             <div className="flex justify-between items-start mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-[#1c398e] flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-[#001d35] flex items-center gap-3">
                         <Package className="w-8 h-8 text-primary-600" />
                         Modèles de Déconditionnement
                     </h1>

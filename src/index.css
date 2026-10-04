@@ -1,9 +1,23 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+@theme {
+  --color-primary-50: #e6edf2;
+  --color-primary-100: #c5d5e2;
+  --color-primary-200: #92b3cc;
+  --color-primary-300: #5f91b6;
+  --color-primary-400: #2c6fa0;
+  --color-primary-500: #004a7a;
+  --color-primary-600: #001d35;
+  --color-primary-700: #00172b;
+  --color-primary-800: #00101e;
+  --color-primary-900: #00080f;
+}
+
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 }
 
@@ -31,5 +45,22 @@
 
   .animate-spin-reverse {
     animation: spin-reverse 1s linear infinite;
+  }
+
+  /* Scrollbar ERP carré (sans border-radius) */
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 0px !important;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 0px !important;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
   }
 }

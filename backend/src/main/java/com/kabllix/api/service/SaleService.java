@@ -140,6 +140,7 @@ public class SaleService {
             itemDto.setSaleType(item.getSaleType());
             itemDto.setUnitPrice(item.getUnitPrice());
             itemDto.setTotalPrice(item.getTotalPrice());
+            itemDto.setBaseStockDeduction(item.getBaseStockDeduction());
             return itemDto;
         }).toList();
         
@@ -149,24 +150,52 @@ public class SaleService {
 
     /**
      * Calcule la quantité exacte à déduire de l'unité de base (baseUnit) du produit.
-     * Logique de conditionnement extrêmement minutieuse.
+     * Logique de conditionnement extrêmement minutieuse et millimétrée.
      */
     private BigDecimal calculateBaseDeduction(Product product, SaleItemDTO itemDto) {
-        BigDecimal inputQty = itemDto.getQuantity();
+        BigDecimal inputQty = itemDto.getQuantity() != null ? itemDto.getQuantity() : BigDecimal.ONE;
+        BigDecimal cf = (product.getConversionFactor() != null && product.getConversionFactor().compareTo(BigDecimal.ZERO) > 0)
+                ? product.getConversionFactor()
+                : BigDecimal.ONE;
         
         if ("packaging".equals(itemDto.getType())) {
-            // Recherche du packaging spécifique
-            PackagingOption packaging = product.getPackagings().stream()
-                .filter(p -> p.getName().equals(itemDto.getPackagingName()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Option de packaging introuvable: " + itemDto.getPackagingName()));
+            String searchName = itemDto.getPackagingName() != null ? itemDto.getPackagingName().trim() : "";
             
-            // inputQty * deductionRatio
-            return inputQty.multiply(packaging.getDeductionRatio()).setScale(6, RoundingMode.HALF_UP);
+            // Recherche ultra-robuste : correspondance exacte insensible à la casse ou partielle
+            PackagingOption packaging = product.getPackagings().stream()
+                .filter(p -> p.getName() != null && p.getName().trim().equalsIgnoreCase(searchName))
+                .findFirst()
+                .orElseGet(() -> product.getPackagings().stream()
+                    .filter(p -> p.getName() != null && !searchName.isEmpty() &&
+                                 (p.getName().toLowerCase().contains(searchName.toLowerCase()) ||
+                                  searchName.toLowerCase().contains(p.getName().toLowerCase())))
+                    .findFirst()
+                    .orElse(null)
+                );
+            
+            BigDecimal deductionRatio;
+            if (packaging != null) {
+                // Si targetQty et cf sont disponibles, on recalcule le ratio avec 8 décimales pour une précision absolue
+                if (packaging.getTargetQty() != null && cf.compareTo(BigDecimal.ZERO) > 0) {
+                    deductionRatio = packaging.getTargetQty().divide(cf, 8, RoundingMode.HALF_UP);
+                } else if (packaging.getDeductionRatio() != null) {
+                    deductionRatio = packaging.getDeductionRatio();
+                } else {
+                    deductionRatio = BigDecimal.ONE.divide(cf, 8, RoundingMode.HALF_UP);
+                }
+            } else if (cf.compareTo(BigDecimal.ONE) > 0) {
+                // Secours sécurisé si le nom d'emballage a été altéré
+                deductionRatio = BigDecimal.ONE.divide(cf, 8, RoundingMode.HALF_UP);
+            } else {
+                deductionRatio = BigDecimal.ONE;
+            }
+            
+            return inputQty.multiply(deductionRatio).setScale(6, RoundingMode.HALF_UP);
             
         } else if ("lot".equals(itemDto.getType())) {
-            BigDecimal lotQty = new BigDecimal(product.getRetailStepQuantity());
-            BigDecimal cf = product.getConversionFactor() != null ? product.getConversionFactor() : BigDecimal.ONE;
+            BigDecimal lotQty = product.getRetailStepQuantity() != null 
+                ? new BigDecimal(product.getRetailStepQuantity()) 
+                : BigDecimal.TEN;
             
             boolean isContainer = ("BOX".equals(product.getUnitArchetype().name()) || "BULK".equals(product.getUnitArchetype().name())) 
                                   && cf.compareTo(BigDecimal.ONE) > 0;
@@ -174,14 +203,27 @@ public class SaleService {
             BigDecimal baseDeductionPerLot;
             if (isContainer) {
                 // fraction du conteneur = lotQty / cf
-                baseDeductionPerLot = lotQty.divide(cf, 6, RoundingMode.HALF_UP);
+                baseDeductionPerLot = lotQty.divide(cf, 8, RoundingMode.HALF_UP);
             } else {
                 baseDeductionPerLot = lotQty;
             }
             return inputQty.multiply(baseDeductionPerLot).setScale(6, RoundingMode.HALF_UP);
             
+        } else if ("piece".equals(itemDto.getType())) {
+            boolean isContainer = ("BOX".equals(product.getUnitArchetype().name()) || "BULK".equals(product.getUnitArchetype().name())) 
+                                  && cf.compareTo(BigDecimal.ONE) > 0;
+                                  
+            BigDecimal baseDeductionPerPiece;
+            if (isContainer) {
+                // 1 pièce = 1 / cf (fraction du conteneur/boîte)
+                baseDeductionPerPiece = BigDecimal.ONE.divide(cf, 8, RoundingMode.HALF_UP);
+            } else {
+                baseDeductionPerPiece = BigDecimal.ONE;
+            }
+            return inputQty.multiply(baseDeductionPerPiece).setScale(6, RoundingMode.HALF_UP);
+            
         } else {
-            // type = base
+            // type = base (Vente en unité entière standard)
             return inputQty.setScale(6, RoundingMode.HALF_UP);
         }
     }

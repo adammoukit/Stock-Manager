@@ -1,6 +1,6 @@
-import React from 'react';
 import { X, Printer, FileText, PackageOpen, Receipt as ReceiptIcon } from 'lucide-react';
 import { formatPrice } from '../utils/currency';
+import { formatTransactionNumber } from '../utils/transactionFormat';
 
 const OPTIONS = [
     {
@@ -9,7 +9,7 @@ const OPTIONS = [
         label: 'Reçu Thermique',
         sublabel: 'Format 80mm',
         description: 'Ticket caisse standard pour imprimante thermique.',
-        accent: '#1c398e',
+        accent: '#001d35',
         bg: '#eff6ff',
         border: '#bfdbfe',
     },
@@ -45,8 +45,8 @@ const PrintOptionsDialog = ({ transaction, onSelect, onClose }) => {
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-sm flex items-center justify-center" style={{ backgroundColor: '#1c398e1a' }}>
-                            <Printer className="w-5 h-5" style={{ color: '#1c398e' }} />
+                        <div className="w-9 h-9 rounded-sm flex items-center justify-center" style={{ backgroundColor: '#001d351a' }}>
+                            <Printer className="w-5 h-5" style={{ color: '#001d35' }} />
                         </div>
                         <div>
                             <h2 className="text-base font-bold text-gray-900">Format d'impression</h2>
@@ -63,7 +63,7 @@ const PrintOptionsDialog = ({ transaction, onSelect, onClose }) => {
 
                 {/* Transaction summary */}
                 <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center text-xs text-gray-500">
-                    <span>Transaction <span className="font-mono font-bold text-gray-700">#{transaction?.id}</span></span>
+                    <span>Transaction <span className="font-mono font-bold text-gray-800">{formatTransactionNumber(transaction, 'REC')}</span></span>
                     <span className="font-semibold text-gray-700">
                         {formatPrice(transaction?.total)}
                     </span>

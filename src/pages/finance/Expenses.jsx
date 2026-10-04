@@ -1,7 +1,9 @@
 import React from 'react';
 import { useSales } from '../../context/SalesContext';
-import { DollarSign, Plus, Trash2, TrendingDown } from 'lucide-react';
+import { DollarSign, Plus, Trash2, TrendingDown, X } from 'lucide-react';
 import { formatPrice } from '../../utils/currency';
+import FinancialInput from '../../components/FinancialInput';
+import T from '../../utils/toast';
 
 const Expenses = () => {
     const { expenses, addExpense, deleteExpense } = useSales();
@@ -18,7 +20,10 @@ const Expenses = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!formData.description || !formData.amount) return;
+        if (!formData.description || !formData.amount) {
+            T.warning("Veuillez renseigner la description et le montant.");
+            return;
+        }
 
         addExpense({
             description: formData.description,
@@ -34,6 +39,7 @@ const Expenses = () => {
             date: new Date().toISOString().split('T')[0]
         });
         setShowForm(false);
+        T.saved("Dépense enregistrée avec succès");
     };
 
     const thisMonthExpenses = expenses.filter(e => {
@@ -52,13 +58,13 @@ const Expenses = () => {
         <div className="bg-white p-5 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col justify-center min-h-[120px]">
             <div className="relative z-10">
                 <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">{title}</p>
-                <h3 className={`text-2xl font-black ${colorClass}`}>{value}</h3>
-                {subValue && <p className="text-[10px] text-gray-400 mt-1 font-medium italic">{subValue}</p>}
+                <h3 className={`text-xl sm:text-2xl font-semibold opacity-85 ${colorClass}`}>{value}</h3>
+                {subValue && <p className="text-xs text-gray-400 mt-2 font-medium">{subValue}</p>}
             </div>
             <img 
                 src={icon} 
                 alt="" 
-                className="absolute bottom-1 right-1 w-16 h-16 opacity-90 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-700 pointer-events-none"
+                className="absolute bottom-1 right-1 w-16 h-16 opacity-30 group-hover:opacity-50 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-700 pointer-events-none"
             />
         </div>
     );
@@ -67,12 +73,12 @@ const Expenses = () => {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#1c398e]">Gestion des Dépenses</h2>
+                    <h2 className="text-2xl font-bold text-[#001d35]">Gestion des Dépenses</h2>
                     <p className="text-gray-500">Enregistrez et suivez vos dépenses mensuelles</p>
                 </div>
                 <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="bg-[#1c398e] hover:bg-blue-800 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold"
+                    onClick={() => setShowForm(true)}
+                    className="bg-[#001d35] hover:bg-blue-800 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold cursor-pointer"
                 >
                     <Plus className="w-5 h-5" />
                     Nouvelle Dépense
@@ -99,141 +105,170 @@ const Expenses = () => {
                     value={categories.length}
                     subValue="Types de frais"
                     icon="/icons8/fluency_240_tags.png"
-                    colorClass="text-[#1c398e]"
+                    colorClass="text-[#001d35]"
                 />
             </div>
 
-            {/* Add Expense Form */}
+            {/* Modal Nouvelle Dépense */}
             {showForm && (
-                <div className="bg-white rounded-sm border-2 border-gray-300 shadow-lg p-6 animate-in slide-in-from-top-4 duration-300">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-gray-100">
-                        <img src="/icons8/fluency_96_plus.png" alt="" className="w-8 h-8" />
-                        <h3 className="text-xl font-black text-gray-900 uppercase">Nouvelle Dépense</h3>
-                    </div>
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div 
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setShowForm(false)}
+                >
+                    <div 
+                        className="bg-white rounded-sm shadow-2xl border-t-4 border-[#001d35] w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header Modal */}
+                        <div className="p-5 border-b border-gray-200 flex justify-between items-start bg-white flex-shrink-0">
                             <div>
-                                <label className="flex items-center gap-3 text-sm font-extrabold text-gray-800 mb-2 uppercase">
-                                    <img src="/icons8/color_96_align-left.png" alt="" className="w-7 h-7" />
-                                    Désignation / Motif
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-medium"
-                                    placeholder="Ex: Facture d'électricité Mai"
-                                    required
-                                />
+                                <h3 className="text-sm sm:text-base font-bold text-[#001d35] uppercase tracking-wide">
+                                    Nouvelle Dépense
+                                </h3>
+                                <p className="text-gray-500 text-xs mt-0.5 font-normal">
+                                    Enregistrez une sortie ou charge d'exploitation
+                                </p>
                             </div>
-                            <div>
-                                <label className="flex items-center gap-3 text-sm font-extrabold text-gray-800 mb-2 uppercase">
-                                    <img src="/icons8/color_96_money-bag.png" alt="" className="w-7 h-7" />
-                                    Montant (FCFA)
-                                </label>
-                                <input
-                                    type="number"
-                                    value={formData.amount}
-                                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-black text-lg"
-                                    placeholder="0"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="flex items-center gap-3 text-sm font-extrabold text-gray-800 mb-2 uppercase">
-                                    <img src="/icons8/color_96_tag.png" alt="" className="w-7 h-7" />
-                                    Catégorie
-                                </label>
-                                <select
-                                    value={formData.category}
-                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-bold"
-                                >
-                                    {categories.map(cat => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="flex items-center gap-3 text-sm font-extrabold text-gray-800 mb-2 uppercase">
-                                    <img src="/icons8/color_96_calendar.png" alt="" className="w-7 h-7" />
-                                    Date de l'opération
-                                </label>
-                                <input
-                                    type="date"
-                                    value={formData.date}
-                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e]/50 bg-white font-bold"
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <div className="flex gap-4 pt-4">
-                            <button
-                                type="submit"
-                                className="bg-[#1c398e] hover:bg-blue-800 text-white px-8 py-3 rounded-sm font-black uppercase tracking-wider shadow-md active:scale-95 transition-all"
-                            >
-                                Enregistrer la dépense
-                            </button>
                             <button
                                 type="button"
                                 onClick={() => setShowForm(false)}
-                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-3 rounded-sm font-black uppercase tracking-wider transition-all"
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors cursor-pointer"
+                                title="Fermer"
                             >
-                                Annuler
+                                <X className="w-4 h-4" />
                             </button>
                         </div>
-                    </form>
+
+                        {/* Formulaire */}
+                        <form onSubmit={handleSubmit}>
+                            <div className="p-5 space-y-4">
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                                        Désignation / Motif
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full px-3 py-2.5 bg-gray-50/50 border border-gray-300 rounded-sm focus:outline-none focus:border-[#001d35] focus:bg-white text-xs font-medium text-gray-800"
+                                        placeholder="Ex: Facture électricité, Achat fournitures, Carburant..."
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                                            Montant (FCFA)
+                                        </label>
+                                        <FinancialInput
+                                            value={formData.amount}
+                                            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50/50 border border-gray-300 rounded-sm focus:outline-none focus:border-[#001d35] focus:bg-white text-sm font-bold text-[#001d35]"
+                                            placeholder="0"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                                            Catégorie
+                                        </label>
+                                        <select
+                                            value={formData.category}
+                                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50/50 border border-gray-300 rounded-sm focus:outline-none focus:border-[#001d35] focus:bg-white text-xs font-medium text-gray-800"
+                                        >
+                                            {categories.map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                                        Date de l'opération
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={formData.date}
+                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                        className="w-full px-3 py-2.5 bg-gray-50/50 border border-gray-300 rounded-sm focus:outline-none focus:border-[#001d35] focus:bg-white text-xs font-medium text-gray-800"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Footer Modal Actions */}
+                            <div className="p-4 bg-white border-t border-gray-200 flex justify-end gap-3 flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForm(false)}
+                                    className="px-5 py-2.5 border-2 border-gray-200 text-gray-700 font-bold uppercase tracking-wider text-xs hover:bg-gray-50 rounded-sm cursor-pointer transition-colors text-center"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-5 py-2.5 bg-[#001d35] hover:bg-[#002d52] text-white font-bold uppercase tracking-wider text-xs rounded-sm cursor-pointer transition-colors shadow-sm text-center"
+                                >
+                                    Enregistrer la dépense
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
 
             {/* Expenses List */}
             <div className="bg-white rounded-sm border-2 border-gray-300 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-separate border-spacing-0">
-                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
-                            <tr className="divide-x-2 divide-blue-800/40">
-                                <th className="px-6 py-4">Date</th>
-                                <th className="px-6 py-4">Désignation / Motif</th>
-                                <th className="px-6 py-4">Catégorie</th>
-                                <th className="px-6 py-4 text-right">Montant</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                    <table className="w-full text-left text-sm relative">
+                        <thead style={{ backgroundColor: '#001d35' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
+                            <tr className="divide-x-2 divide-white/20">
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40">Date</th>
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40">Désignation / Motif</th>
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40">Catégorie</th>
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40 text-right">Montant</th>
+                                <th className="px-4 py-2 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y-2 divide-gray-200">
+                        <tbody className="divide-y-2 divide-[#e6e6e6]">
                             {expenses.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-12 text-center text-gray-400 font-medium italic">
+                                    <td colSpan="5" className="px-4 py-8 text-center text-gray-500 font-semibold text-[14px] text-[#001d35]">
                                         Aucune dépense enregistrée pour le moment.
                                     </td>
                                 </tr>
                             ) : (
                                 [...expenses].reverse().map((expense) => (
-                                    <tr key={expense.id} className="hover:bg-gray-50 transition-colors group divide-x-2 divide-gray-200">
-                                        <td className="px-6 py-3 text-gray-600 font-bold text-xs uppercase">
+                                    <tr key={expense.id} className="divide-x-2 divide-[#e6e6e6] transition-colors odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40">
+                                        <td className="px-4 py-2 text-[#001d35] font-semibold text-[13px] uppercase">
                                             {new Date(expense.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </td>
-                                        <td className="px-6 py-3 font-extrabold text-gray-900 group-hover:text-[#1c398e] transition-colors">{expense.description.toUpperCase()}</td>
-                                        <td className="px-6 py-3">
-                                            <span className="bg-blue-50 text-[#1c398e] px-3 py-1 rounded-sm text-[10px] font-black border border-blue-100 uppercase">
+                                        <td className="px-4 py-2 font-bold text-[#001d35] text-[14px] truncate">{expense.description.toUpperCase()}</td>
+                                        <td className="px-4 py-2">
+                                            <span className="bg-[#001d35]/10 text-[#001d35] px-2.5 py-0.5 rounded-sm text-xs font-semibold border border-[#001d35]/20 uppercase">
                                                 {expense.category}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-3 font-black text-red-600 text-right bg-red-50/30">
+                                        <td className="px-4 py-2 font-bold text-red-600 text-right text-[14px]">
                                             {formatPrice(expense.amount)}
                                         </td>
-                                        <td className="px-6 py-3 text-right">
+                                        <td className="px-4 py-2 text-right">
                                             <button
                                                 onClick={() => {
                                                     if (window.confirm('Supprimer cette dépense ?')) {
                                                         deleteExpense(expense.id);
+                                                        T.deleted("Dépense supprimée");
                                                     }
                                                 }}
-                                                className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-all active:scale-90"
+                                                className="p-1 text-gray-400 cursor-pointer hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                                                 title="Supprimer"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Trash2 className="w-5 h-5" />
                                             </button>
                                         </td>
                                     </tr>

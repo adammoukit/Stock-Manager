@@ -12,12 +12,15 @@ import Quotes from './pages/sales/Quotes';
 import Expenses from './pages/finance/Expenses';
 import Replenishment from './pages/inventory/Replenishment';
 import Movements from './pages/inventory/Movements';
+import Categories from './pages/inventory/Categories';
+import InventoryCheck from './pages/inventory/InventoryCheck';
 import { PurchaseProvider } from './context/PurchaseContext';
 
 import DebtBook from './pages/sales/DebtBook';
 import Deliveries from './pages/sales/Deliveries';
 import Clients from './pages/crm/Clients';
 import { ClientProvider } from './context/ClientContext';
+import { DeliveryProvider } from './context/DeliveryContext';
 
 import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -28,7 +31,12 @@ import UsersManagement from './pages/settings/UsersManagement';
 import RolesPermissions from './pages/settings/RolesPermissions';
 import Suppliers from './pages/finance/Suppliers';
 import Sessions from './pages/sales/Sessions';
+import SalesPerformance from './pages/sales/SalesPerformance';
+import Returns from './pages/sales/Returns';
 import { SessionProvider } from './context/SessionContext';
+import { InvoiceProvider } from './context/InvoiceContext';
+import Invoices from './pages/finance/Invoices';
+import PurchaseOrders from './pages/finance/PurchaseOrders';
 
 // Composant "Barrage" pour protéger les routes
 const ProtectedRoute = ({ children }) => {
@@ -38,7 +46,17 @@ const ProtectedRoute = ({ children }) => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#e8eef4]">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#1c398e] border-t-transparent"></div>
+        <div className="flex flex-col items-center gap-5 bg-white px-10 py-8 rounded-sm shadow-2xl border border-gray-100 animate-in fade-in duration-150">
+          <div className="w-14 h-14 border-4 border-[#001d35]/20 border-t-[#001d35] rounded-full animate-spin"></div>
+          <div className="text-center">
+            <p className="text-gray-900 font-bold text-base">
+              Chargement de l'application...
+            </p>
+            <p className="text-gray-500 text-sm mt-1">
+              Vérification de la session en cours
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -67,8 +85,13 @@ const AppRoutes = () => {
         <Route index element={<Dashboard />} />
         <Route path="pos" element={<POS />} />
         <Route path="sessions" element={<Sessions />} />
+        <Route path="sales/analytics" element={<SalesPerformance />} />
+        <Route path="sales/returns" element={<Returns />} />
+        <Route path="returns" element={<Returns />} />
         <Route path="inventory" element={<ProductList />} />
+        <Route path="inventory/categories" element={<Categories />} />
         <Route path="inventory/movements" element={<Movements />} />
+        <Route path="inventory/check" element={<InventoryCheck />} />
         <Route path="suppliers" element={<Suppliers />} />
         <Route path="replenishment" element={<Replenishment />} />
         <Route path="reports" element={<Reports />} />
@@ -80,6 +103,8 @@ const AppRoutes = () => {
         <Route path="settings/company" element={<CompanyProfile />} />
         <Route path="settings/users" element={<UsersManagement />} />
         <Route path="settings/roles" element={<RolesPermissions />} />
+        <Route path="invoices" element={<Invoices />} />
+        <Route path="purchase-orders" element={<PurchaseOrders />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
@@ -96,31 +121,17 @@ function App() {
             <InventoryProvider>
               <ClientProvider>
               <SalesProvider>
-                <PurchaseProvider>
-                  <Toaster 
-                    position="top-right"
-                    toastOptions={{
-                      duration: 3000,
-                      style: {
-                        background: '#ffffff',
-                        color: '#1f2937',
-                        padding: '12px 16px',
-                        borderRadius: '12px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                        border: '1px solid #f3f4f6',
-                      },
-                      success: {
-                        iconTheme: {
-                          primary: '#22c55e',
-                          secondary: '#fff',
-                        },
-                      },
-                    }}
-                  />
-                  <AppRoutes />
-                </PurchaseProvider>
+                <DeliveryProvider>
+                  <PurchaseProvider>
+                    <InvoiceProvider>
+                    <Toaster
+                      position="top-right"
+                      toastOptions={{ duration: 3000 }}
+                    />
+                    <AppRoutes />
+                    </InvoiceProvider>
+                  </PurchaseProvider>
+                </DeliveryProvider>
               </SalesProvider>
               </ClientProvider>
             </InventoryProvider>

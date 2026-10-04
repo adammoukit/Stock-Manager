@@ -5,16 +5,33 @@ const SettingsContext = createContext();
 export const useSettings = () => useContext(SettingsContext);
 
 export const SettingsProvider = ({ children }) => {
-    // 1. Informations de l'entreprise
-    const [company, setCompany] = useState({
-        name: 'Quincaillerie La Prospérité',
-        nif: '000123456789',
-        phone: '+225 01 02 03 04 05',
-        email: 'contact@prosperite-quincaillerie.com',
-        address: 'Boulevard de la République, Abidjan',
-        receiptMessage: 'Les marchandises vendues ne sont ni reprises ni échangées. Merci de votre visite !',
-        logo: null
+    // 1. Informations de l'entreprise (persistées dans le localStorage)
+    const [company, setCompany] = useState(() => {
+        const saved = localStorage.getItem('kabllix_company');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                console.error("Erreur lecture kabllix_company", e);
+            }
+        }
+        return {
+            name: 'Mon Entreprise',
+            nif: '000123456789',
+            phone: '+225 01 02 03 04 05',
+            email: 'contact@entreprise.com',
+            address: 'Abidjan, Côte d\'Ivoire',
+            receiptMessage: 'Les marchandises vendues ne sont ni reprises ni échangées. Merci de votre visite !',
+            logo: null
+        };
     });
+
+    // Synchronisation automatique de company dans localStorage
+    React.useEffect(() => {
+        if (company) {
+            localStorage.setItem('kabllix_company', JSON.stringify(company));
+        }
+    }, [company]);
 
     // 2. Gestion de l'abonnement et des boutiques
     const [subscription, setSubscription] = useState({
@@ -41,12 +58,33 @@ export const SettingsProvider = ({ children }) => {
             if (response.ok) {
                 const data = await response.json();
                 setStores(data);
+
                 // Si aucune boutique n'est sélectionnée ou si la boutique actuelle n'est pas dans la liste
+                let selectedId = currentStoreId;
                 if (!currentStoreId || !data.find(s => s.id === currentStoreId)) {
                     if (data.length > 0) {
+                        selectedId = data[0].id;
                         setCurrentStoreId(data[0].id);
                         localStorage.setItem('kabllix_currentStoreId', data[0].id);
                     }
+                }
+
+                // Si l'entreprise n'a pas encore de nom personnalisé ou a un nom par défaut, adopter le nom de la boutique
+                const active = data.find(s => s.id === selectedId) || data[0];
+                if (active?.name) {
+                    setCompany(prev => {
+                        if (!prev.name || prev.name === 'Mon Entreprise' || prev.name === 'Quincaillerie La Prospérité') {
+                            const updated = {
+                                ...prev,
+                                name: active.name,
+                                address: active.address || prev.address,
+                                phone: active.phone || prev.phone
+                            };
+                            localStorage.setItem('kabllix_company', JSON.stringify(updated));
+                            return updated;
+                        }
+                        return prev;
+                    });
                 }
             }
         } catch (error) {

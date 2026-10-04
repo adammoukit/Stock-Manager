@@ -2,6 +2,7 @@ package com.kabllix.api.config;
 
 import com.kabllix.api.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -27,6 +28,11 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
 
+    // En dev : http://localhost:5173
+    // En prod : https://votredomaine.com (défini dans ALLOWED_ORIGINS)
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173}")
+    private String[] allowedOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -39,6 +45,13 @@ public class SecurityConfig {
                                                                                                          // OPTIONS
                                                                                                          // (CORS)
                         .requestMatchers("/api/auth/**").permitAll() // Seules les routes de connexion sont ouvertes
+                        // Documentation Swagger / OpenAPI
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
                         .anyRequest().authenticated() // Tout le reste est bloqué !
                 )
                 .sessionManagement(session -> session
@@ -53,9 +66,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Autorise les origines frontend courantes
-        configuration.setAllowedOrigins(
-                Arrays.asList("http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"));
+        // Origines autorisées — injectées depuis ALLOWED_ORIGINS (variable d'environnement)
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(
                 Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));

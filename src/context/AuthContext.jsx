@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import toast from 'react-hot-toast';
+import T from '../utils/toast';
 
 const AuthContext = createContext();
 
@@ -11,7 +11,7 @@ export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    const API_URL = 'http://localhost:8080/api/auth';
+    const API_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/auth`;
 
     // Fonction de logout réutilisable (définie avant le useEffect)
     const logout = useCallback((showToast = true) => {
@@ -20,11 +20,13 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
         localStorage.removeItem('kabllix_token');
         localStorage.removeItem('kabllix_user');
+        localStorage.removeItem('kabllix_currentStoreId');
+        localStorage.removeItem('kabllix_company');
         sessionStorage.removeItem('kabllix_token');
         sessionStorage.removeItem('kabllix_user');
         
         if (showToast) {
-            toast.success("Votre session a expiré. Redirection...");
+            T.warning("Votre session a expiré. Redirection...");
         }
 
         // Force le rechargement pour vider tous les contextes et rediriger vers /login
@@ -77,7 +79,7 @@ export const AuthProvider = ({ children }) => {
         const handleUnauthorized = () => {
             if (window.location.pathname !== '/login') {
                 console.warn("AuthContext: événement 'auth:unauthorized' reçu → déconnexion.");
-                toast.error("Votre session a expiré. Veuillez vous reconnecter.");
+                T.error("Votre session a expiré. Veuillez vous reconnecter.");
                 logout(false); // false = ne pas afficher le toast "déconnecté" en double
             }
         };
@@ -104,6 +106,7 @@ export const AuthProvider = ({ children }) => {
             const data = await response.json();
             
             const userData = {
+                id: data.id || data.userId || email,
                 firstName: data.firstName,
                 lastName: data.lastName,
                 role: data.role,
@@ -118,11 +121,11 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('kabllix_token', data.token);
             localStorage.setItem('kabllix_user', JSON.stringify(userData));
             
-            toast.success(`Bienvenue ${data.firstName} !`);
+            T.login(data.firstName);
             return true;
         } catch (error) {
             console.error("Erreur de connexion:", error);
-            toast.error(error.message || "Erreur lors de la connexion");
+            T.error(error.message || "Erreur lors de la connexion");
             return false;
         }
     };

@@ -37,6 +37,7 @@ public class ProductService {
         product.setName(dto.getName());
         product.setCategory(dto.getCategory());
         product.setSupplier(dto.getSupplier());
+        product.setBarcode(dto.getBarcode() != null && !dto.getBarcode().isBlank() ? dto.getBarcode().trim() : null);
         product.setUnitArchetype(dto.getUnitArchetype());
         product.setBaseUnit(dto.getBaseUnit());
         product.setConversionFactor(dto.getConversionFactor());
@@ -45,6 +46,14 @@ public class ProductService {
         product.setBulkUnit(dto.getBulkUnit());
         product.setBulkPrice(dto.getBulkPrice());
         product.setOwner(currentUser); // Attribution du propriétaire
+
+        // Options PIÈCE (Vente à la pièce)
+        product.setHasPiece(dto.isHasPiece());
+        if (dto.isHasPiece()) {
+            product.setPiecePrice(dto.getPiecePrice());
+        } else {
+            product.setPiecePrice(null);
+        }
 
         // Options LOT (Vente en boîte/pack)
         product.setHasLot(dto.isHasLot());
@@ -56,7 +65,9 @@ public class ProductService {
         }
 
         // CALCUL SÉCURISÉ DU PRIX DE REVIENT UNITAIRE (PRU)
-        if (dto.getBulkPurchasePrice() != null && dto.getStockReceived() != null 
+        if (dto.getPurchasePrice() != null && dto.getPurchasePrice().compareTo(BigDecimal.ZERO) >= 0) {
+            product.setPurchasePrice(dto.getPurchasePrice());
+        } else if (dto.getBulkPurchasePrice() != null && dto.getStockReceived() != null 
             && dto.getStockReceived().compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal prUnit = dto.getBulkPurchasePrice().divide(dto.getStockReceived(), 2, RoundingMode.HALF_UP);
             product.setPurchasePrice(prUnit);
@@ -64,15 +75,19 @@ public class ProductService {
             product.setPurchasePrice(BigDecimal.ZERO);
         }
 
-        // VENTE FRACTIONNÉE
+        // VENTE FRACTIONNÉE & LOTS MULTIPLES
         product.setHasSubUnit(dto.isHasSubUnit());
-        if (dto.isHasSubUnit() && dto.getPackagings() != null) {
+        if ((dto.isHasSubUnit() || dto.isHasLot()) && dto.getPackagings() != null) {
+            BigDecimal cf = (dto.getConversionFactor() != null && dto.getConversionFactor().compareTo(BigDecimal.ZERO) > 0)
+                ? dto.getConversionFactor()
+                : BigDecimal.ONE;
             for (PackagingOptionDTO pkgDto : dto.getPackagings()) {
+                if (pkgDto.getTargetQty() == null || pkgDto.getTargetQty().compareTo(BigDecimal.ZERO) <= 0) continue;
                 PackagingOption option = new PackagingOption();
-                option.setName(pkgDto.getName());
+                option.setName(pkgDto.getName() != null ? pkgDto.getName().trim() : "Option");
                 option.setTargetQty(pkgDto.getTargetQty());
-                option.setPrice(pkgDto.getPrice());
-                BigDecimal ratio = pkgDto.getTargetQty().divide(dto.getConversionFactor(), 6, RoundingMode.HALF_UP);
+                option.setPrice(pkgDto.getPrice() != null ? pkgDto.getPrice() : BigDecimal.ZERO);
+                BigDecimal ratio = pkgDto.getTargetQty().divide(cf, 8, RoundingMode.HALF_UP);
                 option.setDeductionRatio(ratio);
                 product.addPackaging(option);
             }
@@ -132,7 +147,7 @@ public class ProductService {
     }
 
     public java.util.List<Product> getAllProductsForCurrentUser() {
-        return productRepository.findByOwnerId(getCurrentUser().getId());
+        return productRepository.findByOwnerIdOrderByCreatedAtAsc(getCurrentUser().getId());
     }
 
     @Transactional
@@ -149,6 +164,7 @@ public class ProductService {
         product.setName(dto.getName());
         product.setCategory(dto.getCategory());
         product.setSupplier(dto.getSupplier());
+        product.setBarcode(dto.getBarcode() != null && !dto.getBarcode().isBlank() ? dto.getBarcode().trim() : null);
         product.setUnitArchetype(dto.getUnitArchetype());
         product.setBaseUnit(dto.getBaseUnit());
         product.setConversionFactor(dto.getConversionFactor());
@@ -156,6 +172,14 @@ public class ProductService {
         product.setBulkUnit(dto.getBulkUnit());
         product.setBulkPrice(dto.getBulkPrice());
         product.setPrice(dto.getPrice());
+
+        // Options PIÈCE
+        product.setHasPiece(dto.isHasPiece());
+        if (dto.isHasPiece()) {
+            product.setPiecePrice(dto.getPiecePrice());
+        } else {
+            product.setPiecePrice(null);
+        }
 
         product.setHasLot(dto.isHasLot());
         if (dto.isHasLot()) {
@@ -165,22 +189,26 @@ public class ProductService {
             product.setRetailStepQuantity(1);
             product.setLotPrice(null);
         }
-
-        if (dto.getBulkPurchasePrice() != null && dto.getStockReceived() != null 
-            && dto.getStockReceived().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal prUnit = dto.getBulkPurchasePrice().divide(dto.getStockReceived(), 2, RoundingMode.HALF_UP);
-            product.setPurchasePrice(prUnit);
+        // MISE À JOUR SÉCURISÉE DU PRIX DE REVIENT UNITAIRE (PRU)
+        // Règle d'or : Ne JAMAIS diviser par le stock restant lors d'une modification !
+        if (dto.getPurchasePrice() != null && dto.getPurchasePrice().compareTo(BigDecimal.ZERO) >= 0) {
+            product.setPurchasePrice(dto.getPurchasePrice());
         }
+        // Si non spécifié, le purchasePrice existant reste intact
 
         product.setHasSubUnit(dto.isHasSubUnit());
         product.getPackagings().clear();
-        if (dto.isHasSubUnit() && dto.getPackagings() != null) {
+        if ((dto.isHasSubUnit() || dto.isHasLot()) && dto.getPackagings() != null) {
+            BigDecimal cf = (dto.getConversionFactor() != null && dto.getConversionFactor().compareTo(BigDecimal.ZERO) > 0)
+                ? dto.getConversionFactor()
+                : BigDecimal.ONE;
             for (PackagingOptionDTO pkgDto : dto.getPackagings()) {
+                if (pkgDto.getTargetQty() == null || pkgDto.getTargetQty().compareTo(BigDecimal.ZERO) <= 0) continue;
                 PackagingOption option = new PackagingOption();
-                option.setName(pkgDto.getName());
+                option.setName(pkgDto.getName() != null ? pkgDto.getName().trim() : "Option");
                 option.setTargetQty(pkgDto.getTargetQty());
-                option.setPrice(pkgDto.getPrice());
-                BigDecimal ratio = pkgDto.getTargetQty().divide(dto.getConversionFactor(), 6, RoundingMode.HALF_UP);
+                option.setPrice(pkgDto.getPrice() != null ? pkgDto.getPrice() : BigDecimal.ZERO);
+                BigDecimal ratio = pkgDto.getTargetQty().divide(cf, 8, RoundingMode.HALF_UP);
                 option.setDeductionRatio(ratio);
                 product.addPackaging(option);
             }

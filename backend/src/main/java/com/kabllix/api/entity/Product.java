@@ -32,6 +32,9 @@ public class Product {
     @Column(length = 100)
     private String supplier;
 
+    @Column(length = 50)
+    private String barcode;
+
     // --- LOGIQUE DE STOCK ET D'UNITÉ ---
 
     @Enumerated(EnumType.STRING)
@@ -59,6 +62,12 @@ public class Product {
 
     @Column(nullable = false)
     private boolean hasLot;
+
+    @Column(nullable = false)
+    private boolean hasPiece;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal piecePrice; // Prix de vente à la pièce
 
     @Column(name = "retail_step_quantity", nullable = false)
     @Builder.Default

@@ -26,5 +26,61 @@ export const formatPrice = (amount) => {
 
 // Parse price from string
 export const parsePrice = (priceString) => {
-    return parseFloat(priceString.replace(/[^\d.-]/g, ''));
+    return parseFloat(String(priceString || '').replace(/[^\d.-]/g, ''));
 };
+
+/**
+ * Formate un nombre ou une chaîne avec des espaces comme séparateurs de milliers
+ * Ex: 10000 -> "10 000", 1000000 -> "1 000 000"
+ */
+export const formatFinancialNumber = (val, allowDecimals = false) => {
+    if (val === null || val === undefined || val === '') return '';
+    const str = String(val).trim();
+    if (!str) return '';
+
+    if (allowDecimals) {
+        const normalized = str.replace(',', '.');
+        const clean = normalized.replace(/[^\d.]/g, '');
+        if (!clean) return '';
+        const parts = clean.split('.');
+        let intPart = parts[0] || '0';
+        if (intPart.length > 1 && /^0\d/.test(intPart)) {
+            intPart = intPart.replace(/^0+/, '') || '0';
+        }
+        const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        if (parts.length > 1) {
+            return `${formattedInt}.${parts.slice(1).join('')}`;
+        }
+        return formattedInt;
+    } else {
+        const clean = str.replace(/\D/g, '');
+        if (!clean) return '';
+        let intPart = clean;
+        if (intPart.length > 1 && /^0\d/.test(intPart)) {
+            intPart = intPart.replace(/^0+/, '') || '0';
+        }
+        return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    }
+};
+
+/**
+ * Extrait la valeur numérique brute sans espaces pour le stockage ou les calculs
+ * Ex: "10 000" -> "10000", "1 000 000" -> "1000000"
+ */
+export const unformatFinancialNumber = (str, allowDecimals = false) => {
+    if (str === null || str === undefined || str === '') return '';
+    const s = String(str).trim();
+    if (!s) return '';
+    if (allowDecimals) {
+        const normalized = s.replace(',', '.');
+        const clean = normalized.replace(/[^\d.]/g, '');
+        const parts = clean.split('.');
+        if (parts.length > 1) {
+            return `${parts[0]}.${parts.slice(1).join('')}`;
+        }
+        return parts[0] || '';
+    } else {
+        return s.replace(/\D/g, '');
+    }
+};
+

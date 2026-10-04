@@ -17,6 +17,7 @@ public class ProductCreateDTO {
     private String name;
     private String category;
     private String supplier;
+    private String barcode;
 
     @NotNull
     private UnitArchetype unitArchetype;
@@ -38,11 +39,16 @@ public class ProductCreateDTO {
     @PositiveOrZero
     private BigDecimal bulkPurchasePrice; // Montant global de la facture fournisseur
 
+    @PositiveOrZero
+    private BigDecimal purchasePrice; // Prix d'achat unitaire direct (PRU)
+
     @NotNull
     @PositiveOrZero
     private BigDecimal price; // Prix unitaire de vente
 
     private boolean hasLot;
+    private boolean hasPiece;
+    private BigDecimal piecePrice;
     private Integer retailStepQuantity;
     private BigDecimal lotPrice;
     private String bulkUnit;

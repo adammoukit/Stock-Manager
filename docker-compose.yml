@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: kabllix_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: kabllix_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kabllix_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend Java 21 / Spring Boot
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kabllix_backend
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/kabllix_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+
+volumes:
+  postgres_data:

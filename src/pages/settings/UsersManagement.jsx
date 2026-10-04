@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { Users, Plus, Shield, MapPin, Edit2, Trash2, KeyRound, Check, X } from 'lucide-react';
-import toast from 'react-hot-toast';
+import T from '../../utils/toast';
 
 const UsersManagement = () => {
     const { users, setUsers, roles, stores } = useSettings();
@@ -43,13 +43,13 @@ const UsersManagement = () => {
         
         // Validation PIN
         if (formData.pinCode && (formData.pinCode.length < 6 || formData.pinCode.length > 8)) {
-            toast.error("Le code PIN doit contenir entre 6 et 8 chiffres.");
+            T.warning("Le code PIN doit contenir entre 6 et 8 chiffres.");
             return;
         }
 
         // Add require PIN check for new user before loading
         if (!formData.id && !formData.pinCode) {
-            toast.error("Un code PIN est requis pour un nouvel utilisateur.");
+            T.warning("Un code PIN est requis pour un nouvel utilisateur.");
             return;
         }
 
@@ -59,7 +59,7 @@ const UsersManagement = () => {
             if (formData.id) {
                 // Update
                 setUsers(prev => prev.map(u => u.id === formData.id ? { ...u, ...formData, pinCode: formData.pinCode || u.pinCode } : u));
-                toast.success("Utilisateur mis à jour avec succès");
+                T.saved("Utilisateur mis à jour avec succès");
             } else {
                 // Add
                 const newUser = {
@@ -68,7 +68,7 @@ const UsersManagement = () => {
                     lastLogin: 'Jamais'
                 };
                 setUsers(prev => [...prev, newUser]);
-                toast.success("Nouvel utilisateur ajouté");
+                T.success("Nouvel utilisateur ajouté");
             }
             setIsModalOpen(false);
             setIsLoading(false);
@@ -78,7 +78,7 @@ const UsersManagement = () => {
     const handleDelete = (id) => {
         if (window.confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
             setUsers(prev => prev.filter(u => u.id !== id));
-            toast.success("Utilisateur supprimé");
+            T.deleted("Utilisateur supprimé");
         }
     };
 
@@ -90,12 +90,12 @@ const UsersManagement = () => {
         <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Utilisateurs & Équipe</h2>
+                    <h2 className="text-2xl font-bold text-[#001d35] tracking-tight">Utilisateurs & Équipe</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Gérez les accès et les mots de passe (Code PIN) de vos employés.</p>
                 </div>
                 <button 
                     onClick={() => handleOpenModal()}
-                    className="flex items-center gap-2 bg-[#1c398e] text-white px-4 py-2 rounded-sm hover:bg-blue-700 transition-colors shadow-md font-medium"
+                    className="flex items-center gap-2 bg-[#001d35] text-white px-4 py-2 rounded-sm hover:bg-blue-700 transition-colors shadow-md font-medium"
                 >
                     <Plus className="w-5 h-5" />
                     Ajouter un employé
@@ -106,8 +106,8 @@ const UsersManagement = () => {
             <div className="bg-white rounded-sm shadow-sm border-2 border-gray-300 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-600">
+                        <thead style={{ backgroundColor: '#001d35' }} className="text-white font-bold uppercase tracking-wider text-[11px]">
+                            <tr className="border-b border-[#001222]">
                                 <th className="p-4">Employé</th>
                                 <th className="p-4">Rôle</th>
                                 <th className="p-4">Boutique Assignée</th>
@@ -152,7 +152,7 @@ const UsersManagement = () => {
                                         <div className="flex justify-end gap-2">
                                             <button 
                                                 onClick={() => handleOpenModal(user)}
-                                                className="p-2 text-gray-400 hover:text-[#1c398e] hover:bg-blue-50 rounded-sm transition-colors"
+                                                className="p-2 text-gray-400 hover:text-[#001d35] hover:bg-blue-50 rounded-sm transition-colors"
                                             >
                                                 <Edit2 className="w-4 h-4" />
                                             </button>
@@ -184,7 +184,7 @@ const UsersManagement = () => {
                     <div className="bg-white rounded-sm shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                <Users className="w-5 h-5 text-[#1c398e]" />
+                                <Users className="w-5 h-5 text-[#001d35]" />
                                 {formData.id ? 'Modifier l\'employé' : 'Nouvel employé'}
                             </h2>
                             <button 
@@ -203,7 +203,7 @@ const UsersManagement = () => {
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] outline-none transition-all"
+                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] outline-none transition-all"
                                     placeholder="Ex: Kouassi Koffi"
                                 />
                             </div>
@@ -214,7 +214,7 @@ const UsersManagement = () => {
                                     <select 
                                         value={formData.roleId}
                                         onChange={(e) => setFormData({...formData, roleId: e.target.value})}
-                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] outline-none transition-all"
+                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] outline-none transition-all"
                                     >
                                         {roles.map(role => (
                                             <option key={role.id} value={role.id}>{role.name}</option>
@@ -226,7 +226,7 @@ const UsersManagement = () => {
                                     <select 
                                         value={formData.status}
                                         onChange={(e) => setFormData({...formData, status: e.target.value})}
-                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] outline-none transition-all"
+                                        className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] outline-none transition-all"
                                     >
                                         <option value="Actif">Actif</option>
                                         <option value="Inactif">Bloqué / Inactif</option>
@@ -239,7 +239,7 @@ const UsersManagement = () => {
                                 <select 
                                     value={formData.storeId}
                                     onChange={(e) => setFormData({...formData, storeId: parseInt(e.target.value)})}
-                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#1c398e] outline-none transition-all"
+                                    className="w-full p-2.5 bg-white border border-gray-200 rounded-sm focus:ring-2 focus:ring-[#001d35] outline-none transition-all"
                                 >
                                     {stores.map(store => (
                                         <option key={store.id} value={store.id}>{store.name}</option>
@@ -278,7 +278,7 @@ const UsersManagement = () => {
                                 </button>
                                 <button 
                                     type="submit"
-                                    className="flex-1 px-4 py-2 text-white bg-[#1c398e] rounded-sm hover:bg-blue-700 font-medium transition-colors flex items-center justify-center gap-2"
+                                    className="flex-1 px-4 py-2 text-white bg-[#001d35] rounded-sm hover:bg-blue-700 font-medium transition-colors flex items-center justify-center gap-2"
                                 >
                                     <Check className="w-5 h-5" />
                                     {formData.id ? 'Mettre à jour' : 'Enregistrer'}
@@ -291,10 +291,13 @@ const UsersManagement = () => {
 
             {/* Full-screen Loader */}
             {isLoading && (
-                <div className="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-                    <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-sm shadow-xl">
-                        <div className="w-12 h-12 border-4 border-[#1c398e]/20 border-t-[#1c398e] rounded-full animate-spin"></div>
-                        <p className="text-gray-700 font-medium animate-pulse">Enregistrement de l'employé...</p>
+                <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-150">
+                    <div className="flex flex-col items-center gap-5 bg-white px-10 py-8 rounded-sm shadow-2xl border border-gray-100">
+                        <div className="w-14 h-14 border-4 border-[#001d35]/20 border-t-[#001d35] rounded-full animate-spin"></div>
+                        <div className="text-center">
+                            <p className="text-gray-900 font-bold text-base">Enregistrement de l'employé...</p>
+                            <p className="text-gray-500 text-sm mt-1">Mise à jour des utilisateurs</p>
+                        </div>
                     </div>
                 </div>
             )}

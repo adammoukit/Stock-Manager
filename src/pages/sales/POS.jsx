@@ -1,17 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useInventory } from "../../context/InventoryContext";
 import { useSales } from "../../context/SalesContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useSession } from "../../context/SessionContext";
+import { useAuth } from "../../context/AuthContext";
+import { useDeliveries } from "../../context/DeliveryContext";
 import { useNavigate } from "react-router-dom";
 import {
-    ChevronDown
+    Search,
+    X,
+    RotateCcw,
+    Trash2,
+    Plus,
+    Minus,
+    ShoppingBag,
+    CreditCard,
+    Wallet,
+    Users,
+    CheckCircle2,
+    FileText,
+    Coins,
+    Lock,
+    AlertTriangle,
+    ChevronDown,
+    ShieldCheck,
+    Boxes,
+    Check
 } from "lucide-react";
 import Receipt from "../../components/Receipt";
 import PaymentModal from "../../components/PaymentModal";
-import toast from 'react-hot-toast';
+import FinancialInput from "../../components/FinancialInput";
+import T from "../../utils/toast";
 import { formatPrice } from "../../utils/currency";
-import { getUnitModel } from "../../config/unitModels";
+import { getUnitModel, computeContainerStock, formatContainerStock } from "../../config/unitModels";
 
 const ResizableHeader = ({ columnId, width, onResize, children, className, onClick }) => {
     const [isResizing, setIsResizing] = useState(false);
@@ -41,14 +62,14 @@ const ResizableHeader = ({ columnId, width, onResize, children, className, onCli
     return (
         <th
             style={{ width: `${width}px`, minWidth: `${width}px` }}
-            className={`px-2 py-2 relative group border-r-2 border-[#e6e6e6]/40 hover:bg-white/10 transition-colors select-none ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
+            className={`py-2.5 px-3 relative group border-r border-white/20 hover:bg-white/10 transition-colors select-none text-[10px] font-semibold uppercase tracking-wider text-white ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
             onClick={onClick}
         >
             <div className="flex items-center overflow-hidden whitespace-nowrap h-full">
                 {children}
             </div>
             <div
-                className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20 hover:bg-[#e6e6e6] ${isResizing ? 'bg-[#e6e6e6]' : 'bg-transparent'}`}
+                className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20 hover:bg-[#f77500]/60 ${isResizing ? 'bg-[#f77500]' : 'bg-transparent'}`}
                 onMouseDown={handleMouseDown}
                 onClick={(e) => e.stopPropagation()}
             ></div>
@@ -57,9 +78,11 @@ const ResizableHeader = ({ columnId, width, onResize, children, className, onCli
 };
 
 const POS = () => {
-    const { products, deconditionModels } = useInventory();
-    const { currentStoreId } = useSettings();
-    const { activeSession } = useSession();
+    const { products, deconditionModels, categories: categoriesList } = useInventory();
+    const { stores, currentStoreId } = useSettings();
+    const { activeSession, isOverdue } = useSession();
+    const { user } = useAuth();
+    const { createDeliveryNote } = useDeliveries();
     const navigate = useNavigate();
     const {
         cart,
@@ -70,6 +93,7 @@ const POS = () => {
         cartTotal,
         addQuote
     } = useSales();
+
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [showReceipt, setShowReceipt] = useState(false);
@@ -85,6 +109,9 @@ const POS = () => {
     const [paymentError, setPaymentError] = useState(false);
     const [amountError, setAmountError] = useState(false);
 
+    const effectiveDiscount = discount > 0 ? discount : 0;
+    const finalTotal = Math.max(0, cartTotal - effectiveDiscount);
+
     const [colWidths, setColWidths] = useState({
         name: 300,
         price: 200,
@@ -94,13 +121,32 @@ const POS = () => {
 
     const [cartColWidths, setCartColWidths] = useState({
         name: 350,
-        quantity: 150,
-        priceHT: 150,
-        tax: 100,
-        priceTTC: 150,
-        totalTTC: 150,
-        actions: 80
+        quantity: 140,
+        priceHT: 140,
+        tax: 90,
+        priceTTC: 140,
+        totalTTC: 140,
+        actions: 70
     });
+
+    // Références pour la gestion du scanner code-barres / douchette
+    const searchInputRef = useRef(null);
+    const barcodeBufferRef = useRef({ buffer: '', lastKeyTime: 0 });
+
+    // ── Loader d'entrée de page (scroll top + 1,5s) Identique à Réapprovisionnement ──
+    const [isPageLoading, setIsPageLoading] = useState(true);
+    const pageLoadTimerRef = useRef(null);
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        pageLoadTimerRef.current = setTimeout(() => {
+            setIsPageLoading(false);
+            searchInputRef.current?.focus();
+        }, 1500);
+        return () => {
+            if (pageLoadTimerRef.current) clearTimeout(pageLoadTimerRef.current);
+        };
+    }, []);
 
     const handleResize = (columnId, newWidth) => {
         setColWidths(prev => ({
@@ -116,8 +162,84 @@ const POS = () => {
         }));
     };
 
+    /**
+     * Traite un code scanné : recherche par code-barre exact
+     * et ajout direct au panier avec feedback sonore/visuel.
+     */
+    const handleBarcodeScanned = (barcodeStr) => {
+        const code = (barcodeStr || "").trim();
+        if (!code) return false;
+
+        const exactProduct = products.find(
+            (p) => p.barcode && p.barcode.trim().toLowerCase() === code.toLowerCase()
+        );
+
+        if (exactProduct) {
+            if (exactProduct.packagings?.length > 0 || exactProduct.hasLot || exactProduct.hasPiece) {
+                setOpenPackagingPicker(exactProduct.id);
+            } else {
+                addToCart(exactProduct, { type: 'base' });
+                T.cartAdd(exactProduct.name);
+            }
+            setSearchTerm("");
+            setDisplayProducts([]);
+            setTimeout(() => {
+                searchInputRef.current?.focus();
+            }, 60);
+            return true;
+        }
+
+        return false;
+    };
+
+    // ── Détecteur de Douchette Global (Scan n'importe où sur l'écran) ───
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            // Ignorer raccourcis système (Ctrl+C, Alt+Tab, etc.)
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+            const targetTag = e.target?.tagName;
+            const isOtherInput = (targetTag === 'INPUT' && e.target !== searchInputRef.current) || targetTag === 'TEXTAREA' || targetTag === 'SELECT';
+
+            const now = Date.now();
+            const diff = now - barcodeBufferRef.current.lastKeyTime;
+
+            // Si l'intervalle dépasse 100ms, c'est une frappe humaine lente -> réinitialiser le tampon
+            if (diff > 100) {
+                barcodeBufferRef.current.buffer = '';
+            }
+            barcodeBufferRef.current.lastKeyTime = now;
+
+            if (e.key === 'Enter') {
+                const buffer = barcodeBufferRef.current.buffer.trim();
+                barcodeBufferRef.current.buffer = '';
+
+                // Si un code scanné rapidement contient au moins 3 caractères
+                if (buffer.length >= 3) {
+                    const matched = handleBarcodeScanned(buffer);
+                    if (matched) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                }
+                return;
+            }
+
+            // Ne pas accumuler si l'utilisateur saisit manuellement dans un autre champ (ex: montant perçu, remise)
+            if (isOtherInput) return;
+
+            if (e.key.length === 1) {
+                barcodeBufferRef.current.buffer += e.key;
+            }
+        };
+
+        window.addEventListener('keydown', handleGlobalKeyDown, true);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    }, [products]);
+
     // ── Debounced Search Logic ────────────────────────────────────────
-    React.useEffect(() => {
+    useEffect(() => {
         if (searchTerm.trim() === "" && selectedCategory === 'All') {
             setDisplayProducts([]);
             setIsSearching(false);
@@ -130,16 +252,50 @@ const POS = () => {
                 (p) =>
                     (selectedCategory === 'All' || p.category === selectedCategory) &&
                     (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        p.category.toLowerCase().includes(searchTerm.toLowerCase()))
+                        p.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (p.barcode && p.barcode.toLowerCase().includes(searchTerm.toLowerCase())))
             );
             setDisplayProducts(filtered);
             setIsSearching(false);
-        }, 500); // 500ms delay to simulate network/debounce
+        }, 300);
 
         return () => clearTimeout(handler);
     }, [searchTerm, selectedCategory, products]);
 
-    const categories = ['All', ...new Set(products.map(p => p.category))];
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const code = searchTerm.trim();
+            if (!code) return;
+
+            // 1. Recherche par correspondance exacte de code-barre (douchette directe dans le champ)
+            if (handleBarcodeScanned(code)) {
+                return;
+            }
+
+            // 2. Si un seul résultat est présent dans les résultats filtrés
+            if (displayProducts.length === 1) {
+                const single = displayProducts[0];
+                if (single.packagings?.length > 0 || single.hasLot || single.hasPiece) {
+                    setOpenPackagingPicker(single.id);
+                } else {
+                    addToCart(single, { type: 'base' });
+                    T.cartAdd(single.name);
+                }
+                setSearchTerm("");
+                setDisplayProducts([]);
+                searchInputRef.current?.focus();
+                return;
+            }
+
+            // 3. Avertissement si format code-barre introuvable
+            if (/^\d{6,14}$/.test(code)) {
+                T.warning(`Code-barres "${code}" non trouvé dans le catalogue.`);
+            }
+        }
+    };
+
+    const categories = ['All', ...new Set([...(categoriesList || []).map(c => c.name), ...products.map(p => p.category)].filter(Boolean))];
 
     const highlightText = (text, highlight) => {
         if (!highlight.trim()) return text;
@@ -149,7 +305,7 @@ const POS = () => {
             <>
                 {parts.map((part, i) =>
                     regex.test(part) ? (
-                        <mark key={i} className="bg-yellow-200 px-0.5 rounded-sm ">{part.toUpperCase()}</mark>
+                        <mark key={i} className="bg-amber-100 text-amber-900 px-0.5 rounded-[2px] font-bold">{part.toUpperCase()}</mark>
                     ) : (
                         <span key={i}>{part.toUpperCase()}</span>
                     )
@@ -158,55 +314,59 @@ const POS = () => {
         );
     };
 
-    const handleCheckout = async () => {
+    const handleCheckout = async (preSelected = null) => {
         if (cart.length === 0) return;
+        if (preSelected) setPaymentMethod(preSelected);
+        setShowPaymentModal(true);
+    };
 
-        const finalTotal = cartTotal - discount;
-        let hasError = false;
-
-        // Validation du moyen de paiement
-        if (!paymentMethod) {
-            setPaymentError(true);
-            toast.error("Veuillez sélectionner un moyen de paiement.", { icon: '⚠️' });
-            hasError = true;
-        } else {
-            setPaymentError(false);
-        }
-
-        // Validation basique pour les espèces
-        if (paymentMethod === 'cash') {
-            if (!amountReceived || amountReceived === 0) {
-                setAmountError(true);
-                toast.error("Veuillez saisir le montant reçu en espèces.", { icon: '⚠️' });
-                hasError = true;
-            } else if (amountReceived < finalTotal) {
-                setAmountError(true);
-                toast.error("Le montant reçu en espèces est insuffisant.", { icon: '⚠️' });
-                hasError = true;
-            } else {
-                setAmountError(false);
-            }
-        }
-
-        if (hasError) return;
-
+    const handleConfirmPayment = async (paymentData) => {
         try {
             setIsProcessing(true);
+            const cashierDisplayName = activeSession?.cashierName || (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user?.name || user?.username || 'Caissier'));
+
             const transaction = await completeSale({
-                method: paymentMethod || 'cash',
-                amountGiven: paymentMethod === 'cash' ? (amountReceived > 0 ? amountReceived : finalTotal) : finalTotal,
-                change: paymentMethod === 'cash' && amountReceived > finalTotal ? amountReceived - finalTotal : 0,
+                ...paymentData,
+                method: paymentData.method || 'cash',
+                amountGiven: paymentData.amountGiven,
+                change: paymentData.change,
+                changeDue: paymentData.changeDue,
+                changeReliquat: paymentData.changeReliquat,
                 total: finalTotal,
-                discount: discount
+                discount: effectiveDiscount,
+                customerName: paymentData.customerName,
+                customerPhone: paymentData.customerPhone,
+                clientId: paymentData.clientId,
+                siteName: paymentData.siteName,
+                cashier: cashierDisplayName,
+                cashierName: cashierDisplayName
             });
 
+            if (paymentData.appliedCreditNote) {
+                transaction.appliedCreditNote = paymentData.appliedCreditNote;
+            }
+
+            // Si mode Bon à Enlever au Dépôt -> Création automatique dans DeliveryContext
+            if (paymentData.deliveryMode === 'warehouse') {
+                const deliveryNote = createDeliveryNote(transaction, {
+                    ...paymentData.deliveryInfo,
+                    siteName: paymentData.siteName || paymentData.deliveryInfo?.siteName
+                });
+                transaction.deliveryNoteReference = deliveryNote.reference;
+                transaction.deliveryNote = deliveryNote;
+                transaction.deliveryMode = 'warehouse';
+            }
+
             setLastTransaction(transaction);
+            setShowPaymentModal(false);
             setShowReceipt(true);
             setAmountReceived(0);
             setDiscount(0);
-            toast.success("Paiement validé avec succès !", { icon: '💶' });
+            setPaymentMethod(null);
+            T.paymentSuccess();
         } catch (error) {
-            toast.error("Erreur lors de l'enregistrement de la vente");
+            console.error("Erreur lors de la vente:", error);
+            T.error("Erreur lors de l'enregistrement de la vente");
         } finally {
             setIsProcessing(false);
         }
@@ -216,22 +376,55 @@ const POS = () => {
         const customerName = prompt("Nom du client pour le devis :");
         if (customerName) {
             addQuote(customerName);
-            toast.success("Devis enregistré avec succès !");
+            T.saved("Devis enregistré avec succès !");
         }
     };
 
+    // ── Écran si caisse non ouverte ──
     if (!activeSession) {
         return (
-            <div className="flex flex-col items-center justify-center h-[calc(100vh-5.5rem)] gap-6 bg-[#f0f4f8]">
-                <div className="bg-white p-10 rounded-md shadow-sm border-t-4 border-[#1c398e] text-center max-w-md w-full">
-                    <div className="bg-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <i className="uil uil-lock text-5xl text-[#1c398e]"></i>
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-5.5rem)] gap-4 font-sans pb-10">
+                <div className="bg-white p-8 rounded-[4px] border-2 border-gray-300 shadow-sm text-center max-w-md w-full relative overflow-hidden">
+                    <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-200">
+                        <Lock className="w-8 h-8 text-[#001d35]" />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-wide mb-3">Caisse Verrouillée</h2>
-                    <p className="text-slate-500 mb-8 font-medium">Vous devez obligatoirement ouvrir une session de caisse pour pouvoir effectuer des ventes.</p>
-                    <button onClick={() => navigate('/sessions')} className="w-full py-4 bg-[#1c398e] hover:bg-blue-800 text-white font-black rounded-md uppercase tracking-wider transition-colors flex items-center justify-center gap-2">
-                        <i className="uil uil-unlock"></i>
-                        Ouvrir la Caisse
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Point de Vente & Caisse</p>
+                    <h3 className="text-base sm:text-lg font-bold text-[#001d35] tracking-tight mb-2">Caisse Verrouillée</h3>
+                    <p className="text-xs text-gray-500 font-normal mb-6 px-2">Vous devez obligatoirement ouvrir une session de caisse pour pouvoir enregistrer des ventes.</p>
+                    <button
+                        type="button"
+                        onClick={() => navigate('/sessions')}
+                        className="w-full py-2.5 bg-[#001d35] hover:bg-[#00284a] text-white font-semibold text-xs uppercase tracking-wider rounded-[4px] shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                        <CheckCircle2 className="w-4 h-4 text-[#f77500]" />
+                        <span>Ouvrir une Session de Caisse</span>
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Écran si session en retard de clôture ──
+    if (activeSession && isOverdue) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[calc(100vh-5.5rem)] gap-4 font-sans pb-10">
+                <div className="bg-white p-8 rounded-[4px] border-2 border-gray-300 shadow-sm text-center max-w-md w-full relative overflow-hidden">
+                    <div className="bg-amber-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-300 animate-pulse">
+                        <AlertTriangle className="w-8 h-8 text-amber-600" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-1">Session En Attente de Clôture</p>
+                    <h3 className="text-base sm:text-lg font-bold text-[#001d35] tracking-tight mb-2">Session Non Clôturée</h3>
+                    <p className="text-xs text-gray-500 font-normal mb-6 px-2">
+                        La session ouverte le <strong className="text-gray-900 font-semibold">{new Date(activeSession.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong> à <strong className="text-gray-900 font-semibold">{new Date(activeSession.startTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong> par <strong className="text-gray-900 font-semibold">{activeSession.cashierName}</strong> n'a pas été fermée.<br/><br/>
+                        Vous devez obligatoirement la clôturer avant de pouvoir faire de nouvelles ventes.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => navigate('/sessions')}
+                        className="w-full py-2.5 bg-[#001d35] hover:bg-[#00284a] text-white font-semibold text-xs uppercase tracking-wider rounded-[4px] shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                        <RotateCcw className="w-4 h-4 text-[#f77500]" />
+                        <span>Clôturer la Session Précédente</span>
                     </button>
                 </div>
             </div>
@@ -239,467 +432,660 @@ const POS = () => {
     }
 
     return (
-        <div className="grid grid-cols-1 gap-6 h-[calc(100vh-5.5rem)]">
-            <div className="bg-white rounded-sm shadow-sm border-2 border-gray-300 flex flex-col overflow-hidden">
-                {/* ── Header Row 1 : Titre + Recherche + Filtre ── */}
-                <div className="px-4 pt-4 pb-3 border-b border-gray-200 bg-[#e6ecf2] flex items-center gap-3">
-                    {/* Barre de recherche */}
-                    <div className="relative w-full max-w-sm">
-                        {isSearching ? (
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                                <div className="w-5 h-5 border-2 border-[#1c398e] border-t-transparent rounded-full animate-spin"></div>
-                            </div>
-                        ) : (
-                            <i className="uil uil-search text-xl absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                        )}
-                        <input
-                            type="text"
-                            placeholder="Rechercher un produit..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-10 py-2 bg-white border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-[#1c398e] focus:border-[#1c398e] font-semibold text-gray-800"
-                        />
-                        {searchTerm && (
-                            <button
-                                onClick={() => setSearchTerm('')}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
-                                title="Effacer la recherche"
-                            >
-                                <i className="uil uil-multiply"></i>
-                            </button>
-                        )}
+        <div className="h-[calc(100vh-5.5rem)] flex flex-col space-y-2.5 font-sans overflow-hidden">
+
+            {/* ── BARRE DE RECHERCHE ET SÉLECTEUR DE RAYONS (STYLE INVENTAIRE PHYSIQUE) ── */}
+            <div className="bg-white p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm shrink-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2 flex-1 justify-start">
+                        {/* Recherche texte / Code-barres */}
+                        <div className="relative flex-1 min-w-[240px] max-w-lg">
+                            {isSearching ? (
+                                <div className="absolute left-2.5 top-1/2 -translate-y-1/2">
+                                    <div className="w-3.5 h-3.5 border-2 border-[#001d35]/30 border-t-[#001d35] rounded-full animate-spin"></div>
+                                </div>
+                            ) : (
+                                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                            )}
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                placeholder="Rechercher par article, réf, code-barres (douchette)..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={handleSearchKeyDown}
+                                autoFocus
+                                className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white font-normal text-gray-800"
+                            />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchTerm('')}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                                    title="Effacer la recherche"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Filtre Catégorie / Rayon */}
+                        <select
+                            value={selectedCategory || 'All'}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-[4px] bg-white font-normal text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                        >
+                            <option value="All">Toutes les catégories / rayons</option>
+                            {categories.filter(c => c !== 'All').map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                        </select>
                     </div>
 
-                    {/* Filtre catégorie */}
-                    <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="px-4 py-2 bg-white border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-[#1c398e] focus:border-[#1c398e] font-bold text-gray-700 uppercase text-xs flex-shrink-0"
-                    >
-                        {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                    </select>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/sales/returns')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-[4px] border border-gray-300 hover:bg-gray-50 text-gray-700 transition-all cursor-pointer shadow-2xs active:scale-95"
+                            title="Gérer les retours d'articles et bons d'avoir"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5 text-[#001d35]" />
+                            <span>Retours & Avoirs</span>
+                        </button>
+
+                        {(searchTerm || selectedCategory !== 'All') && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setSelectedCategory('All');
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-600 hover:text-red-700 hover:bg-red-50 rounded-[4px] border border-gray-200 transition-colors cursor-pointer"
+                                title="Réinitialiser la recherche"
+                            >
+                                <RotateCcw className="w-3 h-3" />
+                                <span>Effacer filtres</span>
+                            </button>
+                        )}
+                        <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-[4px] border border-gray-200">
+                            Panier : {cart.length} article(s)
+                        </span>
+                    </div>
                 </div>
+            </div>
 
+            {/* ── ZONE CENTRALE : TABLEAU DU PANIER + MODALE RÉSULTATS RECHERCHE ── */}
+            <div className="bg-white border-2 border-gray-300 rounded-[4px] shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 relative">
 
-                {/* ── Zone Principale POS (Tableau Panier Actuel) ── */}
-                <div className="flex-1 relative overflow-hidden bg-gray-50 flex flex-col">
-
-                    {/* ── Dropdown de Recherche (visible seulement lors d'une recherche) ── */}
-                    {(searchTerm || selectedCategory !== 'All') && (
-                        <div className="absolute top-0 left-4 z-30 bg-white border-2 border-gray-300 shadow-[0_20px_50px_rgba(0,0,0,0.2)] rounded-b-lg max-h-[60vh] w-[850px] max-w-[calc(100%-2rem)] flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
-
-                            {/* Header du dropdown */}
-                            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                                    {isSearching ? 'Recherche...' : `${displayProducts.length} résultat${displayProducts.length !== 1 ? 's' : ''}`}
-                                </span>
-                                <button
-                                    onClick={() => { setSearchTerm(''); setSelectedCategory('All'); }}
-                                    className="p-1 text-red-500 hover:bg-red-50 rounded-full transition-all"
-                                    title="Fermer"
-                                >
-                                    <i className="uil uil-times-circle text-2xl"></i>
-                                </button>
+                {/* ── Dropdown / Liste des résultats de recherche (flottant) ── */}
+                {(searchTerm || selectedCategory !== 'All') && (
+                    <div className="absolute top-0 left-2 right-2 z-30 bg-white border-2 border-gray-300 shadow-xl rounded-[4px] max-h-[62vh] flex flex-col animate-in fade-in duration-150">
+                        {/* Header résultats */}
+                        <div className="p-2.5 bg-[#001d35] text-white border-b-2 border-[#f77500] flex items-center justify-between gap-2 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <Search className="w-4 h-4 text-[#f77500]" />
+                                <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
+                                    Résultats du Catalogue ({displayProducts.length} article{displayProducts.length > 1 ? 's' : ''})
+                                </h4>
                             </div>
-
-                            {/* Tableau résultats */}
-                            <div className={`overflow-y-auto custom-scrollbar transition-opacity duration-200 ${isSearching ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-                                <table className="w-full text-left text-sm border-separate border-spacing-0">
-                                    <thead style={{ backgroundColor: '#365ac9' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
-                                        <tr className="divide-x-2 divide-[#224099]/40">
-                                            <ResizableHeader columnId="name" width={colWidths.name} onResize={handleResize}>Produit</ResizableHeader>
-                                            <ResizableHeader columnId="price" width={colWidths.price} onResize={handleResize}>Prix</ResizableHeader>
-                                            <ResizableHeader columnId="stock" width={colWidths.stock} onResize={handleResize}>Stock</ResizableHeader>
-                                            <th style={{ width: `${colWidths.actions}px`, minWidth: `${colWidths.actions}px` }} className="px-2 py-2 text-right">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y-2 divide-[#e6e6e6]">
-                                        {displayProducts.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="4" className="px-2 py-10 text-center text-gray-500">
-                                                    <div className="flex flex-col items-center gap-2">
-                                                        <i className="uil uil-search text-4xl text-gray-300"></i>
-                                                        <p className="text-base font-medium">Aucun produit trouvé</p>
-                                                        <p className="text-sm text-gray-400">Essayez un autre mot-clé ou catégorie</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            displayProducts.map((product) => {
-                                                const stockQty = product.stockLevels?.[currentStoreId] || 0;
-                                                const isLow = stockQty <= (product.minStockLevels?.[currentStoreId] || product.minStock || 0);
-                                                return (
-                                                    <tr key={product.id} className="divide-x-2 divide-[#e6e6e6] odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40 transition-colors">
-                                                        <td className="px-2 py-1.5 font-semibold text-[#1c398e] truncate text-[13px] tracking-wide">
-                                                            {highlightText(product.name || '', searchTerm)}
-                                                        </td>
-                                                        <td className="px-2 py-1.5 truncate">
-                                                            <div className="font-semibold text-[#1c398e] text-[14px]">
-                                                                {formatPrice(product.price)} <span className="text-gray-400 text-xs font-normal">/ {product.unit || 'Unité'}</span>
-                                                            </div>
-                                                            {product.hasLot && product.lotPrice && (
-                                                                <div style={{ color: '#1c398e' }} className="text-[11px] font-semibold mt-1.5 flex items-center gap-1.5 bg-blue-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#1c398e]/20">
-                                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1c398e' }}></div>
-                                                                    {formatPrice(product.lotPrice)} / Lot de {product.retailStepQuantity || 10} {getUnitModel(product.unit).subUnit || 'Pièces'}
-                                                                </div>
-                                                            )}
-                                                            {product.packagings?.map(pkg => (
-                                                                <div key={pkg.modelId} style={{ color: '#1c398e' }} className="text-[10px] font-bold mt-1.5 flex items-center gap-1.5 uppercase bg-blue-50/50 w-fit px-2 py-0.5 rounded-sm border border-[#1c398e]/20">
-                                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1c398e' }}></div>
-                                                                    {formatPrice(pkg.price)} / {pkg.name}
-                                                                </div>
-                                                            ))}
-                                                        </td>
-                                                        <td className="px-2 py-1.5">
-                                                            {(() => {
-                                                                const cf = parseFloat(product.conversionFactor) || 1;
-                                                                const isContainer = (product.unitArchetype === 'BOX' || product.unitArchetype === 'BULK') && cf > 1;
-                                                                const subUnit = getUnitModel(product.unit).subUnit;
-                                                                const wholeUnits = Math.floor(stockQty);
-                                                                const fractionalPart = stockQty - wholeUnits;
-                                                                return (
-                                                                    <div className="flex flex-col gap-0.5">
-                                                                        <span className={`px-2.5 py-1 rounded-sm text-sm font-bold ${isLow ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                                            {isContainer && fractionalPart > 0
-                                                                                ? `${wholeUnits > 0 ? `${wholeUnits} ${product.unit} + ` : ''}${Math.round(fractionalPart * cf)} ${subUnit || 'unités'}`
-                                                                                : `${stockQty.toLocaleString()} ${product.unit || ''}`}
-                                                                        </span>
-                                                                        {isContainer && subUnit && (
-                                                                            <span className="text-[9px] text-gray-500 font-semibold pl-1">
-                                                                                ≈ {(stockQty * cf).toLocaleString()} {subUnit}{fractionalPart > 0 ? ' au total' : ''}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </td>
-                                                        <td className="px-2 py-1.5 text-right">
-                                                            {product.packagings?.length > 0 || product.hasLot ? (
-                                                                <div className="relative inline-block text-left ml-auto">
-                                                                    <button
-                                                                        onClick={() => setOpenPackagingPicker(openPackagingPicker === product.id ? null : product.id)}
-                                                                        disabled={stockQty <= 0}
-                                                                        className="px-3 py-2 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2"
-                                                                        style={{ backgroundColor: '#1c398e' }}
-                                                                    >
-                                                                        <i className="uil uil-box text-lg"></i>
-                                                                        <span className="text-sm font-medium">Options</span>
-                                                                        <ChevronDown className="w-3 h-3" />
-                                                                    </button>
-                                                                    {openPackagingPicker === product.id && (
-                                                                        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                                                                            {/* Backdrop */}
-                                                                            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); setOpenPackagingPicker(null); }}></div>
-
-                                                                            {/* Modal Content */}
-                                                                            <div className="relative bg-white border-2 border-[#1c398e] rounded-[2px] shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-fade-in">
-                                                                                <div className="bg-[#1c398e] px-4 py-2.5 flex items-center justify-between">
-                                                                                    <span className="text-white font-black uppercase tracking-wider text-xs">Options : {product.name}</span>
-                                                                                    <button onClick={(e) => { e.stopPropagation(); setOpenPackagingPicker(null); }} className="text-white/80 hover:text-white transition-colors">
-                                                                                        <i className="uil uil-times text-xl"></i>
-                                                                                    </button>
-                                                                                </div>
-                                                                                <div className="p-2.5 flex flex-col gap-2 bg-gray-50">
-                                                                                    <button className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-blue-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
-                                                                                        onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'base' }); setOpenPackagingPicker(null); toast.success(`${product.name} ajouté`, { icon: '🛒' }); }}>
-                                                                                        <span className="font-bold text-gray-700 group-hover:text-[#1c398e]">{product.unit || 'Unité'} (Entière)</span>
-                                                                                        <span className="text-[#1c398e] font-black">{formatPrice(product.price)}</span>
-                                                                                    </button>
-                                                                                    {product.hasLot && product.lotPrice && (
-                                                                                        <button className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-amber-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
-                                                                                            onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'lot' }); setOpenPackagingPicker(null); toast.success(`Lot ajouté`, { icon: '📦' }); }}>
-                                                                                            <span className="font-bold text-gray-700 group-hover:text-amber-600">Lot de {product.retailStepQuantity || 10} {getUnitModel(product.unit).subUnit || 'Pièces'}</span>
-                                                                                            <span className="text-amber-600 font-black">{formatPrice(product.lotPrice)}</span>
-                                                                                        </button>
-                                                                                    )}
-                                                                                    {product.packagings?.map(pkg => (
-                                                                                        <button key={pkg.modelId} className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-blue-50 border-2 border-gray-200 rounded-[2px] flex justify-between items-center transition-colors shadow-sm group"
-                                                                                            onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'packaging', ...pkg, name: pkg.name }); setOpenPackagingPicker(null); toast.success(`${pkg.name} ajouté`, { icon: '📏' }); }}>
-                                                                                            <span className="font-bold text-gray-700 group-hover:text-[#1c398e]">{pkg.name}</span>
-                                                                                            <span style={{ color: '#1c398e' }} className="font-black">{formatPrice(pkg.price)}</span>
-                                                                                        </button>
-                                                                                    ))}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => { addToCart(product); toast.success(`${product.name} ajouté`, { icon: '🛒' }); }}
-                                                                    disabled={stockQty <= 0}
-                                                                    className="px-3 py-2 bg-green-600 text-white rounded-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center gap-2 ml-auto"
-                                                                >
-                                                                    <i className="uil uil-plus text-lg"></i>
-                                                                    <span className="text-sm font-medium">Ajouter</span>
-                                                                </button>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { setSearchTerm(''); setSelectedCategory('All'); }}
+                                className="text-white/80 hover:text-white transition-colors cursor-pointer p-0.5 rounded-[4px] hover:bg-white/10"
+                                title="Fermer la liste"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
                         </div>
-                    )}
 
-                    {/* ── Tableau du Panier (Main Area) ── */}
-                    <div className="flex-1 flex flex-col overflow-hidden relative">
-                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white flex flex-col">
-                            <table className="w-full text-left text-sm border-separate border-spacing-0 border-b-2 border-gray-300 flex-1 h-full">
-                                <thead style={{ backgroundColor: '#365ac9' }} className="text-white font-bold sticky top-0 z-20 shadow-sm uppercase tracking-wider text-[11px] border-b-[3px] border-[#1c398e]">
-                                    <tr className="divide-x-[3px] divide-[#224099]">
-                                        <ResizableHeader columnId="name" width={cartColWidths.name} onResize={handleCartResize}>Produit</ResizableHeader>
-                                        <ResizableHeader columnId="quantity" width={cartColWidths.quantity} onResize={handleCartResize}>Qté</ResizableHeader>
-                                        <ResizableHeader columnId="priceHT" width={cartColWidths.priceHT} onResize={handleCartResize}>Prix HT</ResizableHeader>
-                                        <ResizableHeader columnId="tax" width={cartColWidths.tax} onResize={handleCartResize}>Taxe (0%)</ResizableHeader>
-                                        <ResizableHeader columnId="priceTTC" width={cartColWidths.priceTTC} onResize={handleCartResize}>Prix TTC</ResizableHeader>
-                                        <ResizableHeader columnId="totalTTC" width={cartColWidths.totalTTC} onResize={handleCartResize}>Total TTC</ResizableHeader>
-                                        <th style={{ width: `${cartColWidths.actions}px`, minWidth: `${cartColWidths.actions}px` }} className="px-4 py-3 text-center">
-                                            <i className="uil uil-trash-alt text-lg"></i>
-                                        </th>
+                        {/* Tableau résultats */}
+                        <div className={`overflow-y-auto max-h-[50vh] transition-opacity duration-150 ${isSearching ? 'opacity-40' : 'opacity-100'}`}>
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0 z-10 shadow-xs">
+                                        <ResizableHeader columnId="name" width={colWidths.name} onResize={handleResize}>Désignation & Réf</ResizableHeader>
+                                        <ResizableHeader columnId="price" width={colWidths.price} onResize={handleResize}>Tarification</ResizableHeader>
+                                        <ResizableHeader columnId="stock" width={colWidths.stock} onResize={handleResize}>Stock Disponible</ResizableHeader>
+                                        <th style={{ width: `${colWidths.actions}px`, minWidth: `${colWidths.actions}px` }} className="py-2.5 px-3 text-right text-[10px] font-semibold uppercase tracking-wider text-white">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white">
-                                    {cart.length === 0 ? (
-                                        <tr className="h-full">
-                                            <td colSpan="7" className="py-20 text-center opacity-40 select-none border-b border-gray-200 h-full">
-                                                <div className="flex flex-col items-center justify-center gap-4 h-full">
-                                                    <i className="uil uil-shopping-basket text-7xl text-[#1c398e]"></i>
-                                                    <div className="flex flex-col gap-1">
-                                                        <p className="text-lg font-black text-[#1c398e] uppercase tracking-[0.2em]">Panier Vide</p>
-                                                        <p className="text-sm text-gray-400 font-medium">Scannez ou recherchez un produit pour commencer la vente</p>
-                                                    </div>
-                                                </div>
+                                <tbody className="divide-y divide-gray-100">
+                                    {displayProducts.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="4" className="py-10 text-center text-gray-500">
+                                                <Boxes className="w-8 h-8 mx-auto text-gray-400 mb-1 opacity-60" />
+                                                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Aucun produit trouvé</p>
+                                                <p className="text-[11px] text-gray-500 mt-0.5">Vérifiez l'orthographe ou le code-barres scanné.</p>
                                             </td>
                                         </tr>
                                     ) : (
-                                        cart.map((item) => {
-                                            const taxRate = 0; // 0% au Togo (déjà appliqué ou non applicable)
-                                            const priceTTC = item.price;
-                                            const priceHT = priceTTC; // HT = TTC quand taxe = 0
-                                            const taxAmount = 0;
-                                            const totalTTC = priceTTC * item.inputQuantity;
+                                        displayProducts.map((product) => {
+                                            const stockQty = product.stockLevels?.[currentStoreId] || 0;
+                                            const isLow = stockQty <= (product.minStockLevels?.[currentStoreId] || product.minStock || 0);
 
                                             return (
-                                                <tr key={item.cartKey} className="divide-x-[3px] divide-gray-300 group transition-colors odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40">
+                                                <tr key={product.id} className="transition-colors border-b border-gray-200 hover:bg-blue-50/60 bg-white">
                                                     {/* Produit */}
-                                                    <td className="px-4 py-4 border-b border-gray-200">
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <span className="font-bold text-[#1c398e] text-[14px] uppercase tracking-wide">
-                                                                {item.name}
-                                                            </span>
-                                                            <span className="text-[11px] text-gray-400 font-bold uppercase">
-                                                                {item.label}
-                                                            </span>
+                                                    <td className="py-2.5 px-3">
+                                                        <div className="font-semibold text-gray-900 text-xs">
+                                                            {highlightText(product.name || '', searchTerm)}
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-400 font-normal flex items-center gap-1.5 mt-0.5">
+                                                            <span>{product.category}</span>
+                                                            {product.barcode && (
+                                                                <>
+                                                                    <span className="text-gray-300">&bull;</span>
+                                                                    <span className="font-mono text-gray-600 bg-gray-100 px-1 py-0.2 rounded-[2px] border border-gray-200">
+                                                                        {product.barcode}
+                                                                    </span>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </td>
 
-                                                    {/* Quantité */}
-                                                    <td className="px-4 py-4 border-b border-gray-200">
-                                                        <div className="flex items-center gap-2 bg-gray-50 border-2 border-gray-200 rounded-sm p-1 w-fit group-hover:border-[#1c398e]/30 transition-colors">
-                                                            <button
-                                                                onClick={() => updateCartItem(item.cartKey, { inputQuantity: Math.max(1, item.inputQuantity - 1) })}
-                                                                className="w-7 h-7 flex items-center justify-center bg-white border border-gray-300 rounded-sm hover:text-red-600 hover:border-red-200 transition-colors shadow-sm"
-                                                            >
-                                                                <i className="uil uil-minus text-sm"></i>
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                value={item.inputQuantity}
-                                                                onChange={(e) => updateCartItem(item.cartKey, { inputQuantity: Math.max(1, parseFloat(e.target.value) || 0) })}
-                                                                className="w-12 text-center bg-transparent font-semibold text-[#1c398e] text-sm focus:outline-none"
-                                                            />
-                                                            <button
-                                                                onClick={() => updateCartItem(item.cartKey, { inputQuantity: item.inputQuantity + 1 })}
-                                                                className="w-7 h-7 flex items-center justify-center bg-white border border-gray-300 rounded-sm hover:text-green-600 hover:border-green-200 transition-colors shadow-sm"
-                                                            >
-                                                                <i className="uil uil-plus text-sm"></i>
-                                                            </button>
+                                                    {/* Prix */}
+                                                    <td className="py-2.5 px-3">
+                                                        <div className="font-semibold text-[#001d35] text-xs">
+                                                            {formatPrice(product.price)} <span className="text-gray-400 text-[10px] font-normal">/ {product.unit || 'Unité'}</span>
                                                         </div>
+                                                        {(product.hasPiece || product.hasLot || product.packagings?.length > 0) && (
+                                                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                                                                {product.hasPiece && product.piecePrice && (
+                                                                    <span className="text-[9px] font-semibold flex items-center gap-1 bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded-[3px] border border-blue-200">
+                                                                        {formatPrice(product.piecePrice)} / {product.bulkUnit || getUnitModel(product.unit).subUnit || 'Pièce'}
+                                                                    </span>
+                                                                )}
+                                                                {product.hasLot && product.lotPrice && (
+                                                                    <span className="text-[9px] font-semibold flex items-center gap-1 bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded-[3px] border border-amber-200">
+                                                                        {formatPrice(product.lotPrice)} / Lot {product.retailStepQuantity || 10}
+                                                                    </span>
+                                                                )}
+                                                                {product.packagings?.map(pkg => (
+                                                                    <span key={pkg.modelId} className="text-[9px] font-semibold flex items-center gap-1 bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded-[3px] border border-slate-200 uppercase">
+                                                                        {formatPrice(pkg.price)} / {pkg.name}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </td>
 
-                                                    {/* Prix HT */}
-                                                    <td className="px-4 py-4 font-semibold text-gray-500 text-sm border-b border-gray-200">
-                                                        {formatPrice(priceHT)}
+                                                    {/* Stock */}
+                                                    <td className="py-2.5 px-3">
+                                                        {(() => {
+                                                            const cf = parseFloat(product.conversionFactor) || 1;
+                                                            const isContainer = (product.unitArchetype === 'BOX' || product.unitArchetype === 'BULK') && cf > 1;
+                                                            const subUnit = product.bulkUnit || getUnitModel(product.unit).subUnit;
+                                                            return (
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <span className={`px-2 py-0.5 rounded-[3px] text-xs font-bold border ${isLow ? 'bg-rose-50 text-rose-800 border-rose-300' : 'bg-emerald-50 text-emerald-800 border-emerald-300'}`}>
+                                                                        {isContainer 
+                                                                            ? formatContainerStock(stockQty, cf, product.unit, subUnit)
+                                                                            : `${stockQty.toLocaleString('fr-FR')} ${product.unit || ''}`
+                                                                        }
+                                                                    </span>
+                                                                    {isContainer && subUnit && (
+                                                                        <span className="text-[10px] text-gray-500 font-medium">
+                                                                            ≈ {computeContainerStock(stockQty, cf).exactTotalSubUnits.toLocaleString('fr-FR')} {subUnit}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
 
-                                                    {/* Taxe */}
-                                                    <td className="px-4 py-4 border-b border-gray-200 font-semibold text-gray-400 text-sm">
-                                                        0 F CFA
-                                                    </td>
+                                                    {/* Action Ajouter */}
+                                                    <td className="py-2.5 px-3 text-right">
+                                                        {product.packagings?.length > 0 || product.hasLot || product.hasPiece ? (
+                                                            <div className="relative inline-block text-left ml-auto">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setOpenPackagingPicker(openPackagingPicker === product.id ? null : product.id)}
+                                                                    disabled={stockQty <= 0}
+                                                                    className="px-2.5 py-1 bg-[#001d35] hover:bg-[#00284a] text-white rounded-[4px] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer text-xs font-semibold ml-auto"
+                                                                >
+                                                                    <Boxes className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                    <span>Options</span>
+                                                                    <ChevronDown className="w-3 h-3 text-gray-300" />
+                                                                </button>
 
-                                                    {/* Prix TTC */}
-                                                    <td className="px-4 py-4 font-semibold text-[#1c398e] text-sm border-b border-gray-200">
-                                                        {formatPrice(priceTTC)}
-                                                    </td>
+                                                                {openPackagingPicker === product.id && (
+                                                                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                                                                        <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={(e) => { e.stopPropagation(); setOpenPackagingPicker(null); }}></div>
 
-                                                    {/* Total TTC */}
-                                                    <td className="px-4 py-4 border-b border-gray-200">
-                                                        <span className="px-3 py-1.5 bg-[#1c398e]/5 border border-[#1c398e]/10 rounded-sm font-semibold text-[#1c398e] text-sm tracking-tight">
-                                                            {formatPrice(totalTTC)}
-                                                        </span>
-                                                    </td>
+                                                                        <div className="relative bg-white border-2 border-[#001d35] rounded-[4px] shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in duration-150">
+                                                                            <div className="bg-[#001d35] px-4 py-2.5 flex items-center justify-between border-b-2 border-[#f77500]">
+                                                                                <span className="text-white font-bold uppercase tracking-wider text-xs">Options de Vente : {product.name}</span>
+                                                                                <button type="button" onClick={(e) => { e.stopPropagation(); setOpenPackagingPicker(null); }} className="text-white hover:text-[#f77500] transition-colors cursor-pointer">
+                                                                                    <X className="w-4 h-4" />
+                                                                                </button>
+                                                                            </div>
 
-                                                    {/* Action */}
-                                                    <td className="px-4 py-4 text-center border-b border-gray-200">
-                                                        <button
-                                                            onClick={() => removeFromCart(item.cartKey)}
-                                                            className="w-9 h-9 flex items-center justify-center text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
-                                                        >
-                                                            <i className="uil uil-trash-alt text-xl"></i>
-                                                        </button>
+                                                                            <div className="p-3 flex flex-col gap-2 bg-slate-50 max-h-[70vh] overflow-y-auto">
+                                                                                {/* Option Unité standard */}
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="w-full text-left px-3.5 py-2.5 text-xs bg-white hover:bg-blue-50/60 border border-gray-300 rounded-[4px] flex justify-between items-center transition-colors shadow-2xs group cursor-pointer"
+                                                                                    onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'base' }); setOpenPackagingPicker(null); T.cartAdd(product.name); }}
+                                                                                >
+                                                                                    <span className="font-semibold text-gray-800 group-hover:text-[#001d35]">{product.unit || 'Unité'} (Entière)</span>
+                                                                                    <span className="text-[#001d35] font-bold text-xs">{formatPrice(product.price)}</span>
+                                                                                </button>
+
+                                                                                {/* Option Pièce */}
+                                                                                {product.hasPiece && product.piecePrice && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="w-full text-left px-3.5 py-2.5 text-xs bg-white hover:bg-blue-50/60 border border-gray-300 rounded-[4px] flex justify-between items-center transition-colors shadow-2xs group cursor-pointer"
+                                                                                        onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'piece' }); setOpenPackagingPicker(null); T.cartAdd(`Pièce de ${product.name}`); }}
+                                                                                    >
+                                                                                        <span className="font-semibold text-gray-800 group-hover:text-[#001d35]">À la pièce ({product.bulkUnit || getUnitModel(product.unit).subUnit || 'Pièce'})</span>
+                                                                                        <span className="text-[#001d35] font-bold text-xs">{formatPrice(product.piecePrice)}</span>
+                                                                                    </button>
+                                                                                )}
+
+                                                                                {/* Option Lots */}
+                                                                                {Array.isArray(product.lots) && product.lots.length > 0 ? (
+                                                                                    product.lots.filter(l => parseFloat(l.price) > 0).map((l, lIdx) => (
+                                                                                        <button
+                                                                                            key={l.id || lIdx}
+                                                                                            type="button"
+                                                                                            className="w-full text-left px-3.5 py-2.5 text-xs bg-white hover:bg-amber-50/60 border border-amber-300 rounded-[4px] flex justify-between items-center transition-colors shadow-2xs group cursor-pointer"
+                                                                                            onClick={(e) => { 
+                                                                                                e.stopPropagation(); 
+                                                                                                addToCart(product, { 
+                                                                                                    type: 'lot', 
+                                                                                                    price: parseFloat(l.price), 
+                                                                                                    targetQty: parseFloat(l.quantity), 
+                                                                                                    name: `Lot de ${l.quantity} ${product.bulkUnit || getUnitModel(product.unit).subUnit || 'Pièces'}` 
+                                                                                                }); 
+                                                                                                setOpenPackagingPicker(null); 
+                                                                                                T.cartAdd(`Lot de ${l.quantity} de ${product.name}`); 
+                                                                                            }}
+                                                                                        >
+                                                                                            <span className="font-semibold text-gray-800 group-hover:text-amber-700">Lot de {l.quantity} {product.bulkUnit || getUnitModel(product.unit).subUnit || 'Pièces'}</span>
+                                                                                            <span className="text-amber-800 font-bold text-xs">{formatPrice(l.price)}</span>
+                                                                                        </button>
+                                                                                    ))
+                                                                                ) : (product.hasLot && product.lotPrice ? (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="w-full text-left px-3.5 py-2.5 text-xs bg-white hover:bg-amber-50/60 border border-amber-300 rounded-[4px] flex justify-between items-center transition-colors shadow-2xs group cursor-pointer"
+                                                                                        onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'lot' }); setOpenPackagingPicker(null); T.cartAdd(`Lot de ${product.name}`); }}
+                                                                                    >
+                                                                                        <span className="font-semibold text-gray-800 group-hover:text-amber-700">Lot de {product.retailStepQuantity || 10} {product.bulkUnit || getUnitModel(product.unit).subUnit || 'Pièces'}</span>
+                                                                                        <span className="text-amber-800 font-bold text-xs">{formatPrice(product.lotPrice)}</span>
+                                                                                    </button>
+                                                                                ) : null)}
+
+                                                                                {/* Option Déconditionnement */}
+                                                                                {product.packagings?.map(pkg => (
+                                                                                    <button
+                                                                                        key={pkg.modelId || pkg.id}
+                                                                                        type="button"
+                                                                                        className="w-full text-left px-3.5 py-2.5 text-xs bg-white hover:bg-blue-50/60 border border-gray-300 rounded-[4px] flex justify-between items-center transition-colors shadow-2xs group cursor-pointer"
+                                                                                        onClick={(e) => { e.stopPropagation(); addToCart(product, { type: 'packaging', ...pkg, name: pkg.name }); setOpenPackagingPicker(null); T.cartAdd(pkg.name); }}
+                                                                                    >
+                                                                                        <span className="font-semibold text-gray-800 group-hover:text-[#001d35]">{pkg.name}</span>
+                                                                                        <span className="text-[#001d35] font-bold text-xs">{formatPrice(pkg.price)}</span>
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { addToCart(product); T.cartAdd(product.name); }}
+                                                                disabled={stockQty <= 0}
+                                                                className="px-2.5 py-1 bg-[#001d35] hover:bg-[#00284a] text-white rounded-[4px] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all shadow-2xs flex items-center gap-1.5 ml-auto text-xs font-semibold"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                <span>Ajouter</span>
+                                                            </button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
                                         })
                                     )}
-                                    {/* Lignes vides pour allonger les traits vers le bas */}
-                                    {cart.length > 0 && cart.length < 15 && [...Array(15 - cart.length)].map((_, i) => (
-                                        <tr key={`empty-${i}`} className="divide-x-[3px] divide-gray-300 h-14 bg-white/30">
-                                            <td className="border-b border-gray-50/50"></td>
-                                            <td className="border-b border-gray-50/50"></td>
-                                            <td className="border-b border-gray-50/50"></td>
-                                            <td className="border-b border-gray-50/50"></td>
-                                            <td className="border-b border-gray-50/50"></td>
-                                            <td className="border-b border-gray-50/50"></td>
-                                            <td className="border-b border-gray-50/50"></td>
-                                        </tr>
-                                    ))}
                                 </tbody>
                             </table>
                         </div>
                     </div>
+                )}
 
-                    {/* ── Pied de Page Financier (Financial Footer - FIXE) ── */}
-                    <div className="sticky bottom-0 bg-gray-100 border-t-4 border-gray-300 px-4 py-3 grid grid-cols-1 md:grid-cols-4 gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.2)] z-30 flex-shrink-0">
-
-                        {/* Colonne 1 : Choix du Paiement (Fieldset) */}
-                        <fieldset className={`border-[3px] ${paymentError ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-[#e3e9ef]'} rounded-[2px] p-2 pt-0.5 transition-colors`}>
-                            <legend className={`text-[16px] font-bold uppercase tracking-wider ${paymentError ? 'text-red-600 bg-red-50' : 'text-gray-600 bg-[#e3e9ef]'} px-2 ml-1 transition-colors`}>Moyen De Paiement</legend>
-                            <div className="flex flex-col gap-1.5 mt-1">
-                                <label className={`flex items-center gap-3 px-2 py-1.5 rounded-[2px] cursor-pointer transition-colors ${paymentMethod === 'cash' ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
-                                    <input type="checkbox" checked={paymentMethod === 'cash'} onChange={() => { setPaymentMethod('cash'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded-[2px] focus:ring-blue-600 accent-[#1c398e]" />
-                                    <div className="flex items-center gap-2">
-                                        <i className={`uil uil-money-bill text-lg ${paymentMethod === 'cash' ? 'text-blue-600' : 'text-gray-400'}`}></i>
-                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'cash' ? 'text-blue-800' : 'text-gray-500'}`}>Espèces</span>
-                                    </div>
-                                </label>
-
-                                <label className={`flex items-center gap-3 px-2 py-1.5 rounded-[2px] cursor-pointer transition-colors ${paymentMethod === 'card' ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
-                                    <input type="checkbox" checked={paymentMethod === 'card'} onChange={() => { setPaymentMethod('card'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded-[2px] focus:ring-blue-600 accent-blue-600" />
-                                    <div className="flex items-center gap-2">
-                                        <i className={`uil uil-credit-card text-lg ${paymentMethod === 'card' ? 'text-blue-600' : 'text-gray-400'}`}></i>
-                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'card' ? 'text-blue-800' : 'text-gray-500'}`}>Carte Bancaire</span>
-                                    </div>
-                                </label>
-
-                                <label className={`flex items-center gap-3 px-2 py-1.5 rounded-[2px] cursor-pointer transition-colors ${paymentMethod === 'credit' ? 'bg-red-50/50' : 'hover:bg-gray-50'}`}>
-                                    <input type="checkbox" checked={paymentMethod === 'credit'} onChange={() => { setPaymentMethod('credit'); setPaymentError(false); setAmountError(false); }} className="w-3.5 h-3.5 text-red-600 border-gray-300 rounded-[2px] focus:ring-red-600 accent-red-600" />
-                                    <div className="flex items-center gap-2">
-                                        <i className={`uil uil-users-alt text-lg ${paymentMethod === 'credit' ? 'text-red-600' : 'text-gray-400'}`}></i>
-                                        <span className={`text-sm font-bold uppercase tracking-wider ${paymentMethod === 'credit' ? 'text-red-800' : 'text-gray-500'}`}>Crédit Client</span>
-                                    </div>
-                                </label>
-                            </div>
-                        </fieldset>
-
-                        {/* Colonne 2 : Encaissement (Fieldset) */}
-                        <fieldset className="border-[3px] border-gray-200 bg-[#e3e9ef] rounded-[2px] p-2 pt-0.5">
-                            <legend className="text-[16px] font-bold uppercase tracking-wider text-gray-600 px-2 ml-1 bg-[#e3e9ef]">Encaissement</legend>
-                            <div className="flex flex-col gap-2 mt-1 px-1">
-                                <div className="mt-4">
-                                    <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500 mb-1 block">Montant Reçu (Espèces)</label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            value={amountReceived || ''}
-                                            onChange={(e) => { setAmountReceived(Math.max(0, parseFloat(e.target.value) || 0)); setAmountError(false); }}
-                                            onWheel={(e) => e.currentTarget.blur()}
-                                            className={`w-full ${amountError ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white border-gray-300 text-blue-700'} border-2 rounded-[2px] px-3 py-1.5 font-semibold text-lg focus:outline-none ${amountError ? 'focus:border-red-600' : 'focus:border-blue-400'} transition-colors shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                                            placeholder="0"
-                                        />
-                                        <span className={`absolute right-3 top-1/2 -translate-y-1/2 ${amountError ? 'text-red-400' : 'text-blue-300'} font-black text-xs`}>F CFA</span>
-                                    </div>
-                                </div>
-                                {amountReceived > 0 && (
-                                    <div className="animate-fade-in">
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1 block">Monnaie à Rendre</label>
-                                        <div className="w-full bg-blue-600 border-2 border-blue-700 rounded-[2px] px-3 py-1 flex justify-between items-center shadow-md">
-                                            <span className="text-white text-xl font-semibold tracking-tight">
-                                                {formatPrice(Math.max(0, amountReceived - cartTotal))}
-                                            </span>
-                                            <i className="uil uil-coins text-blue-300/50 text-xl"></i>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </fieldset>
-
-                        {/* Colonne 3 : Résumé (Fieldset) */}
-                        <fieldset className="border-[3px] border-gray-200 bg-[#e3e9ef] rounded-[2px] p-2 pt-0.5">
-                            <legend className="text-[16px] font-bold uppercase tracking-wider text-gray-600 px-2 ml-1 bg-[#e3e9ef]">Résumé Facture</legend>
-                            <div className="flex flex-col gap-2 mt-1 px-1 h-[calc(100%-1rem)] pb-1">
-                                <div className="flex items-center">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap mr-4">Total Brut HT</span>
-                                    <div className="flex-1 border-2 border-gray-200 rounded-[2px] px-3 py-1 bg-white">
-                                        <span className="block text-base font-semibold text-gray-600 text-right tracking-tight">
-                                            {formatPrice(cartTotal)}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center border-b border-gray-100 pb-2">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap mr-4">TVA (0.00%)</span>
-                                    <div className="flex-1 border-2 border-gray-200 rounded-[2px] px-3 py-1 bg-white">
-                                        <span className="block text-sm font-semibold text-gray-300 italic text-right">
-                                            0 F CFA
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col flex-1 mt-0.5">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-[#1c398e] mb-1 block">Net à Payer</span>
-                                    <div className="w-full flex-1 border-2 border-[#1c398e] rounded-[2px] px-3 py-1 bg-white shadow-sm flex items-center justify-center min-h-[40px]">
-                                        <span className="block text-2xl font-semibold text-[#1c398e] tracking-tighter text-center">
-                                            {formatPrice(cartTotal)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </fieldset>
-
-                        {/* Colonne 4 : Actions (Fieldset) */}
-                        <fieldset className="border-[3px] border-gray-200 bg-[#e3e9ef] rounded-[2px] p-2 pt-0.5">
-                            <legend className="text-[16px] font-bold uppercase tracking-wider text-[#1c398e] px-2 ml-1 bg-[#e3e9ef] border-[3px] border-[#1c398e]/30 rounded-sm">Actions de Caisse</legend>
-                            <div className="flex flex-col gap-2 mt-1 h-full justify-center px-1">
-                                <button
-                                    onClick={() => handleCheckout(paymentMethod)}
-                                    disabled={cart.length === 0}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-[2px] bg-green-600 border-2 border-green-700 text-white text-xs font-black uppercase tracking-wide hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
-                                >
-                                    <i className="uil uil-check-circle text-lg"></i>
-                                    <span>Valider Paiement</span>
-                                </button>
-                                <button
-                                    onClick={handleSaveQuote}
-                                    disabled={cart.length === 0}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-[2px] bg-white border-2 border-[#1c398e] text-[#1c398e] text-xs font-bold uppercase tracking-wide hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                                >
-                                    <i className="uil uil-file-alt text-base"></i>
-                                    <span>Créer Devis</span>
-                                </button>
-                            </div>
-                        </fieldset>
-
+                {/* ── SOUS-BARRE ENTÊTE DU PANIER (STYLE FEUILLE DE POINTAGE INVENTAIRE) ── */}
+                <div className="p-2.5 bg-slate-50 border-b-2 border-gray-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4 text-[#001d35]" />
+                        <h4 className="text-xs font-semibold text-[#001d35] uppercase tracking-wider">
+                            Panier de Vente Actuel
+                        </h4>
                     </div>
-
+                    <div className="text-xs text-gray-600 font-medium">
+                        Articles enregistrés : <strong className="text-gray-900 font-semibold">{cart.length} référence{cart.length > 1 ? 's' : ''}</strong>
+                    </div>
                 </div>
+
+                {/* ── TABLEAU PRINCIPAL DU PANIER ── */}
+                <div className="flex-1 overflow-y-auto bg-white min-h-[180px]">
+                    <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0 z-10 shadow-xs">
+                                <ResizableHeader columnId="name" width={cartColWidths.name} onResize={handleCartResize}>Désignation de l'Article</ResizableHeader>
+                                <ResizableHeader columnId="quantity" width={cartColWidths.quantity} onResize={handleCartResize} className="text-center">Quantité</ResizableHeader>
+                                <ResizableHeader columnId="priceHT" width={cartColWidths.priceHT} onResize={handleCartResize} className="text-right">Prix Unitaire HT</ResizableHeader>
+                                <ResizableHeader columnId="tax" width={cartColWidths.tax} onResize={handleCartResize} className="text-center">Taxe (0%)</ResizableHeader>
+                                <ResizableHeader columnId="priceTTC" width={cartColWidths.priceTTC} onResize={handleCartResize} className="text-right">Prix TTC</ResizableHeader>
+                                <ResizableHeader columnId="totalTTC" width={cartColWidths.totalTTC} onResize={handleCartResize} className="text-right">Total Net TTC</ResizableHeader>
+                                <th style={{ width: `${cartColWidths.actions}px`, minWidth: `${cartColWidths.actions}px` }} className="py-2.5 px-3 text-center text-[10px] font-semibold uppercase tracking-wider text-white">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {cart.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="py-16 text-center text-gray-500 bg-white">
+                                        <ShoppingBag className="w-12 h-12 mx-auto text-gray-400 mb-2 opacity-60" />
+                                        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Panier de Vente Vide
+                                        </h3>
+                                        <p className="text-[11px] text-gray-500 mt-1 max-w-md mx-auto font-normal">
+                                            Scannez un code-barres avec la douchette ou utilisez la barre de recherche ci-dessus pour ajouter des articles à la commande.
+                                        </p>
+                                    </td>
+                                </tr>
+                            ) : (
+                                cart.map((item) => {
+                                    const priceTTC = item.price;
+                                    const priceHT = priceTTC;
+                                    const totalTTC = priceTTC * item.inputQuantity;
+
+                                    return (
+                                        <tr key={item.cartKey} className="transition-colors border-b border-gray-200 hover:bg-blue-50/60 bg-white">
+                                            {/* Produit */}
+                                            <td className="py-2.5 px-3">
+                                                <div className="font-semibold text-gray-900 text-xs">
+                                                    {item.name}
+                                                </div>
+                                                {item.label && (
+                                                    <div className="mt-0.5">
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-[3px] bg-slate-100 text-slate-800 border border-slate-200 text-[10px] font-semibold uppercase tracking-wider">
+                                                            {item.label}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            {/* Quantité (Stepper identique à Inventaire Physique) */}
+                                            <td className="py-2 px-3 text-center">
+                                                <div className="inline-flex items-center border border-gray-300 rounded-[4px] overflow-hidden bg-white shadow-2xs">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateCartItem(item.cartKey, { inputQuantity: Math.max(1, item.inputQuantity - 1) })}
+                                                        className="w-6 h-6 flex items-center justify-center bg-gray-50 hover:bg-gray-100 text-gray-600 font-medium text-xs cursor-pointer select-none border-r border-gray-200 transition-colors"
+                                                        title="Diminuer la quantité"
+                                                    >
+                                                        −
+                                                    </button>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={item.inputQuantity}
+                                                        onChange={(e) => updateCartItem(item.cartKey, { inputQuantity: Math.max(1, parseFloat(e.target.value) || 0) })}
+                                                        className="w-12 text-center font-semibold text-xs py-0.5 text-[#001d35] focus:outline-none"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateCartItem(item.cartKey, { inputQuantity: item.inputQuantity + 1 })}
+                                                        className="w-6 h-6 flex items-center justify-center bg-gray-50 hover:bg-gray-100 text-gray-600 font-medium text-xs cursor-pointer select-none border-l border-gray-200 transition-colors"
+                                                        title="Augmenter la quantité"
+                                                    >
+                                                        +
+                                                    </button>
+                                                </div>
+                                            </td>
+
+                                            {/* Prix HT */}
+                                            <td className="py-2.5 px-3 text-right font-semibold text-gray-600 text-xs">
+                                                {formatPrice(priceHT)}
+                                            </td>
+
+                                            {/* Taxe */}
+                                            <td className="py-2.5 px-3 text-center text-gray-400 font-normal text-xs">
+                                                0 F CFA
+                                            </td>
+
+                                            {/* Prix TTC */}
+                                            <td className="py-2.5 px-3 text-right font-semibold text-[#001d35] text-xs">
+                                                {formatPrice(priceTTC)}
+                                            </td>
+
+                                            {/* Total Net TTC */}
+                                            <td className="py-2.5 px-3 text-right font-bold text-xs">
+                                                <span className="px-2 py-0.5 bg-slate-100 text-[#001d35] rounded-[3px] border border-gray-200 font-bold">
+                                                    {formatPrice(totalTTC)}
+                                                </span>
+                                            </td>
+
+                                            {/* Suppression */}
+                                            <td className="py-2.5 px-3 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeFromCart(item.cartKey)}
+                                                    className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-[4px] transition-all cursor-pointer mx-auto"
+                                                    title="Supprimer du panier"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ── Double Ring Spinner Overlay pendant validation ── */}
+                {isProcessing && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/75 backdrop-blur-xs animate-in fade-in duration-150">
+                        <div className="flex flex-col items-center gap-3 bg-white px-8 py-6 rounded-[4px] shadow-xl border-2 border-gray-300">
+                            <div className="relative h-10 w-10">
+                                <div className="absolute inset-0 animate-spin rounded-full border-4 border-gray-200 border-t-[#001d35]"></div>
+                                <div className="absolute inset-1.5 animate-spin-reverse rounded-full border-2 border-transparent border-b-[#f77500]"></div>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-xs font-semibold text-[#001d35] uppercase tracking-wider">Traitement de l'encaissement...</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5 font-medium">Génération du reçu et mise à jour des stocks</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Receipt Modal */}
+            {/* ── PIED DE PAGE FINANCIER HARMONISÉ (MODULES STYLE INVENTAIRE PHYSIQUE) ── */}
+            <div className="bg-white border-2 border-gray-300 rounded-[4px] shadow-sm p-3 grid grid-cols-1 md:grid-cols-4 gap-3 shrink-0">
+
+                {/* 1. Moyen de Paiement */}
+                <div className={`p-2.5 rounded-[4px] border ${paymentError ? 'border-rose-400 bg-rose-50/60' : 'border-gray-200 bg-slate-50/70'} flex flex-col justify-between`}>
+                    <div className="flex items-center gap-1.5 pb-1.5 border-b border-gray-200">
+                        <Wallet className="w-3.5 h-3.5 text-[#001d35]" />
+                        <h4 className="text-[11px] font-semibold text-[#001d35] uppercase tracking-wider">Moyen de Paiement</h4>
+                    </div>
+
+                    <div className="flex flex-col gap-1 mt-1.5">
+                        <label className={`flex items-center gap-2 px-2 py-1 rounded-[3px] border cursor-pointer transition-colors text-xs font-semibold ${
+                            paymentMethod === 'cash' 
+                                ? 'bg-[#001d35] text-white border-[#001d35]' 
+                                : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
+                        }`}>
+                            <input
+                                type="checkbox"
+                                checked={paymentMethod === 'cash'}
+                                onChange={() => { setPaymentMethod('cash'); setPaymentError(false); setAmountError(false); }}
+                                className="w-3.5 h-3.5 rounded-[2px] accent-[#f77500] cursor-pointer"
+                            />
+                            <Coins className="w-3.5 h-3.5 text-current" />
+                            <span>Espèces (Cash)</span>
+                        </label>
+
+                        <label className={`flex items-center gap-2 px-2 py-1 rounded-[3px] border cursor-pointer transition-colors text-xs font-semibold ${
+                            paymentMethod === 'card' 
+                                ? 'bg-[#001d35] text-white border-[#001d35]' 
+                                : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
+                        }`}>
+                            <input
+                                type="checkbox"
+                                checked={paymentMethod === 'card'}
+                                onChange={() => { setPaymentMethod('card'); setPaymentError(false); setAmountError(false); }}
+                                className="w-3.5 h-3.5 rounded-[2px] accent-[#f77500] cursor-pointer"
+                            />
+                            <CreditCard className="w-3.5 h-3.5 text-current" />
+                            <span>Carte Bancaire</span>
+                        </label>
+
+                        <label className={`flex items-center gap-2 px-2 py-1 rounded-[3px] border cursor-pointer transition-colors text-xs font-semibold ${
+                            paymentMethod === 'credit' 
+                                ? 'bg-rose-700 text-white border-rose-800' 
+                                : 'bg-white hover:bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                            <input
+                                type="checkbox"
+                                checked={paymentMethod === 'credit'}
+                                onChange={() => { setPaymentMethod('credit'); setPaymentError(false); setAmountError(false); }}
+                                className="w-3.5 h-3.5 rounded-[2px] accent-rose-600 cursor-pointer"
+                            />
+                            <Users className="w-3.5 h-3.5 text-current" />
+                            <span>Crédit Client</span>
+                        </label>
+                    </div>
+                </div>
+
+                {/* 2. Résumé Facture */}
+                <div className="p-2.5 rounded-[4px] border border-gray-200 bg-slate-50/70 flex flex-col justify-between">
+                    <div className="flex items-center gap-1.5 pb-1.5 border-b border-gray-200">
+                        <FileText className="w-3.5 h-3.5 text-[#001d35]" />
+                        <h4 className="text-[11px] font-semibold text-[#001d35] uppercase tracking-wider">Résumé Facture</h4>
+                    </div>
+
+                    <div className="space-y-1.5 mt-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500 font-medium">Total Brut HT :</span>
+                            <span className="font-semibold text-gray-800">{formatPrice(cartTotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500 font-medium">TVA (0.00%) :</span>
+                            <span className="font-normal text-gray-400">0 F CFA</span>
+                        </div>
+                        {effectiveDiscount > 0 && (
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-[3px] border border-amber-200">
+                                <span>Remise :</span>
+                                <span>-{formatPrice(effectiveDiscount)}</span>
+                            </div>
+                        )}
+                        <div className="bg-[#001d35] text-white px-2.5 py-1.5 rounded-[4px] flex items-center justify-between shadow-xs">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-300">Net à Payer</span>
+                            <span className="text-base font-bold text-white tracking-tight">{formatPrice(finalTotal)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. Encaissement & Monnaie */}
+                <div className="p-2.5 rounded-[4px] border border-gray-200 bg-slate-50/70 flex flex-col justify-between">
+                    <div className="flex items-center gap-1.5 pb-1.5 border-b border-gray-200">
+                        <Coins className="w-3.5 h-3.5 text-[#001d35]" />
+                        <h4 className="text-[11px] font-semibold text-[#001d35] uppercase tracking-wider">Encaissement</h4>
+                    </div>
+
+                    <div className="space-y-1.5 mt-1.5">
+                        <div>
+                            <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block mb-0.5">Montant Reçu (Espèces)</label>
+                            <div className="relative">
+                                <FinancialInput
+                                    value={amountReceived || ''}
+                                    onChange={(e) => { setAmountReceived(Math.max(0, parseFloat(e.target.value) || 0)); setAmountError(false); }}
+                                    className={`w-full py-1 pl-2.5 pr-14 text-xs font-semibold rounded-[4px] border ${amountError ? 'border-rose-500 bg-rose-50 text-rose-700' : 'border-gray-300 bg-white text-[#001d35]'} focus:outline-none focus:ring-1 focus:ring-[#001d35]`}
+                                    placeholder="0"
+                                />
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">F CFA</span>
+                            </div>
+                        </div>
+
+                        {amountReceived > 0 && (
+                            <div className="space-y-1 animate-in fade-in duration-100">
+                                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-[4px] px-2 py-1 flex items-center justify-between text-xs font-semibold">
+                                    <span className="text-[10px] uppercase font-semibold text-emerald-900 tracking-wider">Monnaie due :</span>
+                                    <span className="text-sm font-bold text-emerald-700">{formatPrice(Math.max(0, amountReceived - finalTotal))}</span>
+                                </div>
+
+                                {amountReceived > finalTotal && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCheckout('cash')}
+                                        className="w-full text-left px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-[4px] text-[10px] font-semibold flex items-center justify-between transition-colors cursor-pointer"
+                                        title="Gérer le reliquat en Bon d'Avoir ou Avance client"
+                                    >
+                                        <span className="flex items-center gap-1">
+                                            <Coins className="w-3 h-3 text-amber-700" />
+                                            Pas la monnaie ? (Reliquat)
+                                        </span>
+                                        <span className="underline font-bold">Avoir &rarr;</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* 4. Actions de Caisse */}
+                <div className="p-2.5 rounded-[4px] border border-gray-200 bg-slate-50/70 flex flex-col justify-between">
+                    <div className="flex items-center gap-1.5 pb-1.5 border-b border-gray-200">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#001d35]" />
+                        <h4 className="text-[11px] font-semibold text-[#001d35] uppercase tracking-wider">Actions de Caisse</h4>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 mt-1.5">
+                        <button
+                            type="button"
+                            onClick={() => handleCheckout(paymentMethod)}
+                            disabled={cart.length === 0 || isProcessing}
+                            className="w-full py-2 bg-[#001d35] hover:bg-[#00284a] text-white rounded-[4px] font-semibold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#f77500]" />
+                            <span>Valider Paiement</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleSaveQuote}
+                            disabled={cart.length === 0}
+                            className="w-full py-1.5 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-[4px] font-semibold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <FileText className="w-3.5 h-3.5 text-[#001d35]" />
+                            <span>Créer un Devis</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            {/* Modal de Paiement */}
+            {showPaymentModal && (
+                <PaymentModal
+                    total={finalTotal}
+                    subtotal={cartTotal}
+                    discount={effectiveDiscount}
+                    preSelectedMethod={paymentMethod}
+                    preSelectedAmount={amountReceived > 0 ? amountReceived.toString() : ''}
+                    onConfirm={handleConfirmPayment}
+                    onCancel={() => setShowPaymentModal(false)}
+                    isProcessing={isProcessing}
+                />
+            )}
+
+            {/* Reçu de Caisse */}
             {showReceipt && (
                 <Receipt
                     transaction={lastTransaction}
@@ -707,6 +1093,23 @@ const POS = () => {
                 />
             )}
 
+            {/* OVERLAY LOADER D'ENTRÉE DE PAGE (1,5s au montage) Identique à Réapprovisionnement */}
+            {isPageLoading && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[300] p-4 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-[4px] p-6 shadow-2xl border-2 border-[#001d35] flex flex-col items-center max-w-sm text-center">
+                        <div className="relative h-12 w-12 mb-3">
+                            <div className="absolute inset-0 animate-spin rounded-full border-4 border-gray-200 border-t-[#001d35]"></div>
+                            <div className="absolute inset-2 animate-spin-reverse rounded-full border-2 border-transparent border-b-[#f77500]"></div>
+                        </div>
+                        <h4 className="text-sm font-semibold text-[#001d35] uppercase tracking-wider">
+                            Chargement en cours...
+                        </h4>
+                        <p className="text-xs text-gray-600 mt-1 font-medium">
+                            Point de Vente (POS)
+                        </p>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

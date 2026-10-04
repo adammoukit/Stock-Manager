@@ -14,4 +14,5 @@ public class SaleItemResponseDTO {
     private String saleType;
     private BigDecimal unitPrice;
     private BigDecimal totalPrice;
+    private BigDecimal baseStockDeduction;
 }

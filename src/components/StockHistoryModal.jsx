@@ -30,15 +30,15 @@ const StockHistoryModal = ({ product, movements, onClose }) => {
             <div className="bg-white rounded-sm border-2 border-gray-300 shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b-2 border-gray-300" style={{ backgroundColor: '#e6ecf2' }}>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#1c398e]/10 rounded-sm">
-                            <History className="w-6 h-6 text-[#1c398e]" />
+                        <div className="p-2 bg-[#001d35]/10 rounded-sm">
+                            <History className="w-6 h-6 text-[#001d35]" />
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-gray-900">Historique des Mouvements</h2>
                             <p className="text-sm text-gray-500">{product?.name}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
@@ -86,7 +86,7 @@ const StockHistoryModal = ({ product, movements, onClose }) => {
                 <div className="p-4 bg-gray-50 border-t-2 border-gray-300 flex justify-end">
                     <button 
                         onClick={onClose}
-                        className="px-8 py-2.5 rounded-sm font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 border-2 border-gray-300 transition-all active:scale-95"
+                        className="px-8 py-2.5 rounded-sm font-bold bg-gray-200 text-gray-700 hover:bg-gray-300 border-2 border-gray-300 transition-all active:scale-95 cursor-pointer"
                     >
                         Fermer l'historique
                     </button>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { Shield, Save, Check, X, Info } from 'lucide-react';
-import toast from 'react-hot-toast';
+import T from '../../utils/toast';
 
 const permissionDefinitions = {
     sales: {
@@ -63,7 +63,7 @@ const RolesPermissions = () => {
 
     const togglePermission = (category, key) => {
         if (selectedRoleId === 'admin') {
-            toast.error("Le rôle Administrateur/Gérant doit avoir tous les droits.");
+            T.warning("Le rôle Administrateur/Gérant doit avoir tous les droits.");
             return;
         }
         setLocalPermissions(prev => ({
@@ -81,7 +81,7 @@ const RolesPermissions = () => {
             setRoles(prev => prev.map(r =>
                 r.id === selectedRoleId ? { ...r, permissions: localPermissions } : r
             ));
-            toast.success("Permissions mises à jour avec succès !");
+            T.saved("Permissions mises à jour avec succès !");
             setIsLoading(false);
         }, 3000);
     };
@@ -92,14 +92,14 @@ const RolesPermissions = () => {
         <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#1c398e] tracking-tight">Rôles & Droits d'Accès</h2>
+                    <h2 className="text-2xl font-bold text-[#001d35] tracking-tight">Rôles & Droits d'Accès</h2>
                     <p className="text-gray-500 text-sm mt-1 font-medium">Définissez très précisément ce que chaque employé a le droit de voir ou de faire.</p>
                 </div>
                 <button
                     onClick={handleSave}
                     className={`flex items-center gap-2 px-4 py-2 rounded-sm transition-colors shadow-md font-medium ${selectedRoleId === 'admin'
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-[#1c398e] text-white hover:bg-blue-700'
+                        : 'bg-[#001d35] text-white hover:bg-blue-700'
                         }`}
                     disabled={selectedRoleId === 'admin'}
                 >
@@ -113,7 +113,7 @@ const RolesPermissions = () => {
                 <div className="md:col-span-1 space-y-2">
                     <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm mb-4">
                         <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                            <Info className="w-4 h-4 text-[#1c398e]" />
+                            <Info className="w-4 h-4 text-[#001d35]" />
                             <span>Sélectionnez un rôle pour voir ou modifier ses permissions.</span>
                         </div>
                     </div>
@@ -123,7 +123,7 @@ const RolesPermissions = () => {
                             key={role.id}
                             onClick={() => handleRoleChange(role.id)}
                             className={`w-full text-left p-4 rounded-sm border-2 transition-all flex items-center justify-between ${selectedRoleId === role.id
-                                ? 'border-[#1c398e] bg-blue-50'
+                                ? 'border-[#001d35] bg-blue-50'
                                 : 'border-transparent bg-white hover:border-gray-200'
                                 }`}
                         >
@@ -131,7 +131,7 @@ const RolesPermissions = () => {
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${role.color}`}>
                                     <Shield className="w-4 h-4" />
                                 </div>
-                                <span className={`font-bold ${selectedRoleId === role.id ? 'text-[#1c398e]' : 'text-gray-700'}`}>
+                                <span className={`font-bold ${selectedRoleId === role.id ? 'text-[#001d35]' : 'text-gray-700'}`}>
                                     {role.name}
                                 </span>
                             </div>
@@ -185,7 +185,7 @@ const RolesPermissions = () => {
                                                     </div>
 
                                                     {/* Toggle Switch UI */}
-                                                    <div className={`relative inline-flex h-7 w-[50px] items-center rounded-full transition-colors flex-shrink-0 ${isGranted ? 'bg-[#1c398e]' : 'bg-red-400'}`}>
+                                                    <div className={`relative inline-flex h-7 w-[50px] items-center rounded-full transition-colors flex-shrink-0 ${isGranted ? 'bg-[#001d35]' : 'bg-red-400'}`}>
                                                         <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${isGranted ? 'translate-x-[26px]' : 'translate-x-1'}`} />
                                                     </div>
                                                 </div>
@@ -201,10 +201,13 @@ const RolesPermissions = () => {
 
             {/* Full-screen Loader */}
             {isLoading && (
-                <div className="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-                    <div className="flex flex-col items-center gap-4 bg-white p-8 rounded-sm shadow-xl">
-                        <div className="w-12 h-12 border-4 border-[#1c398e]/20 border-t-[#1c398e] rounded-full animate-spin"></div>
-                        <p className="text-gray-700 font-medium animate-pulse">Mise à jour des accès en cours...</p>
+                <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-150">
+                    <div className="flex flex-col items-center gap-5 bg-white px-10 py-8 rounded-sm shadow-2xl border border-gray-100">
+                        <div className="w-14 h-14 border-4 border-[#001d35]/20 border-t-[#001d35] rounded-full animate-spin"></div>
+                        <div className="text-center">
+                            <p className="text-gray-900 font-bold text-base">Mise à jour des accès en cours...</p>
+                            <p className="text-gray-500 text-sm mt-1">Application des permissions</p>
+                        </div>
                     </div>
                 </div>
             )}

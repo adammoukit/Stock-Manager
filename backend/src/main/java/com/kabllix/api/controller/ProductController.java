@@ -26,6 +26,76 @@ public class ProductController {
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final ProductStockRepository stockRepository;
+    private final com.kabllix.api.repository.UserRepository userRepository;
+
+    // GET /api/products/barcode/{barcode} — Recherche rapide par code-barre
+    @GetMapping("/barcode/{barcode}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ProductResponseDTO> getByBarcode(@PathVariable String barcode) {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .flatMap(user -> productRepository.findByBarcodeAndOwnerId(barcode.trim(), user.getId()))
+                .map(p -> {
+                    List<ProductStock> stocks = stockRepository.findByProductId(p.getId());
+                    return ResponseEntity.ok(ProductResponseDTO.fromEntity(p, stocks));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * GET /api/products/generate-barcode
+     * Génère un code EAN-13 interne unique (préfixe 200) garanti libre en base
+     * pour le propriétaire connecté.
+     *
+     * ⚠️ Cet endpoint n'est JAMAIS appelé automatiquement.
+     * Il est déclenché UNIQUEMENT par un clic explicite du gérant sur « 🎲 Générer ».
+     * Si le gérant oublie de renseigner le code-barres, le produit est créé sans code.
+     */
+    @GetMapping("/generate-barcode")
+    @Transactional(readOnly = true)
+    public ResponseEntity<java.util.Map<String, String>> generateBarcode() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        java.util.UUID ownerId = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"))
+                .getId();
+
+        String barcode = generateUniqueEan13(ownerId);
+        return ResponseEntity.ok(java.util.Map.of("barcode", barcode));
+    }
+
+    /**
+     * Génère un code EAN-13 interne unique pour le propriétaire.
+     * Format : 200 + 9 chiffres (horodatage + aléatoire) + clé de contrôle.
+     * Vérifie en base qu'il n'existe pas déjà avant de le retourner.
+     */
+    private String generateUniqueEan13(java.util.UUID ownerId) {
+        final String PREFIX = "200";
+        int attempts = 0;
+
+        while (attempts < 20) {
+            // Corps de 9 chiffres : base temporelle + entropie pour éviter les collisions
+            long timeComponent = (System.currentTimeMillis() / 1000L) % 100000L;
+            long randomComponent = (long) (Math.random() * 10000L);
+            String body = String.format("%05d%04d", timeComponent, randomComponent);
+            String first12 = PREFIX + body; // 3 + 9 = 12 chiffres
+
+            // Calcul de la clé de contrôle EAN-13 (modulo 10)
+            int sum = 0;
+            for (int i = 0; i < 12; i++) {
+                int digit = Character.getNumericValue(first12.charAt(i));
+                sum += (i % 2 == 0) ? digit : digit * 3;
+            }
+            int checkDigit = (10 - (sum % 10)) % 10;
+            String candidate = first12 + checkDigit;
+
+            // Vérification d'unicité en base avant de retourner
+            if (!productRepository.existsByBarcodeAndOwnerId(candidate, ownerId)) {
+                return candidate;
+            }
+            attempts++;
+        }
+        throw new RuntimeException("Impossible de générer un code-barres unique après 20 tentatives");
+    }
 
     // POST /api/products — Créer un produit
     @PostMapping

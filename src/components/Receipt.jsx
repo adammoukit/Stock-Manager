@@ -10,6 +10,10 @@ import {
 import QRCode from "react-qr-code";
 import { formatPrice, formatRowPrice } from "../utils/currency";
 import { useSettings } from "../context/SettingsContext";
+import { useAuth } from "../context/AuthContext";
+import { useSession } from "../context/SessionContext";
+import { formatTransactionNumber } from "../utils/transactionFormat";
+import { Barcode } from "../utils/barcodeGenerator";
 import ReceiptA4 from "./ReceiptA4";
 import PrintOptionsDialog from "./PrintOptionsDialog";
 
@@ -17,7 +21,29 @@ const Receipt = ({ transaction, onClose }) => {
   const receiptRef = useRef();
   // null = dialog, 'thermal' | 'a4-invoice' | 'a4-delivery' = chosen format
   const [selectedFormat, setSelectedFormat] = useState(null);
-  const { company } = useSettings();
+  const { company, stores, currentStoreId } = useSettings();
+  const { user } = useAuth();
+  const { activeSession } = useSession();
+
+  // Résolution dynamique du nom de l'entreprise
+  const activeStore = stores?.find(s => s.id === (transaction.storeId || currentStoreId)) || stores?.[0];
+  const companyName =
+    (company?.name && company.name !== 'Quincaillerie La Prospérité' && company.name !== 'Mon Entreprise')
+      ? company.name
+      : (activeStore?.name || company?.name || "Mon Entreprise");
+
+  const companyAddress = company?.address || activeStore?.address || "";
+  const companyPhone = company?.phone || activeStore?.phone || "";
+  const companyNif = company?.nif || "";
+  const companyEmail = company?.email || "";
+  const companyLogo = company?.logo || null;
+
+  // Résolution dynamique du nom du caissier
+  const cashierName =
+    transaction.cashier ||
+    transaction.cashierName ||
+    activeSession?.cashierName ||
+    (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user?.name || user?.username || 'Caissier'));
 
   const handlePrint = () => window.print();
 
@@ -51,6 +77,7 @@ const Receipt = ({ transaction, onClose }) => {
     item.label?.toUpperCase() || item.unit?.toUpperCase() || "UNITÉ";
 
   const date = new Date(transaction.date);
+  const formattedTxId = formatTransactionNumber(transaction, "REC");
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -82,25 +109,25 @@ const Receipt = ({ transaction, onClose }) => {
         <div ref={receiptRef} className="receipt-content p-4">
           {/* Header */}
           <div className="text-center border-b border-dashed border-gray-400 pb-3 mb-3">
-            {company.logo && (
+            {companyLogo && (
               <img
-                src={company.logo}
+                src={companyLogo}
                 alt="Logo"
-                className="h-12 mx-auto mb-2 grayscale"
+                className="h-12 mx-auto mb-2 grayscale object-contain"
               />
             )}
-            <h1 className="text-xl font-bold uppercase">{company.name}</h1>
-            <p className="text-xs mt-1 font-medium">{company.address}</p>
-            <p className="text-[11px] mt-1">NIF: {company.nif}</p>
-            <p className="text-[11px]">Tel: {company.phone}</p>
-            {company.email && <p className="text-[11px]">{company.email}</p>}
+            <h1 className="text-xl font-bold uppercase tracking-tight">{companyName}</h1>
+            {companyAddress && <p className="text-xs mt-1 font-medium">{companyAddress}</p>}
+            {companyNif && <p className="text-[11px] mt-1">NIF: {companyNif}</p>}
+            {companyPhone && <p className="text-[11px]">Tel: {companyPhone}</p>}
+            {companyEmail && <p className="text-[11px]">{companyEmail}</p>}
           </div>
 
           {/* Transaction Info */}
           <div className="text-xs space-y-1 mb-3">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span>No Transaction:</span>
-              <span className="font-mono font-bold">#{transaction.id}</span>
+              <span className="font-mono font-bold tracking-wider">{formattedTxId}</span>
             </div>
             <div className="flex justify-between">
               <span>Date:</span>
@@ -109,6 +136,10 @@ const Receipt = ({ transaction, onClose }) => {
             <div className="flex justify-between">
               <span>Heure:</span>
               <span>{date.toLocaleTimeString("fr-FR")}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Caissier:</span>
+              <span className="font-semibold text-gray-900">{cashierName}</span>
             </div>
           </div>
 
@@ -173,16 +204,51 @@ const Receipt = ({ transaction, onClose }) => {
             {transaction.paymentMethod === "cash" && (
               <>
                 <div className="flex justify-between">
-                  <span>Montant recu:</span>
+                  <span>Montant reçu:</span>
                   <span>
                     {formatPrice(transaction.amountGiven || transaction.total)}
                   </span>
                 </div>
-                {transaction.change > 0 && (
-                  <div className="flex justify-between font-bold">
-                    <span>MONNAIE:</span>
-                    <span>{formatPrice(transaction.change)}</span>
-                  </div>
+                {transaction.changeDue > 0 && transaction.changeReliquat ? (
+                  <>
+                    <div className="flex justify-between text-gray-600">
+                      <span>Monnaie due:</span>
+                      <span>{formatPrice(transaction.changeDue)}</span>
+                    </div>
+                    {transaction.change > 0 && (
+                      <div className="flex justify-between font-medium">
+                        <span>Rendu en espèces:</span>
+                        <span>{formatPrice(transaction.change)}</span>
+                      </div>
+                    )}
+                    <div className="my-2 p-2 border border-dashed border-gray-800 rounded text-center bg-gray-50">
+                      <p className="font-bold text-[11px] uppercase tracking-wider text-[#001d35]">
+                        {transaction.changeReliquat.type === 'voucher'
+                          ? "🎟️ BON DE RELIQUAT (AVOIR)"
+                          : "👤 AVANCE COMPTE CLIENT"}
+                      </p>
+                      <p className="text-base font-extrabold text-[#001d35] my-1">
+                        {formatPrice(transaction.changeReliquat.amount)}
+                      </p>
+                      {transaction.changeReliquat.voucherCode && (
+                        <p className="font-mono text-xs font-bold text-gray-800 tracking-wider">
+                          CODE : {transaction.changeReliquat.voucherCode}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                        {transaction.changeReliquat.type === 'voucher'
+                          ? "Ce bon d'avoir est déductible lors de votre prochain achat (valable 60 jours)."
+                          : "Montant crédité en avance sur votre compte client."}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  transaction.change > 0 && (
+                    <div className="flex justify-between font-bold">
+                      <span>MONNAIE RENDUE:</span>
+                      <span>{formatPrice(transaction.change)}</span>
+                    </div>
+                  )
                 )}
               </>
             )}
@@ -197,9 +263,18 @@ const Receipt = ({ transaction, onClose }) => {
             </div>
           </div>
 
-          {/* Barcode placeholder */}
-          <div className="text-center mt-3 print:block hidden">
-            <div className="font-mono text-xs">*{transaction.id}*</div>
+          {/* Barcode transaction scannable */}
+          <div className="mt-4 pt-3 border-t border-dashed border-gray-400 flex flex-col items-center justify-center">
+            <Barcode
+              code={formattedTxId}
+              width={220}
+              height={50}
+              showText={true}
+              lineColor="#000000"
+            />
+            <div className="text-[9px] text-gray-500 mt-1 uppercase tracking-wider font-mono">
+              Conservez ce ticket pour tout échange
+            </div>
           </div>
         </div>
 
@@ -208,7 +283,7 @@ const Receipt = ({ transaction, onClose }) => {
           <button
             onClick={handlePrint}
             className="flex-1 text-white px-4 py-2 rounded-sm flex items-center justify-center gap-2 transition-colors font-semibold"
-            style={{ backgroundColor: "#1c398e" }}
+            style={{ backgroundColor: "#001d35" }}
           >
             <Printer className="w-5 h-5" />
             Imprimer
@@ -244,6 +319,8 @@ const Receipt = ({ transaction, onClose }) => {
                     .print\\:hidden { display: none !important; }
                     .print\\:block  { display: block  !important; }
                     * { color: #000 !important; background: transparent !important; box-shadow: none !important; }
+                    svg rect { fill: #000 !important; }
+                    svg text { fill: #000 !important; }
                     .border-b, .border-t { border-color: #000 !important; }
                     table { width: 100%; }
                 }

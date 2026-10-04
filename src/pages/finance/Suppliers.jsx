@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { usePurchase } from '../../context/PurchaseContext';
 import { Loader2 } from 'lucide-react';
 import { formatPrice } from '../../utils/currency';
-import toast from 'react-hot-toast';
+import FinancialInput from '../../components/FinancialInput';
+import T from '../../utils/toast';
 
 const Suppliers = () => {
     const { suppliers, orders, addSupplier, updateSupplier, deleteSupplier, paySupplier } = usePurchase();
@@ -58,18 +59,18 @@ const Suppliers = () => {
         e.preventDefault();
         const amount = Number(paymentAmount);
         if (amount <= 0) {
-            toast.error("Veuillez entrer un montant valide.");
+            T.error("Veuillez entrer un montant valide.");
             return;
         }
         if (amount > selectedSupplierForPayment.balance) {
-            toast.error("Le montant dépasse la dette actuelle.");
+            T.error("Le montant dépasse la dette actuelle.");
             return;
         }
 
         setIsPaying(true);
         setTimeout(() => {
             paySupplier(selectedSupplierForPayment.id, amount);
-            toast.success(`Paiement de ${formatPrice(amount)} enregistré.`);
+            T.success(`Paiement de ${formatPrice(amount)} enregistré.`);
             setIsPaying(false);
             setShowPaymentModal(false);
         }, 4000);
@@ -78,16 +79,16 @@ const Suppliers = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!formData.name.trim()) {
-            toast.error("Le nom du fournisseur est requis.");
+            T.warning("Le nom du fournisseur est requis.");
             return;
         }
 
         if (selectedSupplier) {
             updateSupplier(selectedSupplier.id, formData);
-            toast.success("Fournisseur mis à jour avec succès");
+            T.saved("Fournisseur mis à jour avec succès");
         } else {
             addSupplier(formData);
-            toast.success("Fournisseur ajouté avec succès");
+            T.success("Fournisseur ajouté avec succès");
         }
         setShowModal(false);
     };
@@ -95,7 +96,7 @@ const Suppliers = () => {
     const handleDelete = (id, name) => {
         if (window.confirm(`Voulez-vous vraiment supprimer le fournisseur ${name} ?`)) {
             deleteSupplier(id);
-            toast.success("Fournisseur supprimé");
+            T.deleted("Fournisseur supprimé");
         }
     };
 
@@ -116,16 +117,16 @@ const Suppliers = () => {
             {loading ? (
                 <div className="flex flex-col items-center justify-center space-y-3 py-2">
                     <div className="relative h-8 w-8">
-                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#1c398e]"></div>
+                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
                         <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500] opacity-60"></div>
                     </div>
-                    <p className="text-[9px] font-black text-[#1c398e] uppercase tracking-[0.2em] animate-pulse">Sync...</p>
+                    <p className="text-[9px] font-black text-[#001d35] uppercase tracking-[0.2em] animate-pulse">Sync...</p>
                 </div>
             ) : (
                 <>
                     <div className="relative z-10">
                         <p className="text-[11px] font-bold text-blue-600/70 uppercase tracking-widest mb-1">{title}</p>
-                        <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1c398e' }}>
+                        <div className="flex items-baseline mt-2 font-semibold opacity-85" style={{ color: '#001d35', opacity: 0.85 }}>
                             <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
                                 {isCurrency ? formatPrice(value) : value}
                             </h3>
@@ -141,7 +142,7 @@ const Suppliers = () => {
                             src={iconUrl}
                             alt=""
                             crossOrigin="anonymous"
-                            className="absolute bottom-1 right-1 w-16 h-16 opacity-90 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-700 pointer-events-none"
+                            className="absolute bottom-1 right-1 w-16 h-16 opacity-30 group-hover:opacity-50 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-700 pointer-events-none"
                         />
                     )}
                 </>
@@ -153,12 +154,12 @@ const Suppliers = () => {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-[#1c398e]">Mes Fournisseurs</h2>
+                    <h2 className="text-2xl font-bold text-[#001d35]">Mes Fournisseurs</h2>
                     <p className="text-gray-500 text-sm mt-1">Gérez votre répertoire de fournisseurs et leurs soldes</p>
                 </div>
                 <button
                     onClick={() => handleOpenModal()}
-                    className="bg-[#1c398e] hover:bg-blue-800 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold text-sm"
+                    className="bg-[#001d35] hover:bg-blue-800 text-white px-4 py-2 rounded-sm flex items-center gap-2 transition-colors shadow-sm font-semibold text-sm"
                 >
                     <i className="uil uil-plus text-lg"></i>
                     Nouveau Fournisseur
@@ -199,7 +200,7 @@ const Suppliers = () => {
                 />
             </div>
 
-            <div className="bg-white rounded-sm border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+            <div className="bg-white rounded-sm border-2 border-gray-300 shadow-sm overflow-hidden flex flex-col h-[500px]">
                 <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center gap-4">
                     <div className="relative flex-1 max-w-md">
                         <i className="uil uil-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
@@ -208,35 +209,35 @@ const Suppliers = () => {
                             placeholder="Rechercher par nom ou contact..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] bg-white transition-colors text-sm"
+                            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] bg-white transition-colors text-sm"
                         />
                     </div>
                 </div>
 
                 <div className="overflow-y-auto flex-1">
-                    <table className="w-full text-left text-sm">
-                        <thead style={{ backgroundColor: '#1c398e' }} className="text-white font-bold sticky top-0 z-10 uppercase tracking-wider text-[11px]">
-                            <tr>
-                                <th className="px-6 py-4">Fournisseur</th>
-                                <th className="px-6 py-4">Contact & Coordonnées</th>
-                                <th className="px-6 py-4">Adresse</th>
-                                <th className="px-6 py-4 text-right">Solde Dû</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                    <table className="w-full text-left text-sm relative">
+                        <thead style={{ backgroundColor: '#001d35' }} className="text-white font-bold sticky top-0 z-10 shadow-sm uppercase tracking-wider text-[11px]">
+                            <tr className="divide-x-2 divide-white/20">
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40">Fournisseur</th>
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40">Contact & Coordonnées</th>
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40">Adresse</th>
+                                <th className="px-4 py-2 border-r-2 border-[#e6e6e6]/40 text-right">Solde Dû</th>
+                                <th className="px-4 py-2 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y-2 divide-gray-200">
+                        <tbody className="divide-y-2 divide-[#e6e6e6]">
                             {filteredSuppliers.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan="5" className="px-4 py-8 text-center text-gray-500 font-semibold text-[14px] text-[#001d35]">
                                         Aucun fournisseur trouvé.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredSuppliers.map((supplier) => (
-                                    <tr key={supplier.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4">
+                                    <tr key={supplier.id} className="divide-x-2 divide-[#e6e6e6] transition-colors odd:bg-[#f3f3f3] even:bg-[#ffffff] hover:bg-blue-50/40">
+                                        <td className="px-4 py-2">
                                             <div className="flex items-center gap-2">
-                                                <div className="font-bold text-gray-900">{supplier.name}</div>
+                                                <div className="font-bold text-[#001d35] text-[14px]">{supplier.name?.toUpperCase()}</div>
                                                 {supplier.balance > 0 && (
                                                     <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wide flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
@@ -244,32 +245,32 @@ const Suppliers = () => {
                                                     </span>
                                                 )}
                                             </div>
-                                            {supplier.contact && <div className="text-xs text-gray-500 flex items-center gap-1 mt-1"><i className="uil uil-user text-[11px]"></i> {supplier.contact}</div>}
+                                            {supplier.contact && <div className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-semibold"><i className="uil uil-user text-[11px]"></i> {supplier.contact}</div>}
                                         </td>
-                                        <td className="px-6 py-4 space-y-1">
-                                            {supplier.phone && <div className="text-xs text-gray-600 flex items-center gap-1.5"><i className="uil uil-phone text-sm text-gray-400"></i> {supplier.phone}</div>}
-                                            {supplier.email && <div className="text-xs text-gray-600 flex items-center gap-1.5"><i className="uil uil-envelope text-sm text-gray-400"></i> {supplier.email}</div>}
-                                            {!supplier.phone && !supplier.email && <span className="text-xs text-gray-400 italic">Non renseigné</span>}
+                                        <td className="px-4 py-2 space-y-1 text-[#001d35] text-[13px] font-semibold">
+                                            {supplier.phone && <div className="flex items-center gap-1.5"><i className="uil uil-phone text-sm text-gray-400"></i> {supplier.phone}</div>}
+                                            {supplier.email && <div className="flex items-center gap-1.5"><i className="uil uil-envelope text-sm text-gray-400"></i> {supplier.email}</div>}
+                                            {!supplier.phone && !supplier.email && <span className="text-gray-400 italic font-medium">Non renseigné</span>}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-2 text-[#001d35] text-[13px] font-semibold">
                                             {supplier.address ? (
-                                                <div className="text-xs text-gray-600 flex items-start gap-1.5">
+                                                <div className="flex items-start gap-1.5">
                                                     <i className="uil uil-map-marker text-sm text-gray-400 shrink-0 mt-0.5"></i>
                                                     <span className="line-clamp-2">{supplier.address}</span>
                                                 </div>
-                                            ) : <span className="text-xs text-gray-400 italic">-</span>}
+                                            ) : <span className="text-gray-400 italic font-medium">-</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className={`font-bold ${supplier.balance > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                        <td className="px-4 py-2 text-right text-[14px]">
+                                            <span className={`font-bold ${supplier.balance > 0 ? 'text-red-600' : 'text-[#001d35]'}`}>
                                                 {formatPrice(supplier.balance)}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-4 py-2 text-right">
                                             <div className="flex justify-end gap-2">
                                                 {supplier.balance > 0 && (
                                                     <button
                                                         onClick={() => handleOpenPaymentModal(supplier)}
-                                                        className="px-2 py-1 text-xs font-bold bg-[#1c398e] text-white hover:bg-blue-800 rounded-sm transition-colors shadow-sm"
+                                                        className="px-2 py-1 text-xs font-bold bg-[#001d35] text-white hover:bg-blue-800 rounded-sm transition-colors shadow-sm cursor-pointer"
                                                         title="Enregistrer un paiement"
                                                     >
                                                         Payer
@@ -277,14 +278,14 @@ const Suppliers = () => {
                                                 )}
                                                 <button
                                                     onClick={() => handleOpenModal(supplier)}
-                                                    className="p-1.5 text-gray-400 hover:text-[#1c398e] hover:bg-blue-50 rounded-sm transition-colors"
+                                                    className="p-1 text-gray-400 cursor-pointer hover:text-[#001d35] hover:bg-blue-50 rounded-sm transition-colors"
                                                     title="Modifier"
                                                 >
                                                     <i className="uil uil-pen text-lg"></i>
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(supplier.id, supplier.name)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
+                                                    className="p-1 text-gray-400 cursor-pointer hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                                                     title="Supprimer"
                                                 >
                                                     <i className="uil uil-trash-alt text-lg"></i>
@@ -319,7 +320,7 @@ const Suppliers = () => {
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] text-sm"
                                     placeholder="Ex: Cimco Togo"
                                 />
                             </div>
@@ -329,7 +330,7 @@ const Suppliers = () => {
                                     type="text"
                                     value={formData.contact}
                                     onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] text-sm"
                                     placeholder="Ex: Jean Dupont"
                                 />
                             </div>
@@ -340,7 +341,7 @@ const Suppliers = () => {
                                         type="tel"
                                         value={formData.phone}
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] text-sm"
                                         placeholder="+228..."
                                     />
                                 </div>
@@ -350,7 +351,7 @@ const Suppliers = () => {
                                         type="email"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] text-sm"
                                         placeholder="contact@..."
                                     />
                                 </div>
@@ -360,7 +361,7 @@ const Suppliers = () => {
                                 <textarea
                                     value={formData.address}
                                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm resize-none"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] text-sm resize-none"
                                     rows="2"
                                     placeholder="Adresse complète"
                                 />
@@ -368,12 +369,12 @@ const Suppliers = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Solde initial (Dette)</label>
                                 <div className="relative">
-                                    <input
-                                        type="number"
+                                    <FinancialInput
                                         min="0"
                                         value={formData.balance}
                                         onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
-                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm"
+                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] text-sm"
+                                        placeholder="0"
                                     />
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
                                         FCFA
@@ -392,7 +393,7 @@ const Suppliers = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 py-2 bg-[#1c398e] hover:bg-blue-800 text-white font-bold rounded-sm text-sm transition-colors"
+                                    className="flex-1 py-2 bg-[#001d35] hover:bg-blue-800 text-white font-bold rounded-sm text-sm transition-colors"
                                 >
                                     {selectedSupplier ? 'Mettre à jour' : 'Enregistrer'}
                                 </button>
@@ -424,15 +425,14 @@ const Suppliers = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Montant du paiement <span className="text-red-500">*</span></label>
                                 <div className="relative">
-                                    <input
-                                        type="number"
+                                    <FinancialInput
                                         required
                                         min="1"
                                         max={selectedSupplierForPayment.balance}
                                         value={paymentAmount}
                                         onChange={(e) => setPaymentAmount(e.target.value)}
-                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#1c398e] text-sm font-medium"
-                                        placeholder="Ex: 50000"
+                                        className="w-full pl-3 pr-12 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35] text-sm font-medium"
+                                        placeholder="Ex: 50 000"
                                     />
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">
                                         FCFA
@@ -451,7 +451,7 @@ const Suppliers = () => {
                                 <button
                                     type="submit"
                                     disabled={isPaying}
-                                    className="flex-1 py-2 bg-[#1c398e] hover:bg-blue-800 text-white font-bold rounded-sm text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                                    className="flex-1 py-2 bg-[#001d35] hover:bg-blue-800 text-white font-bold rounded-sm text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
                                 >
                                     {isPaying ? (
                                         <>

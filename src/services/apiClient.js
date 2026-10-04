@@ -90,6 +90,16 @@ export const productApi = {
 
     /** Supprime un produit par son ID */
     delete: (id) => apiClient.delete(`/products/${id}`),
+
+    /** Recherche un produit par code-barre */
+    getByBarcode: (barcode) => apiClient.get(`/products/barcode/${encodeURIComponent(barcode)}`),
+
+    /**
+     * Demande au serveur Java de générer un code EAN-13 interne unique garanti.
+     * N'est appelé QUE par un clic explicite du gérant sur « 🎲 Générer ».
+     * Le serveur vérifie l'unicité en base avant de répondre.
+     */
+    generateBarcode: () => apiClient.get('/products/generate-barcode'),
 };
 
 // ─────────────────────────────────────────────────────────────

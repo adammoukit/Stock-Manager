@@ -20,6 +20,7 @@ public class ProductResponseDTO {
     private String name;
     private String category;
     private String supplier;
+    private String barcode;
     private UnitArchetype unitArchetype;
     private String baseUnit;
     private BigDecimal conversionFactor;
@@ -27,6 +28,8 @@ public class ProductResponseDTO {
     private BigDecimal bulkPurchasePrice;
     private BigDecimal price;
     private boolean hasLot;
+    private boolean hasPiece;
+    private BigDecimal piecePrice;
     private Integer retailStepQuantity;
     private BigDecimal lotPrice;
     private String bulkUnit;
@@ -59,12 +62,15 @@ public class ProductResponseDTO {
         dto.setName(p.getName());
         dto.setCategory(p.getCategory());
         dto.setSupplier(p.getSupplier());
+        dto.setBarcode(p.getBarcode());
         dto.setUnitArchetype(p.getUnitArchetype());
         dto.setBaseUnit(p.getBaseUnit());
         dto.setConversionFactor(p.getConversionFactor());
         dto.setPurchasePrice(p.getPurchasePrice());
         dto.setBulkPurchasePrice(p.getBulkPurchasePrice());
         dto.setPrice(p.getPrice());
+        dto.setHasPiece(p.isHasPiece());
+        dto.setPiecePrice(p.getPiecePrice());
         dto.setHasLot(p.isHasLot());
         dto.setRetailStepQuantity(p.getRetailStepQuantity());
         dto.setLotPrice(p.getLotPrice());

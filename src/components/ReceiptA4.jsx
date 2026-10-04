@@ -3,11 +3,37 @@ import { X, Printer, FileText, PackageOpen, ArrowLeft } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { formatPrice, formatRowPrice } from '../utils/currency';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
+import { formatTransactionNumber } from '../utils/transactionFormat';
+import { Barcode } from '../utils/barcodeGenerator';
 
 const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }) => {
     const receiptRef = useRef();
     const [isDeliverySlip, setIsDeliverySlip] = useState(initialDeliverySlip);
-    const { company } = useSettings();
+    const { company, stores, currentStoreId } = useSettings();
+    const { user } = useAuth();
+    const { activeSession } = useSession();
+
+    // Résolution dynamique du nom de l'entreprise
+    const activeStore = stores?.find(s => s.id === (transaction.storeId || currentStoreId)) || stores?.[0];
+    const companyName =
+        (company?.name && company.name !== 'Quincaillerie La Prospérité' && company.name !== 'Mon Entreprise')
+            ? company.name
+            : (activeStore?.name || company?.name || "Mon Entreprise");
+
+    const companyAddress = company?.address || activeStore?.address || "";
+    const companyPhone = company?.phone || activeStore?.phone || "";
+    const companyNif = company?.nif || "";
+    const companyEmail = company?.email || "";
+    const companyLogo = company?.logo || null;
+
+    // Résolution dynamique du nom du caissier
+    const cashierName =
+        transaction.cashier ||
+        transaction.cashierName ||
+        activeSession?.cashierName ||
+        (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user?.name || user?.username || 'Caissier'));
 
     const handlePrint = () => {
         const docContent = receiptRef.current?.innerHTML;
@@ -18,7 +44,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Facture — ${company.name}</title>
+  <title>Facture — ${companyName}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -56,7 +82,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
     if (!transaction) return null;
 
     const date = new Date(transaction.date);
-    const invoiceNumber = `FAC-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}-${String(transaction.id).padStart(4, '0')}`;
+    const invoiceNumber = formatTransactionNumber(transaction, isDeliverySlip ? 'BL' : 'FAC');
 
     const getUnitLabel = (item) =>
         item.label?.toUpperCase() || item.unit?.toUpperCase() || 'UNITÉ';
@@ -96,7 +122,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                 </button>
                 <button
                     onClick={handlePrint}
-                    className="flex items-center gap-2 text-sm px-4 py-2 bg-[#1c398e] hover:bg-blue-800 text-white rounded-sm font-semibold shadow transition-colors"
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-[#001d35] hover:bg-blue-800 text-white rounded-sm font-semibold shadow transition-colors"
                 >
                     <Printer className="w-4 h-4" />
                     Imprimer A4
@@ -125,30 +151,31 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                     }}
                 >
                 {/* ===== HEADER ===== */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5mm', borderBottom: '3px solid #1c398e', paddingBottom: '5mm' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '5mm', borderBottom: '3px solid #001d35', paddingBottom: '5mm' }}>
                     {/* Company info + document title */}
                     <div style={{ flex: 1 }}>
-                        {company.logo && (
-                            <img src={company.logo} alt="Logo" style={{ height: '14mm', marginBottom: '3mm', objectFit: 'contain' }} />
+                        {companyLogo && (
+                            <img src={companyLogo} alt="Logo" style={{ height: '14mm', marginBottom: '3mm', objectFit: 'contain' }} />
                         )}
-                        <div style={{ fontSize: '15pt', fontWeight: '800', color: '#1c398e', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>
-                            {company.name}
+                        <div style={{ fontSize: '15pt', fontWeight: '800', color: '#001d35', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>
+                            {companyName}
                         </div>
                         <div style={{ fontSize: '8.5pt', color: '#555', marginTop: '1.5mm', lineHeight: '1.6' }}>
-                            {company.address && <div>{company.address}</div>}
-                            {company.phone && <div>Tél : {company.phone}</div>}
-                            {company.email && <div>Email : {company.email}</div>}
-                            {company.nif && <div>NIF : {company.nif}</div>}
+                            {companyAddress && <div>{companyAddress}</div>}
+                            {companyPhone && <div>Tél : {companyPhone}</div>}
+                            {companyEmail && <div>Email : {companyEmail}</div>}
+                            {companyNif && <div>NIF : {companyNif}</div>}
                         </div>
                     </div>
 
-                    {/* Invoice meta (N°, Date, Heure, Réf.) */}
+                    {/* Invoice meta (N°, Date, Heure, Caissier, Réf.) */}
                     <div style={{ textAlign: 'right', minWidth: '65mm', paddingLeft: '8mm' }}>
                         <div style={{ fontSize: '8.5pt', color: '#444', lineHeight: '2' }}>
-                            <div><span style={{ color: '#888' }}>N° :</span> <strong style={{ color: '#1c398e' }}>{invoiceNumber}</strong></div>
+                            <div><span style={{ color: '#888' }}>N° :</span> <strong style={{ color: '#001d35' }}>{invoiceNumber}</strong></div>
                             <div><span style={{ color: '#888' }}>Date :</span> {date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                             <div><span style={{ color: '#888' }}>Heure :</span> {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-                            <div><span style={{ color: '#888' }}>Réf. :</span> <span style={{ fontFamily: 'monospace' }}>#{transaction.id}</span></div>
+                            <div><span style={{ color: '#888' }}>Caissier :</span> <strong style={{ color: '#001d35' }}>{cashierName}</strong></div>
+                            <div><span style={{ color: '#888' }}>Réf. :</span> <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{invoiceNumber}</span></div>
                         </div>
                     </div>
                 </div>
@@ -165,7 +192,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                         color: '#1a1a1a',
                         letterSpacing: '4px',
                         display: 'inline-block',
-                        borderBottom: '2px solid #1c398e',
+                        borderBottom: '2px solid #001d35',
                         paddingBottom: '1mm',
                         marginBottom: '1mm'
                     }}>
@@ -185,7 +212,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                     <div style={{ display: 'flex', gap: '6mm', marginBottom: '6mm' }}>
                         {/* Client block */}
                         <div style={{ flex: 1, backgroundColor: '#f8f9fa', border: '1px solid #e9ecef', borderRadius: '2px', padding: '3mm 4mm' }}>
-                            <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#1c398e', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1.5mm' }}>
+                            <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#001d35', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1.5mm' }}>
                                 Client
                             </div>
                             <div style={{ fontSize: '9pt', color: '#333' }}>
@@ -198,7 +225,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                 {/* ===== ITEMS TABLE ===== */}
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '6mm', fontSize: '9pt' }}>
                     <thead>
-                        <tr style={{ backgroundColor: '#1c398e', color: 'white' }}>
+                        <tr style={{ backgroundColor: '#001d35', color: 'white' }}>
                             <th style={{ padding: '3mm 3mm', textAlign: 'left', fontWeight: '700', fontSize: '8pt', width: '40%' }}>
                                 DÉSIGNATION
                             </th>
@@ -247,7 +274,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                                         {getUnitLabel(item)}
                                     </td>
                                     {!isDeliverySlip && (
-                                        <td style={{ padding: '2.5mm 3mm', textAlign: 'right', verticalAlign: 'top', fontWeight: '600', color: '#1c398e' }}>
+                                        <td style={{ padding: '2.5mm 3mm', textAlign: 'right', verticalAlign: 'top', fontWeight: '600', color: '#001d35' }}>
                                             {formatRowPrice(lineTotal)}
                                         </td>
                                     )}
@@ -285,7 +312,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                             <div style={{
                                 display: 'flex', justifyContent: 'space-between',
                                 padding: '3mm 3mm',
-                                backgroundColor: '#1c398e',
+                                backgroundColor: '#001d35',
                                 color: 'white',
                                 fontWeight: '800',
                                 fontSize: '12pt',
@@ -299,7 +326,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                             {/* Payment mode block */}
                             {!isDeliverySlip && (
                                 <div style={{ marginTop: '2mm', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '2px', padding: '2mm 3mm' }}>
-                                    <div style={{ fontSize: '7pt', fontWeight: '700', color: '#1c398e', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm' }}>
+                                    <div style={{ fontSize: '7pt', fontWeight: '700', color: '#001d35', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm' }}>
                                         Mode de paiement
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9pt', fontWeight: '600', color: '#333' }}>
@@ -320,11 +347,55 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                                         <span>Montant reçu</span>
                                         <span style={{ fontWeight: '600' }}>{formatPrice(transaction.amountGiven || transaction.total)}</span>
                                     </div>
-                                    {(transaction.change || 0) > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: '700' }}>
-                                            <span>Monnaie rendue</span>
-                                            <span>{formatPrice(transaction.change)}</span>
-                                        </div>
+
+                                    {/* Case 1: reliquat was issued */}
+                                    {transaction.changeDue > 0 && transaction.changeReliquat ? (
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#555' }}>
+                                                <span>Monnaie due</span>
+                                                <span style={{ fontWeight: '600' }}>{formatPrice(transaction.changeDue)}</span>
+                                            </div>
+                                            {transaction.change > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: '700' }}>
+                                                    <span>Rendu en espèces</span>
+                                                    <span>{formatPrice(transaction.change)}</span>
+                                                </div>
+                                            )}
+                                            {/* Reliquat box */}
+                                            <div style={{
+                                                marginTop: '2mm',
+                                                border: '1.5px dashed #001d35',
+                                                borderRadius: '2px',
+                                                padding: '2.5mm 3mm',
+                                                backgroundColor: '#f0f4ff',
+                                                textAlign: 'center'
+                                            }}>
+                                                <div style={{ fontSize: '7.5pt', fontWeight: '800', color: '#001d35', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    {transaction.changeReliquat.type === 'voucher' ? '🎟️ BON DE RELIQUAT (AVOIR)' : '👤 AVANCE COMPTE CLIENT'}
+                                                </div>
+                                                <div style={{ fontSize: '12pt', fontWeight: '900', color: '#001d35', margin: '1mm 0' }}>
+                                                    {formatPrice(transaction.changeReliquat.amount)}
+                                                </div>
+                                                {transaction.changeReliquat.voucherCode && (
+                                                    <div style={{ fontFamily: 'monospace', fontSize: '8.5pt', fontWeight: '700', color: '#333', letterSpacing: '1px' }}>
+                                                        CODE : {transaction.changeReliquat.voucherCode}
+                                                    </div>
+                                                )}
+                                                <div style={{ fontSize: '7pt', color: '#666', marginTop: '1mm', lineHeight: '1.4' }}>
+                                                    {transaction.changeReliquat.type === 'voucher'
+                                                        ? "Bon d'avoir déductible lors de votre prochain achat (valable 60 jours)."
+                                                        : "Montant crédité en avance sur votre compte client."}
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        /* Case 2: normal change */
+                                        (transaction.change || 0) > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: '700' }}>
+                                                <span>Monnaie rendue</span>
+                                                <span>{formatPrice(transaction.change)}</span>
+                                            </div>
+                                        )
                                     )}
                                 </div>
                             )}
@@ -341,7 +412,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                             { label: 'Reçu par', sub: 'Le client' }
                         ].map((zone) => (
                             <div key={zone.label} style={{ flex: 1, border: '1px dashed #ccc', borderRadius: '2px', padding: '3mm', minHeight: '22mm', position: 'relative' }}>
-                                <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#1c398e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{zone.label}</div>
+                                <div style={{ fontSize: '7.5pt', fontWeight: '700', color: '#001d35', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{zone.label}</div>
                                 <div style={{ fontSize: '7pt', color: '#aaa', marginTop: '0.5mm' }}>{zone.sub}</div>
                                 <div style={{ position: 'absolute', bottom: '2mm', left: '3mm', right: '3mm', borderBottom: '1px solid #ddd', fontSize: '7pt', color: '#bbb', paddingBottom: '1mm' }}>
                                     Signature :
@@ -353,7 +424,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
 
                 {/* ===== FOOTER ===== */}
                 <div style={{
-                    borderTop: '2px solid #1c398e',
+                    borderTop: '2px solid #001d35',
                     paddingTop: '5mm',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -365,7 +436,7 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                         <QRCode
                             value={`${company.name}|${invoiceNumber}|${transaction.total}|${date.toISOString()}`}
                             size={55}
-                            fgColor="#1c398e"
+                            fgColor="#001d35"
                         />
                         <div style={{ fontSize: '6pt', color: '#aaa', marginTop: '1mm' }}>Scan pour vérifier</div>
                     </div>
@@ -398,9 +469,20 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                     </div>
                 </div>
 
+                {/* Code-barres transaction scannable A4 */}
+                <div style={{ textAlign: 'center', marginTop: '6mm', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Barcode
+                        code={invoiceNumber}
+                        width={230}
+                        height={44}
+                        showText={true}
+                        lineColor="#001d35"
+                    />
+                </div>
+
                 {/* Page info */}
-                <div style={{ textAlign: 'center', marginTop: '4mm', fontSize: '7pt', color: '#ccc' }}>
-                    Document généré le {date.toLocaleDateString('fr-FR')} — {company.name} — {invoiceNumber}
+                <div style={{ textAlign: 'center', marginTop: '3mm', fontSize: '7pt', color: '#999' }}>
+                    Document généré le {date.toLocaleDateString('fr-FR')} — {companyName} — {invoiceNumber} — Servi par {cashierName}
                 </div>
                 </div> {/* end a4-document */}
             </div> {/* end flex justify-center wrapper */}
