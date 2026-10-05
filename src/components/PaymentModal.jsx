@@ -249,11 +249,14 @@ const PaymentModal = ({
             setPaymentMethod('avoir');
             setAmountGiven(total.toString());
         } else {
+            if (paymentMethod === 'avoir' || !paymentMethod) {
+                setPaymentMethod('cash');
+            }
             if (paymentMethod === 'card') {
                 setAmountGiven(remainingNet.toString());
             } else if (paymentMethod === 'credit') {
                 setAmountGiven('0');
-            } else if (paymentMethod === 'cash') {
+            } else {
                 setAmountGiven(remainingNet.toString());
             }
         }
@@ -277,7 +280,12 @@ const PaymentModal = ({
             setAmountGiven('0');
         } else if (method === 'avoir') {
             setAmountGiven(total.toString());
-            setShowVoucherInput(true);
+            // Si le client a un bon d'avoir ou reliquat disponible et qu'aucun n'est appliqué, on l'applique automatiquement !
+            if (!appliedCreditNote && clientAvailableCreditNotes.length > 0) {
+                handleApplyVoucher(clientAvailableCreditNotes[0].code);
+            } else {
+                setShowVoucherInput(true);
+            }
         } else {
             setAmountGiven(preSelectedAmount || '');
         }
@@ -293,6 +301,50 @@ const PaymentModal = ({
     };
 
     const handleConfirm = () => {
+        let currentApplied = appliedCreditNote;
+
+        // Si l'utilisateur a saisi un code dans l'input sans cliquer sur "Appliquer"
+        if (!currentApplied && voucherCodeInput.trim()) {
+            const code = voucherCodeInput.trim().toUpperCase();
+            const note = getCreditNote(code);
+            if (note && (note.status === 'active' || note.status === 'partial') && (parseFloat(note.remainingAmount) || 0) > 0) {
+                const deduction = Math.min(total, parseFloat(note.remainingAmount) || 0);
+                currentApplied = {
+                    ...note,
+                    appliedAmount: deduction
+                };
+                setAppliedCreditNote(currentApplied);
+            }
+        }
+
+        // Si le mode de règlement sélectionné est 'avoir' mais qu'aucun avoir n'est appliqué
+        if (paymentMethod === 'avoir') {
+            if (!currentApplied && clientAvailableCreditNotes.length > 0) {
+                const note = clientAvailableCreditNotes[0];
+                const deduction = Math.min(total, parseFloat(note.remainingAmount) || 0);
+                currentApplied = {
+                    ...note,
+                    appliedAmount: deduction
+                };
+                setAppliedCreditNote(currentApplied);
+            }
+
+            if (!currentApplied) {
+                setError("Veuillez sélectionner ou appliquer un Bon d'Avoir ou Reliquat valide avant de confirmer.");
+                setShowVoucherInput(true);
+                return;
+            }
+
+            const currentDeduction = currentApplied ? Math.min(total, parseFloat(currentApplied.remainingAmount) || 0) : 0;
+            const currentNetToPay = Math.max(0, total - currentDeduction);
+            if (currentNetToPay > 0) {
+                setError(`Le bon d'avoir couvre ${formatPrice(currentDeduction)}. Veuillez sélectionner un mode de règlement (Espèces, Carte ou Crédit) pour le reste de ${formatPrice(currentNetToPay)}.`);
+                return;
+            }
+        }
+
+        const effectiveDeduction = currentApplied ? Math.min(total, parseFloat(currentApplied.remainingAmount) || 0) : 0;
+        const effectiveNetToPay = Math.max(0, total - effectiveDeduction);
         const amount = parseFloat(amountGiven);
 
         if (!paymentMethod) {
@@ -311,8 +363,8 @@ const PaymentModal = ({
             return;
         }
 
-        if (paymentMethod !== 'credit' && paymentMethod !== 'avoir' && amount < netToPay) {
-            setError(`Le montant doit être au moins ${formatPrice(netToPay)}`);
+        if (paymentMethod !== 'credit' && paymentMethod !== 'avoir' && amount < effectiveNetToPay) {
+            setError(`Le montant doit être au moins ${formatPrice(effectiveNetToPay)}`);
             return;
         }
 
@@ -322,7 +374,7 @@ const PaymentModal = ({
             return;
         }
 
-        const theoreticalChange = paymentMethod !== 'credit' && paymentMethod !== 'avoir' ? Math.max(0, amount - netToPay) : 0;
+        const theoreticalChange = paymentMethod !== 'credit' && paymentMethod !== 'avoir' ? Math.max(0, amount - effectiveNetToPay) : 0;
         const cashToReturn = hasChangeShortage ? Math.min(theoreticalChange, Math.max(0, parseFloat(actualCashReturned) || 0)) : theoreticalChange;
         const unreturnedAmount = Math.max(0, theoreticalChange - cashToReturn);
 
@@ -343,11 +395,19 @@ const PaymentModal = ({
             }
         }
 
-        // Apply deduction on credit note if used
-        if (appliedCreditNote) {
-            const result = useCreditNote(appliedCreditNote.code, appliedCreditNote.appliedAmount);
-            if (!result.success) {
-                setError(result.message);
+        // Vérification de sécurité sur le bon d'avoir
+        if (currentApplied) {
+            const checkNote = getCreditNote(currentApplied.code);
+            if (!checkNote) {
+                setError("Le bon d'avoir appliqué est introuvable.");
+                return;
+            }
+            if (checkNote.status === 'used' || (parseFloat(checkNote.remainingAmount) || 0) <= 0) {
+                setError("Ce bon d'avoir a déjà été entièrement utilisé.");
+                return;
+            }
+            if (checkNote.expiresAt && new Date(checkNote.expiresAt).getTime() < Date.now()) {
+                setError("Ce bon d'avoir est expiré.");
                 return;
             }
         }
@@ -402,9 +462,9 @@ const PaymentModal = ({
             clientId: resolvedClientId || null,
             siteName: siteName.trim() || undefined,
             deliveryMode,
-            appliedCreditNote: appliedCreditNote ? {
-                code: appliedCreditNote.code,
-                amount: appliedCreditNote.appliedAmount
+            appliedCreditNote: currentApplied ? {
+                code: currentApplied.code,
+                amount: currentApplied.appliedAmount
             } : null,
             deliveryInfo: deliveryMode === 'warehouse' ? {
                 customerName: customerName.trim(),

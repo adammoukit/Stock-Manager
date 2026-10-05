@@ -191,6 +191,12 @@ const Receipt = ({ transaction, onClose }) => {
               <span>TOTAL:</span>
               <span>{formatPrice(transaction.total)}</span>
             </div>
+            {transaction.appliedCreditNote && (
+              <div className="flex justify-between text-purple-900 font-semibold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                <span>DÉDUCTION AVOIR ({transaction.appliedCreditNote.code}):</span>
+                <span>-{formatPrice(transaction.appliedCreditNote.amount)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Mode paiement:</span>
               <span className="uppercase">
@@ -198,7 +204,9 @@ const Receipt = ({ transaction, onClose }) => {
                   ? "ESPÈCES"
                   : transaction.paymentMethod === "credit"
                     ? "CRÉDIT"
-                    : "CARTE"}
+                    : transaction.paymentMethod === "avoir"
+                      ? "BON D'AVOIR / RELIQUAT"
+                      : "CARTE"}
               </span>
             </div>
             {transaction.paymentMethod === "cash" && (

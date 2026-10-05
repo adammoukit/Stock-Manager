@@ -85,9 +85,23 @@ export const SalesProvider = ({ children }) => {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) return parsed.filter(c => c.storeId && String(c.storeId) === key);
+                if (Array.isArray(parsed)) {
+                    return parsed.filter(c => !c.storeId || String(c.storeId) === key || String(c.storeId) === 'store_default');
+                }
             } catch (e) {
                 console.error("Erreur lecture credit_notes", e);
+            }
+        }
+        // Fallback store_default si la boutique courante n'a pas encore de clé propre
+        if (key !== 'store_default') {
+            const defaultSaved = localStorage.getItem('kblx_credit_notes_store_default');
+            if (defaultSaved) {
+                try {
+                    const parsed = JSON.parse(defaultSaved);
+                    if (Array.isArray(parsed)) {
+                        return parsed.filter(c => !c.storeId || String(c.storeId) === key || String(c.storeId) === 'store_default');
+                    }
+                } catch (e) {}
             }
         }
         return [];
@@ -127,7 +141,7 @@ export const SalesProvider = ({ children }) => {
     }, [allReturns, storeKey]);
 
     useEffect(() => {
-        const isolatedCreditNotes = allCreditNotes.filter(c => c.storeId && String(c.storeId) === storeKey);
+        const isolatedCreditNotes = allCreditNotes.filter(c => !c.storeId || String(c.storeId) === storeKey || String(c.storeId) === 'store_default');
         localStorage.setItem(`kblx_credit_notes_${storeKey}`, JSON.stringify(isolatedCreditNotes));
     }, [allCreditNotes, storeKey]);
 
@@ -190,7 +204,7 @@ export const SalesProvider = ({ children }) => {
     const expenses = allExpenses.filter(e => e.storeId != null && String(e.storeId) === storeKey);
     const debts = allDebts.filter(d => d.storeId != null && String(d.storeId) === storeKey);
     const returns = allReturns.filter(r => r.storeId != null && String(r.storeId) === storeKey);
-    const creditNotes = allCreditNotes.filter(c => c.storeId != null && String(c.storeId) === storeKey);
+    const creditNotes = allCreditNotes.filter(c => c.storeId == null || String(c.storeId) === storeKey || String(c.storeId) === 'store_default' || !currentStoreId);
 
     const addToCart = (product, options = null) => {
         setCart(prev => {
@@ -357,6 +371,17 @@ export const SalesProvider = ({ children }) => {
                     voucherCode: newCreditNote.code
                 };
                 uiTransaction.creditNote = newCreditNote;
+            }
+
+            // Déduction automatique et sécurisée du bon d'avoir ou reliquat appliqué
+            if (paymentInfo?.appliedCreditNote?.code && paymentInfo?.appliedCreditNote?.amount > 0) {
+                const voucherCode = paymentInfo.appliedCreditNote.code.trim().toUpperCase();
+                const deductAmount = parseFloat(paymentInfo.appliedCreditNote.amount) || 0;
+                useCreditNote(voucherCode, deductAmount, uiTransaction.id);
+                uiTransaction.appliedCreditNote = {
+                    code: voucherCode,
+                    amount: deductAmount
+                };
             }
 
             uiTransaction.changeDue = paymentInfo?.changeDue !== undefined ? paymentInfo.changeDue : Math.max(0, (parseFloat(paymentInfo?.amountGiven) || total) - total);
@@ -643,40 +668,64 @@ export const SalesProvider = ({ children }) => {
     const getCreditNote = (code) => {
         if (!code) return null;
         const normalized = code.trim().toUpperCase();
-        return creditNotes.find(c => c.code.toUpperCase() === normalized && c.status !== 'cancelled');
+        return allCreditNotes.find(c => 
+            c.code && c.code.trim().toUpperCase() === normalized && 
+            c.status !== 'cancelled' &&
+            (c.storeId == null || String(c.storeId) === storeKey || String(c.storeId) === 'store_default' || !currentStoreId)
+        ) || allCreditNotes.find(c => c.code && c.code.trim().toUpperCase() === normalized && c.status !== 'cancelled');
     };
 
-    const useCreditNote = (code, amountToDeduct) => {
+    const useCreditNote = (code, amountToDeduct, transactionId = null) => {
         const normalized = (code || '').trim().toUpperCase();
-        const note = creditNotes.find(c => c.code.toUpperCase() === normalized);
+        const note = getCreditNote(normalized);
 
         if (!note) {
             return { success: false, message: "Bon d'avoir introuvable ou invalide." };
         }
 
-        if (note.status === 'used' || note.remainingAmount <= 0) {
+        if (note.status === 'used' || (parseFloat(note.remainingAmount) || 0) <= 0) {
             return { success: false, message: "Ce bon d'avoir a déjà été entièrement utilisé." };
         }
 
-        if (new Date(note.expiresAt).getTime() < Date.now()) {
-            return { success: false, message: "Ce bon d'avoir est expiré (délai de 60 jours dépassé)." };
+        if (note.expiresAt && new Date(note.expiresAt).getTime() < Date.now()) {
+            return { success: false, message: "Ce bon d'avoir est expiré (délai de validité dépassé)." };
         }
 
-        const deduct = Math.min(note.remainingAmount, parseFloat(amountToDeduct) || 0);
-        const newRemaining = Math.max(0, note.remainingAmount - deduct);
+        const currentRemaining = parseFloat(note.remainingAmount) || 0;
+        const deduct = Math.min(currentRemaining, parseFloat(amountToDeduct) || 0);
+        const newRemaining = Math.max(0, currentRemaining - deduct);
         const newStatus = newRemaining === 0 ? 'used' : 'partial';
 
-        setAllCreditNotes(prev => prev.map(c => {
-            if (c.id === note.id) {
+        const updatedUsage = {
+            transactionId: transactionId || null,
+            date: new Date().toISOString(),
+            amountDeducted: deduct,
+            remainingBalance: newRemaining
+        };
+
+        const updatedNotes = allCreditNotes.map(c => {
+            const isMatch = (c.id && note.id && String(c.id) === String(note.id)) ||
+                (c.code && c.code.trim().toUpperCase() === normalized);
+            if (isMatch) {
                 return {
                     ...c,
                     remainingAmount: newRemaining,
                     status: newStatus,
-                    lastUsedAt: new Date().toISOString()
+                    lastUsedAt: new Date().toISOString(),
+                    usageHistory: [...(c.usageHistory || []), updatedUsage]
                 };
             }
             return c;
-        }));
+        });
+
+        setAllCreditNotes(updatedNotes);
+
+        try {
+            const isolated = updatedNotes.filter(c => !c.storeId || String(c.storeId) === storeKey || String(c.storeId) === 'store_default');
+            localStorage.setItem(`kblx_credit_notes_${storeKey}`, JSON.stringify(isolated));
+        } catch (e) {
+            console.error("Erreur sauvegarde immédiate credit_notes", e);
+        }
 
         return {
             success: true,
@@ -731,6 +780,121 @@ export const SalesProvider = ({ children }) => {
         }));
     };
 
+    // ── Remboursement d'un Bon d'Avoir ou Reliquat en Espèces (Sortie de caisse) ──
+    const refundCreditNoteInCash = ({
+        code = null,
+        id = null,
+        amountToRefund,
+        cashierName = 'Caissier',
+        recipientName = '',
+        motif = ''
+    }) => {
+        const normalized = (code || '').trim().toUpperCase();
+        const note = allCreditNotes.find(c => 
+            (id && String(c.id) === String(id)) || 
+            (normalized && c.code && c.code.trim().toUpperCase() === normalized)
+        );
+
+        if (!note) {
+            return { success: false, message: "Bon d'avoir ou reliquat introuvable." };
+        }
+
+        if (note.status === 'cancelled') {
+            return { success: false, message: "Ce bon d'avoir a été annulé." };
+        }
+
+        const currentRemaining = parseFloat(note.remainingAmount) || 0;
+        if (currentRemaining <= 0 || note.status === 'used') {
+            return { success: false, message: "Ce bon d'avoir n'a plus de solde disponible." };
+        }
+
+        const requestedAmount = parseFloat(amountToRefund);
+        if (!requestedAmount || requestedAmount <= 0) {
+            return { success: false, message: "Veuillez saisir un montant valide à rembourser." };
+        }
+
+        const refundAmt = Math.min(currentRemaining, requestedAmount);
+        const newRemaining = Math.max(0, currentRemaining - refundAmt);
+        const newStatus = newRemaining === 0 ? 'used' : 'partial';
+
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const receiptCode = `RMB-ESP-${dateStr.slice(2, 6)}-${rand}`;
+
+        const usageEntry = {
+            type: 'cash_refund',
+            receiptCode,
+            date: now.toISOString(),
+            amountDeducted: refundAmt,
+            remainingBalance: newRemaining,
+            cashierName: cashierName || 'Caissier',
+            recipientName: recipientName || note.customerName || 'Client',
+            motif: motif || "Remboursement d'avoir en espèces"
+        };
+
+        // 1. Sortie de caisse automatique dans le journal des dépenses pour équilibrer la caisse
+        const isReliquat = note.type === 'change_reliquat';
+        const labelType = isReliquat ? 'Reliquat Monnaie' : "Bon d'Avoir";
+        const cashExpense = {
+            id: Date.now(),
+            storeId: note.storeId || currentStoreId || storeKey,
+            date: now.toISOString(),
+            category: 'Remboursement Avoir Espèces',
+            amount: refundAmt,
+            motif: `Remboursement espèces bon ${note.code} (${labelType}) à ${recipientName || note.customerName || 'Client'}${motif ? ` - Motif: ${motif}` : ''}`,
+            cashier: cashierName || 'Caissier',
+            receiptCode,
+            creditNoteCode: note.code,
+            creditNoteId: note.id,
+            clientId: note.clientId || null,
+            customerName: recipientName || note.customerName || null
+        };
+
+        setAllExpenses(prev => [cashExpense, ...prev]);
+
+        // 2. Mettre à jour le bon d'avoir
+        const updatedNotes = allCreditNotes.map(c => {
+            const isMatch = (c.id && note.id && String(c.id) === String(note.id)) ||
+                (c.code && c.code.trim().toUpperCase() === normalized);
+            if (isMatch) {
+                return {
+                    ...c,
+                    remainingAmount: newRemaining,
+                    status: newStatus,
+                    lastUsedAt: now.toISOString(),
+                    usageHistory: [...(c.usageHistory || []), usageEntry]
+                };
+            }
+            return c;
+        });
+
+        setAllCreditNotes(updatedNotes);
+
+        try {
+            const isolated = updatedNotes.filter(c => !c.storeId || String(c.storeId) === storeKey || String(c.storeId) === 'store_default');
+            localStorage.setItem(`kblx_credit_notes_${storeKey}`, JSON.stringify(isolated));
+        } catch (e) {
+            console.error("Erreur sauvegarde immédiate credit_notes", e);
+        }
+
+        const updatedNote = {
+            ...note,
+            remainingAmount: newRemaining,
+            status: newStatus,
+            usageHistory: [...(note.usageHistory || []), usageEntry]
+        };
+
+        return {
+            success: true,
+            refundedAmount: refundAmt,
+            remainingBalance: newRemaining,
+            creditNote: updatedNote,
+            expense: cashExpense,
+            receiptCode
+        };
+    };
+
     const cartTotal = cart.reduce((sum, item) => sum + (getItemPrice(item) * item.inputQuantity), 0);
 
     return (
@@ -760,6 +924,7 @@ export const SalesProvider = ({ children }) => {
             createCreditNote,
             getCreditNote,
             useCreditNote,
+            refundCreditNoteInCash,
             cancelCreditNote,
             isLoadingSales
         }}>

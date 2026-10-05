@@ -332,7 +332,19 @@ const DashboardLayout = () => {
 
                 {/* Main Content */}
                 <main className="p-4 min-w-0 overflow-x-hidden">
-                    <Outlet />
+                    {isCreateProductModalOpen ? (
+                        <ProductModal
+                            product={null}
+                            onClose={closeCreateProductModal}
+                            onSave={async (newProdData) => {
+                                await addProduct(newProdData);
+                                T.productCreated(newProdData.name || 'Produit');
+                                closeCreateProductModal();
+                            }}
+                        />
+                    ) : (
+                        <Outlet />
+                    )}
                 </main>
             </div>
 
@@ -359,19 +371,6 @@ const DashboardLayout = () => {
                         </div>
                     </div>
                 </div>
-            )}
-
-            {/* Product Modal Global (Déclenché depuis le Sidebar ou ailleurs) */}
-            {isCreateProductModalOpen && (
-                <ProductModal
-                    product={null}
-                    onClose={closeCreateProductModal}
-                    onSave={async (newProdData) => {
-                        await addProduct(newProdData);
-                        T.productCreated(newProdData.name || 'Produit');
-                        closeCreateProductModal();
-                    }}
-                />
             )}
         </div>
 

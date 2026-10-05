@@ -171,9 +171,13 @@ const InventoryCheck = () => {
     const [filterLoading, setFilterLoading] = useState(false);
     const filterTimerRef = useRef(null);
 
-    const handleFilterChange = (setter, value) => {
+    const handleFilterChange = (setterOrFn, value) => {
         setFilterLoading(true);
-        setter(value);
+        if (typeof setterOrFn === 'function' && value === undefined) {
+            setterOrFn();
+        } else if (typeof setterOrFn === 'function') {
+            setterOrFn(value);
+        }
         if (filterTimerRef.current) clearTimeout(filterTimerRef.current);
         filterTimerRef.current = setTimeout(() => {
             setFilterLoading(false);
@@ -202,6 +206,9 @@ const InventoryCheck = () => {
     // ── Filtres de la vue Liste ──
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('IN_PROGRESS'); // IN_PROGRESS | ALL | COMPLETED
+    const [operationFilter, setOperationFilter] = useState('none');
+    const [supervisorFilter, setSupervisorFilter] = useState('all');
+    const [selectedKpi, setSelectedKpi] = useState(null); // 'active' | 'completed' | 'conformity' | 'discrepancies' | null
 
     // ── Badges vus / consultés cloisonnés par boutique ──
     const seenCompletedKey = `kabllix_inventory_seen_completed_${storeKey}`;
@@ -262,7 +269,11 @@ const InventoryCheck = () => {
 
     const handleTabClick = (tabKey) => {
         markTabAsSeen(tabKey);
-        handleFilterChange(setStatusFilter, tabKey);
+        handleFilterChange(() => {
+            setStatusFilter(tabKey);
+            setSelectedKpi(null);
+            setOperationFilter('none');
+        });
     };
 
     // Au montage, marquer l'onglet initialement affiché comme vu
@@ -275,6 +286,34 @@ const InventoryCheck = () => {
     const [customEndDate, setCustomEndDate] = useState('');
     const [storeFilter, setStoreFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
+
+    // ── Superviseurs uniques répertoriés dans les sessions ──
+    const uniqueSupervisors = useMemo(() => {
+        const list = new Set();
+        sessions.forEach(s => {
+            if (s.supervisor && s.supervisor.trim()) list.add(s.supervisor.trim());
+            if (s.closedBy && s.closedBy.trim()) list.add(s.closedBy.trim());
+        });
+        return Array.from(list).sort((a, b) => a.localeCompare(b));
+    }, [sessions]);
+
+    // ── Clic interactif sur un KPI StatCard ──
+    const handleKpiClick = (kpiKey) => {
+        handleFilterChange(() => {
+            if (selectedKpi === kpiKey) {
+                setSelectedKpi(null);
+            } else {
+                setSelectedKpi(kpiKey);
+                if (kpiKey === 'active') {
+                    setStatusFilter('IN_PROGRESS');
+                } else if (kpiKey === 'completed') {
+                    setStatusFilter('COMPLETED');
+                } else if (kpiKey === 'conformity' || kpiKey === 'discrepancies') {
+                    setStatusFilter('ALL');
+                }
+            }
+        });
+    };
 
     // ── Filtrage de Période (Harmonisé avec Mouvements & Dashboard) ──
     const isWithinPeriod = (dateStr, periodKey, startCustom, endCustom) => {
@@ -386,6 +425,7 @@ const InventoryCheck = () => {
             return isWithinPeriod(sDate, period, customStartDate, customEndDate);
         });
 
+        const activeSessions = sessionsInPeriod.filter(s => s.status === 'IN_PROGRESS');
         const completedSessions = sessionsInPeriod.filter(s => s.status === 'COMPLETED');
         const sortedCompleted = [...completedSessions].sort((a, b) => new Date(b.dateClosed || b.dateCreated) - new Date(a.dateClosed || a.dateCreated));
         const lastCompletedSession = sortedCompleted[0] || null;
@@ -407,6 +447,7 @@ const InventoryCheck = () => {
         return {
             totalCatalogItems,
             totalCatalogValue,
+            activeSessionsCount: activeSessions.length,
             lastSessionDate,
             conformityRate,
             totalNetFinancialImpact,
@@ -457,10 +498,39 @@ const InventoryCheck = () => {
     // ── Sessions Filtrées ──
     const filteredSessions = useMemo(() => {
         return sessions.filter(s => {
+            // Filtre par onglet principal
             if (statusFilter !== 'ALL' && s.status !== statusFilter) return false;
+
+            // Filtre KPI interactif
+            if (selectedKpi === 'active' && s.status !== 'IN_PROGRESS') return false;
+            if (selectedKpi === 'completed' && s.status !== 'COMPLETED') return false;
+            if (selectedKpi === 'conformity') {
+                if (s.status !== 'COMPLETED' || (s.discrepancyCount || 0) > 0) return false;
+            }
+            if (selectedKpi === 'discrepancies') {
+                if ((s.discrepancyCount || 0) === 0 && Math.abs(s.netFinancialImpact || 0) === 0) return false;
+            }
+
+            // Filtre opération dédié
+            if (operationFilter !== 'none' && operationFilter !== 'all') {
+                if (operationFilter === 'in_progress' && s.status !== 'IN_PROGRESS') return false;
+                if (operationFilter === 'completed' && s.status !== 'COMPLETED') return false;
+                if (operationFilter === 'cyclic' && s.type !== 'CYCLIC') return false;
+                if (operationFilter === 'annual' && s.type !== 'ANNUAL') return false;
+                if (operationFilter === 'spot' && s.type !== 'SPOT') return false;
+                if (operationFilter === 'with_discrepancy' && (s.discrepancyCount || 0) === 0 && Math.abs(s.netFinancialImpact || 0) === 0) return false;
+                if (operationFilter === 'without_discrepancy' && ((s.discrepancyCount || 0) > 0 || Math.abs(s.netFinancialImpact || 0) > 0)) return false;
+            }
 
             // Filtre dépôt / boutique
             if (storeFilter !== 'all' && String(s.storeId) !== String(storeFilter)) return false;
+
+            // Filtre superviseur
+            if (supervisorFilter !== 'all') {
+                const matchSuper = (s.supervisor || '').trim().toLowerCase() === supervisorFilter.toLowerCase();
+                const matchClosed = (s.closedBy || '').trim().toLowerCase() === supervisorFilter.toLowerCase();
+                if (!matchSuper && !matchClosed) return false;
+            }
 
             // Filtre type d'inventaire
             if (typeFilter !== 'all' && s.type !== typeFilter) return false;
@@ -480,7 +550,7 @@ const InventoryCheck = () => {
             }
             return true;
         });
-    }, [sessions, statusFilter, storeFilter, typeFilter, period, customStartDate, customEndDate, searchTerm]);
+    }, [sessions, statusFilter, selectedKpi, operationFilter, storeFilter, supervisorFilter, typeFilter, period, customStartDate, customEndDate, searchTerm]);
 
     // ── Initialiser ou générer les articles d'une session ──
     const buildSessionItems = (scopeType, selectedCategoryIds, targetStore) => {
@@ -1346,8 +1416,240 @@ const InventoryCheck = () => {
                         </div>
                     </div>
 
-                    {/* ── BARRE D'ONGLETS PRINCIPAUX (IDENTIQUE À RÉAPPROVISIONNEMENT) ── */}
-                    <div className="bg-white p-2 sm:p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
+                    {/* ── 4 STATCARDS KPI INTERACTIFS AVEC PÉRIODE APPRÊTÉE (STYLE CLIENTS & RETOURS) ── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
+                        {/* 1. Sessions Actives */}
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleKpiClick('active')}
+                            title="Cliquer pour afficher les sessions d'inventaire en cours de comptage"
+                            className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                                selectedKpi === 'active'
+                                    ? 'bg-amber-50/50 border-[#f77500] ring-2 ring-[#f77500]/30 shadow-md scale-[1.01]'
+                                    : 'bg-white border-gray-300 hover:border-[#f77500] hover:shadow-md hover:scale-[1.005]'
+                            }`}
+                        >
+                            {filterLoading ? (
+                                <div className="flex flex-col items-center justify-center py-4">
+                                    <div className="relative h-8 w-8">
+                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
+                                        <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500] opacity-60"></div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-start relative z-10">
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-800">Sessions Actives</p>
+                                                {selectedKpi === 'active' ? (
+                                                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-[#f77500] text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                        ✓ Filtré
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                        Filtrer ↵
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#b45309' }}>
+                                                <h3 className="text-xl sm:text-2xl font-semibold">
+                                                    {metrics.activeSessionsCount} session(s)
+                                                </h3>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-amber-50 text-amber-800 border border-amber-200 uppercase tracking-wider">
+                                                    {periodLabel}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1.5 font-medium">
+                                                En cours de comptage physique ({periodLabel})
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <img
+                                        src="/icons8/fluency_240_box.png"
+                                        alt=""
+                                        className="absolute bottom-2 right-2 w-16 h-16 opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all pointer-events-none"
+                                    />
+                                </>
+                            )}
+                        </div>
+
+                        {/* 2. Dernier Inventaire Clôturé */}
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleKpiClick('completed')}
+                            title="Cliquer pour afficher les sessions d'inventaire clôturées & régularisées"
+                            className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                                selectedKpi === 'completed'
+                                    ? 'bg-blue-50/50 border-[#001d35] ring-2 ring-[#001d35]/30 shadow-md scale-[1.01]'
+                                    : 'bg-white border-gray-300 hover:border-[#001d35] hover:shadow-md hover:scale-[1.005]'
+                            }`}
+                        >
+                            {filterLoading ? (
+                                <div className="flex flex-col items-center justify-center py-4">
+                                    <div className="relative h-8 w-8">
+                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
+                                        <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-start relative z-10">
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">Dernier Inventaire</p>
+                                                {selectedKpi === 'completed' ? (
+                                                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-[#001d35] text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                        ✓ Filtré
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                        Filtrer ↵
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#001d35' }}>
+                                                <h3 className="text-base sm:text-lg font-semibold tracking-tight">
+                                                    {metrics.lastSessionDate ? formatDateTime(metrics.lastSessionDate) : 'Aucun inventaire'}
+                                                </h3>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-blue-50 text-blue-800 border border-blue-200 uppercase tracking-wider">
+                                                    {periodLabel}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1.5 font-medium">
+                                                {metrics.completedSessionsCount} session(s) clôturée(s) ({periodLabel})
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <img
+                                        src="/icons8/fluency_96_clipboard.png"
+                                        alt=""
+                                        className="absolute bottom-2 right-2 w-16 h-16 opacity-30 group-hover:opacity-50 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+                                    />
+                                </>
+                            )}
+                        </div>
+
+                        {/* 3. Taux de Conformité */}
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleKpiClick('conformity')}
+                            title="Cliquer pour afficher les inventaires conformes sans aucun écart"
+                            className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                                selectedKpi === 'conformity'
+                                    ? 'bg-emerald-50/50 border-emerald-600 ring-2 ring-emerald-500/30 shadow-md scale-[1.01]'
+                                    : 'bg-white border-gray-300 hover:border-emerald-500 hover:shadow-md hover:scale-[1.005]'
+                            }`}
+                        >
+                            {filterLoading ? (
+                                <div className="flex flex-col items-center justify-center py-4">
+                                    <div className="relative h-8 w-8">
+                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
+                                        <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-start relative z-10">
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-700">Taux de Conformité</p>
+                                                {selectedKpi === 'conformity' ? (
+                                                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-emerald-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                        ✓ Filtré
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                        Filtrer ↵
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#059669' }}>
+                                                <h3 className="text-xl sm:text-2xl font-semibold text-emerald-600">
+                                                    {metrics.conformityRate}%
+                                                </h3>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+                                                    {periodLabel}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1.5 font-medium">
+                                                Articles conformes sans aucun écart ({periodLabel})
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <img
+                                        src="/icons8/fluency_96_ok.png"
+                                        alt=""
+                                        className="absolute bottom-2 right-2 w-16 h-16 opacity-30 group-hover:opacity-50 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+                                    />
+                                </>
+                            )}
+                        </div>
+
+                        {/* 4. Pertes Nettes / Démarque */}
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleKpiClick('discrepancies')}
+                            title="Cliquer pour afficher les sessions avec écarts constatés"
+                            className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                                selectedKpi === 'discrepancies'
+                                    ? 'bg-rose-50/50 border-rose-600 ring-2 ring-rose-500/30 shadow-md scale-[1.01]'
+                                    : 'bg-white border-gray-300 hover:border-rose-500 hover:shadow-md hover:scale-[1.005]'
+                            }`}
+                        >
+                            {filterLoading ? (
+                                <div className="flex flex-col items-center justify-center py-4">
+                                    <div className="relative h-8 w-8">
+                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
+                                        <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-start relative z-10">
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                                                <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-700">Pertes Nettes / Démarque</p>
+                                                {selectedKpi === 'discrepancies' ? (
+                                                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-rose-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                        ✓ Filtré
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                        Filtrer ↵
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#e11d48' }}>
+                                                <h3 className="text-xl sm:text-2xl font-semibold text-rose-600">
+                                                    {formatPrice(Math.abs(metrics.totalNetFinancialImpact))}
+                                                </h3>
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-rose-50 text-rose-800 border border-rose-200 uppercase tracking-wider">
+                                                    {periodLabel}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1.5 font-medium">
+                                                Impact cumulé des écarts ({periodLabel})
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <img
+                                        src="/icons8/fluency_240_high-priority.png"
+                                        alt=""
+                                        className="absolute bottom-2 right-2 w-16 h-16 opacity-30 group-hover:opacity-50 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+                                    />
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── BARRE D'ONGLETS PRINCIPAUX & RECHERCHE (STYLE OFFICIEL KABLLIX ERP — IDENTIQUE À HISTORIQUE DES OPÉRATIONS & RETOURS) ── */}
+                    <div className="bg-white p-2 sm:p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 print:hidden">
+                        {/* Onglets de statut */}
                         <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-[4px] border-2 border-gray-300 flex-wrap" aria-label="Onglets d'inventaire">
                             {/* Onglet 1 : Sessions Actives */}
                             <button
@@ -1355,8 +1657,8 @@ const InventoryCheck = () => {
                                 onClick={() => handleTabClick('IN_PROGRESS')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
                                     statusFilter === 'IN_PROGRESS'
-                                        ? 'bg-[#001d35] text-white shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                        ? 'bg-[#001d35] text-white shadow-xs'
+                                        : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
                                 }`}
                             >
                                 <Clock className={`w-3.5 h-3.5 ${
@@ -1380,8 +1682,8 @@ const InventoryCheck = () => {
                                 onClick={() => handleTabClick('ALL')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
                                     statusFilter === 'ALL'
-                                        ? 'bg-[#001d35] text-white shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                        ? 'bg-[#001d35] text-white shadow-xs'
+                                        : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
                                 }`}
                             >
                                 <ClipboardCheck className={`w-3.5 h-3.5 ${
@@ -1405,8 +1707,8 @@ const InventoryCheck = () => {
                                 onClick={() => handleTabClick('COMPLETED')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
                                     statusFilter === 'COMPLETED'
-                                        ? 'bg-[#001d35] text-white shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                        ? 'bg-[#001d35] text-white shadow-xs'
+                                        : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
                                 }`}
                             >
                                 <CheckCircle2 className={`w-3.5 h-3.5 ${
@@ -1422,223 +1724,306 @@ const InventoryCheck = () => {
                             </button>
                         </div>
 
-                        {/* Sélecteur temporel harmonisé */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-[4px] border-2 border-gray-300">
-                                {[
-                                    { key: 'today', label: "Aujourd'hui" },
-                                    { key: '7days', label: '7 jours' },
-                                    { key: 'month', label: 'Ce mois' },
-                                    { key: 'all', label: 'Tout' },
-                                    { key: 'custom', label: 'Période...' }
-                                ].map(opt => (
-                                    <button
-                                        key={opt.key}
-                                        type="button"
-                                        onClick={() => handleFilterChange(setPeriod, opt.key)}
-                                        className={`px-2 py-0.5 rounded-[3px] text-[11px] font-semibold transition-all cursor-pointer ${
-                                            period === opt.key
-                                                ? 'bg-[#001d35] text-white'
-                                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-                                        }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
+                        {/* Recherche compacte à droite */}
+                        <div className="relative w-full sm:w-64">
+                            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher réf INV, libellé, superviseur..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 border-2 border-gray-300 focus:border-[#001d35] rounded-[4px] font-medium text-gray-800 focus:outline-none"
+                            />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleFilterChange(setSearchTerm, '')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                                    title="Effacer la recherche"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── BARRE D'OUTILS EN BAS DÉDIÉE (SÉLECTEUR COMPACT + DÉPÔT + SUPERVISEUR + PÉRIODE — IDENTIQUE À HISTORIQUE DES OPÉRATIONS) ── */}
+                    <div className="bg-white p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col gap-2.5 animate-in fade-in duration-150 print:hidden">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            {/* Sélecteur de type d'opération */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <label htmlFor="inventory-operation-type-select" className="text-xs font-semibold text-[#001d35] uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                                    <Filter className="w-3.5 h-3.5 text-[#f77500]" />
+                                    <span>Opération :</span>
+                                </label>
+                                <select
+                                    id="inventory-operation-type-select"
+                                    value={operationFilter}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        handleFilterChange(() => {
+                                            setOperationFilter(val);
+                                            if (val === 'all') {
+                                                setStatusFilter('ALL');
+                                                setPeriod('all');
+                                                setCustomStartDate('');
+                                                setCustomEndDate('');
+                                            } else if (val === 'in_progress') {
+                                                setStatusFilter('IN_PROGRESS');
+                                            } else if (val === 'completed') {
+                                                setStatusFilter('COMPLETED');
+                                            }
+                                        });
+                                    }}
+                                    className="px-3 py-1.5 text-xs font-semibold border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-[#001d35] cursor-pointer shadow-2xs"
+                                >
+                                    <option value="none">Aucun (Par défaut)</option>
+                                    <option value="all">📋 Toutes les opérations d'inventaire</option>
+                                    <optgroup label="Statut des Sessions">
+                                        <option value="in_progress">⏳ Sessions en cours de comptage</option>
+                                        <option value="completed">✅ Sessions clôturées & régularisées</option>
+                                    </optgroup>
+                                    <optgroup label="Type d'Inventaire">
+                                        <option value="cyclic">🔄 Tournant (Rayon / Catégorie)</option>
+                                        <option value="annual">📦 Annuel (Exhaustif)</option>
+                                        <option value="spot">⚡ Inopiné (Contrôle surprise)</option>
+                                    </optgroup>
+                                    <optgroup label="Contrôle des Écarts">
+                                        <option value="with_discrepancy">⚠️ Sessions avec Écarts constatés</option>
+                                        <option value="without_discrepancy">🎯 Sessions Conformes (Sans écart)</option>
+                                    </optgroup>
+                                </select>
                             </div>
 
-                            {period === 'custom' && (
-                                <div className="flex items-center gap-1 text-xs">
-                                    <input
-                                        type="date"
-                                        value={customStartDate}
-                                        onChange={e => handleFilterChange(setCustomStartDate, e.target.value)}
-                                        className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white"
-                                    />
-                                    <span className="text-gray-400 text-xs">à</span>
-                                    <input
-                                        type="date"
-                                        value={customEndDate}
-                                        onChange={e => handleFilterChange(setCustomEndDate, e.target.value)}
-                                        className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white"
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ── 3 STATCARDS KPI (TAILLE CONSERVÉE LG:GRID-COLS-4) ── */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {/* 1. Dernier Inventaire */}
-                        <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
-                            {filterLoading ? (
-                                <div className="flex flex-col items-center justify-center py-4">
-                                    <div className="relative h-8 w-8">
-                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
-                                        <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between items-start relative z-10">
-                                        <div className="flex-1">
-                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">Dernier Inventaire</p>
-                                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#001d35' }}>
-                                                <h3 className="text-base sm:text-lg font-semibold text-[#001d35] tracking-tight">
-                                                    {metrics.lastSessionDate ? formatDateTime(metrics.lastSessionDate) : 'Aucun inventaire'}
-                                                </h3>
-                                            </div>
-                                            <p className="text-xs text-gray-600 mt-2 font-medium">{metrics.completedSessionsCount} sessions clôturées & régularisées</p>
-                                        </div>
-                                    </div>
-                                    <img
-                                        src="/icons8/fluency_96_clipboard.png"
-                                        alt=""
-                                        className="absolute bottom-2 right-2 w-16 h-16 opacity-80 group-hover:opacity-100 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-700 pointer-events-none"
-                                    />
-                                </>
-                            )}
-                        </div>
-
-                        {/* 2. Taux de Conformité */}
-                        <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
-                            {filterLoading ? (
-                                <div className="flex flex-col items-center justify-center py-4">
-                                    <div className="relative h-8 w-8">
-                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
-                                        <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between items-start relative z-10">
-                                        <div className="flex-1">
-                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-700">Taux de Conformité</p>
-                                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#059669' }}>
-                                                <h3 className="text-xl sm:text-2xl font-semibold text-emerald-600">
-                                                    {metrics.conformityRate}%
-                                                </h3>
-                                            </div>
-                                            <p className="text-xs text-gray-600 mt-2 font-medium">Articles conformes sans aucun écart</p>
-                                        </div>
-                                    </div>
-                                    <img
-                                        src="/icons8/fluency_96_ok.png"
-                                        alt=""
-                                        className="absolute bottom-2 right-2 w-16 h-16 opacity-80 group-hover:opacity-100 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-700 pointer-events-none"
-                                    />
-                                </>
-                            )}
-                        </div>
-
-                        {/* 3. Pertes Nettes / Démarque */}
-                        <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
-                            {filterLoading ? (
-                                <div className="flex flex-col items-center justify-center py-4">
-                                    <div className="relative h-8 w-8">
-                                        <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
-                                        <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="flex justify-between items-start relative z-10">
-                                        <div className="flex-1">
-                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-700">Pertes Nettes / Démarque</p>
-                                            <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#e11d48' }}>
-                                                <h3 className="text-xl sm:text-2xl font-semibold text-rose-600">
-                                                    {formatPrice(Math.abs(metrics.totalNetFinancialImpact))}
-                                                </h3>
-                                            </div>
-                                            <p className="text-xs text-gray-600 mt-2 font-medium">Impact cumulé des écarts d'inventaire</p>
-                                        </div>
-                                    </div>
-                                    <img
-                                        src="/icons8/fluency_240_high-priority.png"
-                                        alt=""
-                                        className="absolute bottom-2 right-2 w-16 h-16 opacity-80 group-hover:opacity-100 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-700 pointer-events-none"
-                                    />
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ── BARRE DE RECHERCHE ET FILTRES HARMONISÉE ── */}
-                    <div className="bg-white p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm">
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                            <div className="flex flex-wrap items-center gap-2 flex-1 justify-start">
-                                {/* Recherche texte */}
-                                <div className="relative flex-1 min-w-[200px] max-w-md">
-                                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                                    <input
-                                        type="text"
-                                        placeholder="Filtrer par réf INV, intitulé, superviseur..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white font-normal"
-                                    />
-                                    {searchTerm && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setSearchTerm('')}
-                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                                        >
-                                            <X className="w-3.5 h-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Filtre Dépôt */}
+                            {/* Sélecteur de Dépôt / Boutique */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <label htmlFor="inventory-store-select" className="text-xs font-semibold text-[#001d35] uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                                    <StoreIcon className="w-3.5 h-3.5 text-[#f77500]" />
+                                    <span>Dépôt :</span>
+                                </label>
                                 <select
+                                    id="inventory-store-select"
                                     value={storeFilter}
                                     onChange={(e) => handleFilterChange(setStoreFilter, e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-[4px] bg-white font-normal text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                    className="px-3 py-1.5 text-xs font-semibold border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-[#001d35] cursor-pointer shadow-2xs max-w-[210px]"
                                 >
                                     <option value="all">Tous les dépôts / boutiques</option>
                                     {stores.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
                                 </select>
+                            </div>
 
-                                {/* Filtre Type */}
+                            {/* Sélecteur de Superviseur */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <label htmlFor="inventory-supervisor-select" className="text-xs font-semibold text-[#001d35] uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                                    <User className="w-3.5 h-3.5 text-[#f77500]" />
+                                    <span>Superviseur :</span>
+                                </label>
                                 <select
-                                    value={typeFilter}
-                                    onChange={(e) => handleFilterChange(setTypeFilter, e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs border border-gray-300 rounded-[4px] bg-white font-normal text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                    id="inventory-supervisor-select"
+                                    value={supervisorFilter}
+                                    onChange={(e) => handleFilterChange(setSupervisorFilter, e.target.value)}
+                                    className="px-3 py-1.5 text-xs font-semibold border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-[#001d35] cursor-pointer shadow-2xs max-w-[210px]"
                                 >
-                                    <option value="all">Tous les types d'inventaire</option>
-                                    <option value="CYCLIC">Tournant (Rayon)</option>
-                                    <option value="ANNUAL">Annuel (Exhaustif)</option>
-                                    <option value="SPOT">Inopiné (Surprise)</option>
+                                    <option value="all">Tous les superviseurs</option>
+                                    {uniqueSupervisors.map(name => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
                                 </select>
                             </div>
 
-                            <div className="flex items-center gap-2 self-end sm:self-auto">
-                                {(searchTerm || storeFilter !== 'all' || typeFilter !== 'all' || period !== 'today') && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSearchTerm('');
-                                            setStoreFilter('all');
-                                            setTypeFilter('all');
-                                            setPeriod('today');
-                                            setCustomStartDate('');
-                                            setCustomEndDate('');
-                                        }}
-                                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-600 hover:text-red-700 hover:bg-red-50 rounded-[4px] border border-gray-200 transition-colors cursor-pointer"
-                                        title="Réinitialiser tous les filtres"
-                                    >
-                                        <RotateCcw className="w-3 h-3" />
-                                        <span>Réinitialiser filtres</span>
-                                    </button>
-                                )}
-                                {filteredSessions.length > 0 && (
-                                    <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-[4px] border border-gray-200">
-                                        {filteredSessions.length} session(s)
-                                    </span>
+                            {/* Filtres par date (Aujourd'hui, 7 jours, Ce mois, Tout, Période...) */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#001d35] uppercase tracking-wider hidden lg:flex">
+                                    <Calendar className="w-3.5 h-3.5 text-[#f77500]" />
+                                    <span>Période :</span>
+                                </div>
+                                <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-[4px] border-2 border-gray-300">
+                                    {[
+                                        { key: 'today', label: "Aujourd'hui" },
+                                        { key: '7days', label: '7 jours' },
+                                        { key: 'month', label: 'Ce mois' },
+                                        { key: 'all', label: 'Tout' },
+                                        { key: 'custom', label: 'Période...' }
+                                    ].map(opt => (
+                                        <button
+                                            key={opt.key}
+                                            type="button"
+                                            onClick={() => handleFilterChange(setPeriod, opt.key)}
+                                            className={`px-2.5 py-1 rounded-[4px] text-xs font-semibold transition-all cursor-pointer ${
+                                                period === opt.key
+                                                    ? 'bg-[#001d35] text-white shadow-xs'
+                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {period === 'custom' && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <input
+                                            type="date"
+                                            value={customStartDate}
+                                            onChange={e => handleFilterChange(setCustomStartDate, e.target.value)}
+                                            className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                        />
+                                        <span className="text-gray-400 text-xs font-medium">à</span>
+                                        <input
+                                            type="date"
+                                            value={customEndDate}
+                                            onChange={e => handleFilterChange(setCustomEndDate, e.target.value)}
+                                            className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                        />
+                                    </div>
                                 )}
                             </div>
                         </div>
+
+                        {/* Ligne informative : Filtre actif(s) pour Inventaire */}
+                        {(operationFilter !== 'none' || storeFilter !== 'all' || supervisorFilter !== 'all' || period !== 'all' || searchTerm || selectedKpi) && (
+                            <div className="pt-2 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-[1px] bg-[#f77500] animate-pulse"></span>
+                                        <span>Filtre actif(s) :</span>
+                                    </span>
+
+                                    {selectedKpi && (
+                                        <span className="inline-flex items-center gap-1 bg-[#001d35] text-white border border-[#001d35] px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider shadow-2xs">
+                                            <span>
+                                                {selectedKpi === 'active' && '📊 KPI : Sessions Actives'}
+                                                {selectedKpi === 'completed' && '📊 KPI : Sessions Clôturées & Régularisées'}
+                                                {selectedKpi === 'conformity' && '📊 KPI : Inventaires Conformes (100%)'}
+                                                {selectedKpi === 'discrepancies' && '📊 KPI : Sessions avec Écarts / Démarque'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleKpiClick(selectedKpi)}
+                                                className="hover:text-[#f77500] cursor-pointer ml-0.5 text-white/80"
+                                                title="Retirer le filtre KPI"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </span>
+                                    )}
+
+                                    {operationFilter !== 'none' && (
+                                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                            <span>
+                                                {operationFilter === 'all' && '📋 Toutes les opérations'}
+                                                {operationFilter === 'in_progress' && '⏳ Sessions en cours'}
+                                                {operationFilter === 'completed' && '✅ Sessions clôturées'}
+                                                {operationFilter === 'cyclic' && '🔄 Tournant (Rayon)'}
+                                                {operationFilter === 'annual' && '📦 Annuel (Exhaustif)'}
+                                                {operationFilter === 'spot' && '⚡ Inopiné (Surprise)'}
+                                                {operationFilter === 'with_discrepancy' && '⚠️ Avec Écarts'}
+                                                {operationFilter === 'without_discrepancy' && '🎯 Conformes (Sans écart)'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleFilterChange(setOperationFilter, 'none')}
+                                                className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                                title="Retirer le filtre d'opération"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </span>
+                                    )}
+
+                                    {storeFilter !== 'all' && (
+                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                            <span>🏪 Dépôt : {stores.find(s => String(s.id) === String(storeFilter))?.name || storeFilter}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleFilterChange(setStoreFilter, 'all')}
+                                                className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                                title="Retirer le filtre dépôt"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </span>
+                                    )}
+
+                                    {supervisorFilter !== 'all' && (
+                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                            <span>👤 Superviseur : {supervisorFilter}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleFilterChange(setSupervisorFilter, 'all')}
+                                                className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                                title="Retirer le filtre superviseur"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </span>
+                                    )}
+
+                                    {period !== 'all' && (
+                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                            <span>
+                                                📅 {period === 'today' ? "Aujourd'hui" :
+                                                    period === '7days' ? "7 derniers jours" :
+                                                    period === 'month' ? "Ce mois" :
+                                                    period === 'custom' ? `Du ${formatDate(customStartDate)} au ${formatDate(customEndDate)}` : periodLabel}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleFilterChange(() => {
+                                                    setPeriod('all');
+                                                    setCustomStartDate('');
+                                                    setCustomEndDate('');
+                                                })}
+                                                className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                                title="Retirer le filtre de période"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </span>
+                                    )}
+
+                                    {searchTerm && (
+                                        <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-800 border border-gray-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                            <span>🔍 Recherche : "{searchTerm}"</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleFilterChange(setSearchTerm, '')}
+                                                className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                                title="Effacer la recherche"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    {filteredSessions.length > 0 && (
+                                        <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-[3px] border border-gray-200">
+                                            {filteredSessions.length} session(s) trouvée(s)
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleFilterChange(() => {
+                                            setSelectedKpi(null);
+                                            setOperationFilter('none');
+                                            setStoreFilter('all');
+                                            setSupervisorFilter('all');
+                                            setPeriod('all');
+                                            setCustomStartDate('');
+                                            setCustomEndDate('');
+                                            setSearchTerm('');
+                                        })}
+                                        className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+                                    >
+                                        Effacer tous les filtres
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* ── TABLEAU REGISTRE HISTORIQUE DES SESSIONS (STYLE RÉAPPROVISIONNEMENT) ── */}

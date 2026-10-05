@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Info, Calculator, ArrowLeft, Package, Search, Check, RefreshCcw, AlertTriangle, Scale, Barcode, Plus } from 'lucide-react';
+import { X, Save, Info, Calculator, ArrowLeft, Package, Search, Check, RefreshCcw, AlertTriangle, Scale, Barcode, Plus, Edit3, PackagePlus } from 'lucide-react';
 import { useInventory } from '../context/InventoryContext';
 import { useSettings } from '../context/SettingsContext';
 import { getUnitModel, getAvailableMeasurementUnits } from '../config/unitModels';
@@ -22,6 +22,17 @@ const ProductModal = ({ product, onClose, onSave }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isGeneratingBarcode, setIsGeneratingBarcode] = useState(false);
     const [autoGenerateBarcode, setAutoGenerateBarcode] = useState(false);
+
+    // Écouteur clavier pour fermer la page avec Échap et revenir au catalogue
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
 
 
     const [formData, setFormData] = useState({
@@ -537,183 +548,201 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="rounded-sm border-2 border-gray-300 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" style={{ backgroundColor: '#e8eef4' }}>
-                <div className="flex justify-between items-center p-6 border-b-2 border-gray-300 flex-shrink-0" style={{ backgroundColor: '#e6ecf2' }}>
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tight">
-                            {product ? 'Modifier le produit' : 'Nouveau produit'}
-                        </h2>
+        <div className="w-full max-w-3xl mx-auto h-[calc(100vh-6.5rem)] flex flex-col bg-white rounded-[4px] border-2 border-[#001d35] shadow-xl overflow-hidden font-sans animate-in fade-in duration-200">
+            {/* Barre Supérieure Stylisée (Identique à Inventaire Physique & Contrôle des Stocks) */}
+            <div className="bg-[#001d35] text-white px-4 py-2.5 border-b-2 border-[#f77500] shadow-sm flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center shrink-0">
+                        {product ? (
+                            <Edit3 className="w-4 h-4 text-[#f77500]" />
+                        ) : (
+                            <PackagePlus className="w-4 h-4 text-[#f77500]" />
+                        )}
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
-                        <X className="w-6 h-6" />
-                    </button>
+                    <h2 className="text-sm sm:text-base font-bold text-white tracking-wider uppercase truncate">
+                        {product ? 'Modifier Produit' : 'Nouveau Produit'}
+                    </h2>
                 </div>
 
-                <div className="overflow-y-auto w-full">
-                    <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Coin supérieur droit : Bouton Fermer */}
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-[4px] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-white/20 active:scale-95"
+                        title="Fermer et revenir à l'écran de gestion de catalogue"
+                    >
+                        <X className="w-4 h-4 text-[#f77500]" />
+                        <span>Fermer</span>
+                    </button>
+                </div>
+            </div>
 
-                            {/* ── Nom ── */}
-                            <div className="col-span-2">
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#001d35] uppercase tracking-wide mb-2">
-                                    NOM DU PRODUIT
+            {/* Formulaire complet avec corps défilable et pied de page fixe */}
+            <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                {/* Corps défilable */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f8fafc] font-sans custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+
+                        {/* ── Nom ── */}
+                        <div className="col-span-2">
+                            <label className="block text-xs font-semibold text-[#001d35] uppercase tracking-wider mb-1">
+                                Désignation du produit *
+                            </label>
+                            <input
+                                type="text"
+                                name="name"
+                                required
+                                value={formData.name}
+                                onChange={handleChange}
+                                className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-[2px] text-xs sm:text-sm font-normal text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                placeholder="Ex: Ciment gris 35kg"
+                            />
+                            <p className="text-xs text-gray-500 mt-1 font-normal">Désignation complète du produit et sa marque</p>
+                        </div>
+
+                        {/* ── Code-Barres / EAN-13 ── */}
+                        <div className="col-span-2 bg-white border border-gray-300 rounded-[4px] p-3 shadow-2xs">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-1.5">
+                                <label className="flex items-center gap-1.5 text-xs font-semibold text-[#001d35] uppercase tracking-wider">
+                                    <Barcode className="w-4 h-4 text-[#001d35]" strokeWidth={1.75} />
+                                    <span>Code-Barres (EAN-13 / Douchette)</span>
                                 </label>
-                                <p className="text-xs text-gray-500 mb-2">Désignation complète du produit et sa marque</p>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    required
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35]/50 bg-white"
-                                    placeholder="Ex: Ciment gris 35kg"
-                                />
-                            </div>
-
-                            {/* ── Code-Barres / EAN-13 ── */}
-                            <div className="col-span-2 bg-white/80 border-2 border-slate-300 rounded-sm p-4 shadow-2xs">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                                    <label className="flex items-center gap-2 text-[12px] font-bold text-[#001d35] uppercase tracking-wide">
-                                        <div className="w-8 h-8 rounded bg-[#001d35]/10 flex items-center justify-center text-[#001d35]">
-                                            <Barcode className="w-5 h-5" strokeWidth={1.75} />
-                                        </div>
-                                        <span>Code-Barres (EAN-13 / Douchette)</span>
-                                    </label>
-                                    <div className="flex items-center gap-3">
-                                        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                checked={autoGenerateBarcode}
-                                                onChange={handleToggleAutoBarcode}
-                                                disabled={isGeneratingBarcode}
-                                                className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
-                                            />
-                                            <span className="text-xs font-semibold text-slate-700">
-                                                Générer un code interne automatique
-                                            </span>
-                                        </label>
-                                        {isGeneratingBarcode && (
-                                            <div className="flex items-center gap-1.5 text-xs text-amber-700 font-medium">
-                                                <div className="w-3.5 h-3.5 border-2 border-amber-600/40 border-t-amber-600 rounded-full animate-spin" />
-                                                <span>Génération...</span>
-                                            </div>
-                                        )}
-                                        {formData.barcode && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setAutoGenerateBarcode(false);
-                                                    setFormData(prev => ({ ...prev, barcode: '' }));
-                                                }}
-                                                className="px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors cursor-pointer font-semibold"
-                                                title="Effacer le code-barres"
-                                            >
-                                                Effacer
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                                <p className="text-xs text-gray-500 mb-2.5">
-                                    Scannez avec la douchette ou cochez pour attribuer automatiquement un code interne vérifié.
-                                    <span className="text-slate-600 font-medium"> Optionnel : laisser vide si le produit n'a pas de code-barres.</span>
-                                </p>
-                                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                                    <div className="relative flex-1 w-full">
+                                <div className="flex items-center gap-2">
+                                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                                         <input
-                                            type="text"
-                                            name="barcode"
-                                            value={formData.barcode || ''}
-                                            onChange={handleBarcodeChange}
+                                            type="checkbox"
+                                            checked={autoGenerateBarcode}
+                                            onChange={handleToggleAutoBarcode}
                                             disabled={isGeneratingBarcode}
-                                            placeholder={isGeneratingBarcode ? "Génération du code en cours..." : "Ex: 2001234567891 ou scannez avec la douchette..."}
-                                            className="w-full pl-9 pr-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35]/50 bg-white disabled:bg-slate-100 disabled:text-gray-400 font-mono text-sm tracking-wider font-semibold text-slate-800"
+                                            className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer"
                                         />
-                                        <Barcode className="w-5 h-5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
-                                    </div>
-                                    {formData.barcode && (
-                                        <div className="bg-white border border-gray-200 px-4 py-2 rounded-sm shrink-0 flex flex-col items-center gap-1 shadow-2xs">
-                                            <div 
-                                                dangerouslySetInnerHTML={{ __html: renderBarcodeSvg(formData.barcode, { width: 160, height: 48, showText: false }) }} 
-                                            />
-                                            <span className="text-[11px] font-medium font-mono text-slate-600 tracking-widest">{formData.barcode}</span>
+                                        <span className="text-xs font-medium text-slate-700">
+                                            Code interne automatique
+                                        </span>
+                                    </label>
+                                    {isGeneratingBarcode && (
+                                        <div className="flex items-center gap-1 text-xs text-amber-700 font-medium">
+                                            <div className="w-3 h-3 border-2 border-amber-600/40 border-t-amber-600 rounded-full animate-spin" />
+                                            <span>Génération...</span>
                                         </div>
+                                    )}
+                                    {formData.barcode && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAutoGenerateBarcode(false);
+                                                setFormData(prev => ({ ...prev, barcode: '' }));
+                                            }}
+                                            className="px-2 py-0.5 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-[2px] transition-colors cursor-pointer font-semibold"
+                                            title="Effacer le code-barres"
+                                        >
+                                            Effacer
+                                        </button>
                                     )}
                                 </div>
                             </div>
-
-                            {/* ── Catégorie ── */}
-                            <div>
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#001d35] uppercase tracking-wide mb-2">
-                                    CATÉGORIE / TYPE
-                                </label>
-                                <p className="text-xs text-gray-500 mb-2">Sélectionnez la catégorie du produit</p>
-                                <select
-                                    name="category"
-                                    required
-                                    value={formData.category}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35]/50 bg-white cursor-pointer"
-                                >
-                                    <option value="" disabled>Sélectionnez une catégorie...</option>
-                                    {[...new Set([
-                                        ...(categories || []).map(c => c.name),
-                                        ...products.map(p => p.category).filter(Boolean)
-                                    ])].sort().map(cat => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
+                            <p className="text-xs text-gray-500 mb-2 font-normal">
+                                Scannez à la douchette ou cochez pour attribuer un code interne vérifié (optionnel).
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                                <div className="relative flex-1 w-full">
+                                    <input
+                                        type="text"
+                                        name="barcode"
+                                        value={formData.barcode || ''}
+                                        onChange={handleBarcodeChange}
+                                        disabled={isGeneratingBarcode}
+                                        placeholder={isGeneratingBarcode ? "Génération du code..." : "Ex: 2001234567891 ou scannez avec la douchette..."}
+                                        className={`w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-xs sm:text-sm text-gray-800 disabled:bg-slate-50 ${
+                                            formData.barcode ? 'font-mono tracking-wider font-semibold' : 'font-sans font-normal tracking-normal'
+                                        } placeholder:font-sans placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400`}
+                                    />
+                                    <Barcode className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" strokeWidth={1.5} />
+                                </div>
+                                {formData.barcode && (
+                                    <div className="bg-white border border-gray-200 px-2.5 py-1 rounded-[2px] shrink-0 flex items-center gap-2 shadow-2xs">
+                                        <div 
+                                            dangerouslySetInnerHTML={{ __html: renderBarcodeSvg(formData.barcode, { width: 120, height: 30, showText: false }) }} 
+                                        />
+                                        <span className="text-xs font-mono text-slate-600 tracking-wider font-bold">{formData.barcode}</span>
+                                    </div>
+                                )}
                             </div>
+                        </div>
 
-                            {/* ── Fournisseur ── */}
-                            <div>
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#001d35] uppercase tracking-wide mb-2">
-                                    <img src="/icons8/color_96_supplier.png" alt="" className="w-7 h-7" />
-                                    FOURNISSEUR
-                                </label>
-                                <p className="text-xs text-gray-500 mb-2">Sélectionnez le fournisseur dans la liste</p>
-                                <select
-                                    name="supplier"
-                                    value={formData.supplier}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white cursor-pointer"
-                                >
-                                    <option value="">-- Sélectionnez un fournisseur --</option>
-                                    {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
+                        {/* ── Catégorie ── */}
+                        <div>
+                            <label className="block text-xs font-semibold text-[#001d35] uppercase tracking-wider mb-1">
+                                Catégorie / Rayon *
+                            </label>
+                            <select
+                                name="category"
+                                required
+                                value={formData.category}
+                                onChange={handleChange}
+                                className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-[2px] text-xs sm:text-sm font-normal text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#001d35] cursor-pointer"
+                            >
+                                <option value="" disabled>Sélectionnez une catégorie...</option>
+                                {[...new Set([
+                                    ...(categories || []).map(c => c.name),
+                                    ...products.map(p => p.category).filter(Boolean)
+                                ])].sort().map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                            {/* ══ Unité de Base ══ */}
-                            <div className="col-span-2 mt-2 mb-0">
-                                <h3 className="font-semibold text-gray-900/60 border-b-2 border-gray-300 pb-2 uppercase tracking-widest text-xs">UNITÉ DE BASE (STOCK)</h3>
-                            </div>
+                        {/* ── Fournisseur ── */}
+                        <div>
+                            <label className="block text-xs font-semibold text-[#001d35] uppercase tracking-wider mb-1">
+                                Fournisseur
+                            </label>
+                            <select
+                                name="supplier"
+                                value={formData.supplier}
+                                onChange={handleChange}
+                                className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-[2px] text-xs sm:text-sm font-normal text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#001d35] cursor-pointer"
+                            >
+                                <option value="">-- Sélectionnez un fournisseur --</option>
+                                {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+
+                        {/* ══ Unité de Base ══ */}
+                        <div className="col-span-2 pt-2 border-b-2 border-gray-300 pb-1 flex items-center justify-between">
+                            <h3 className="text-xs sm:text-sm font-semibold text-[#001d35] uppercase tracking-wider">
+                                Unité de base & Conditionnement
+                            </h3>
+                            <span className="text-xs text-gray-500 font-normal">Périmètre de vente et gestion du stock</span>
+                        </div>
 
                             <div className="col-span-2">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <label className="flex items-center gap-3 text-[12px] font-semibold text-[#001d35] uppercase tracking-wide">
-                                        TYPE DE CONDITIONNEMENT
+                                    <label className="flex items-center gap-1.5 text-xs font-semibold text-[#001d35] uppercase tracking-wider">
+                                        Type de Conditionnement
                                     </label>
-                                    <button type="button" onClick={() => setShowUnitInfo(!showUnitInfo)} className="text-primary-600 hover:text-primary-800 transition-colors cursor-pointer">
+                                    <button type="button" onClick={() => setShowUnitInfo(!showUnitInfo)} className="text-[#001d35] hover:text-[#f77500] transition-colors cursor-pointer">
                                         <Info className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <p className="text-xs text-gray-500 mb-4">Déterminez comment ce produit est stocké et vendu.</p>
+                                <p className="text-xs text-gray-500 mb-2 font-normal">Déterminez comment ce produit est stocké et vendu.</p>
                                 {showUnitInfo && (
-                                    <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-sm text-xs text-blue-800 shadow-sm">
+                                    <div className="mb-2.5 p-3 bg-blue-50 border border-blue-200 rounded-[4px] text-xs text-blue-900 shadow-2xs">
                                         <p className="font-semibold mb-1">Guide des conditionnements :</p>
-                                        <ul className="list-disc pl-5 space-y-1">
-                                            <li><strong>Unité Unique :</strong> Pour les articles vendus à l'unité sans décomposition (outils, machines...).</li>
-                                            <li><strong>Boîte / Carton / Sachet :</strong> Pour les contenants de pièces (vis, clous...) avec possibilité de vente en petits lots.</li>
-                                            <li><strong>Vrac :</strong> Pour les matériaux au poids, volume ou longueur (ciment, peinture, fer...) avec vente fractionnée.</li>
+                                        <ul className="list-disc pl-4 space-y-0.5">
+                                            <li><strong>Unité Unique :</strong> Articles vendus à la pièce/unité sans décomposition (outils, machines...).</li>
+                                            <li><strong>Boîte / Carton / Sachet :</strong> Contenants de pièces (vis, clous...) avec vente au détail.</li>
+                                            <li><strong>Vrac :</strong> Matériaux au poids, volume ou longueur (ciment, peinture, fer...) avec vente fractionnée.</li>
                                         </ul>
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mb-2.5">
                                     {[
                                         { id: 'UNIT', label: 'Unité Unique', sub: 'Outils, Machines...' },
                                         { id: 'BOX', label: 'Boîte / Carton / Sachet', sub: 'Vis, Clous, Chevilles...' },
-                                        { id: 'BULK', label: 'Vrac (Sac de ciment, Litre...)', sub: 'Ciment, Peinture, Fer...' }
+                                        { id: 'BULK', label: 'Vrac (Sac, Litre, Fer...)', sub: 'Ciment, Peinture, Fer...' }
                                     ].map(arch => {
                                         const isSelected = formData.unitArchetype === arch.id;
                                         return (
@@ -731,26 +760,26 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                         setMinStockUnit('');
                                                     }
                                                 }}
-                                                className={`p-3.5 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-between ${
+                                                className={`p-2.5 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-between ${
                                                     isSelected
-                                                        ? 'border-[#001d35] bg-[#001d35]/10 text-[#001d35] font-bold shadow-xs'
-                                                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50/50'
+                                                        ? 'border-[#001d35] bg-blue-50/80 text-[#001d35] shadow-2xs'
+                                                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                                                 }`}
                                             >
-                                                <div className="flex items-center gap-2.5">
+                                                <div className="flex items-center gap-2">
                                                     <input
                                                         type="checkbox"
                                                         checked={isSelected}
                                                         readOnly
-                                                        className="w-4 h-4 rounded-[4px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
+                                                        className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
                                                     />
-                                                    <span className={`text-sm ${isSelected ? 'font-bold text-[#001d35]' : 'font-semibold text-gray-800'}`}>
+                                                    <span className={`text-xs sm:text-sm ${isSelected ? 'font-semibold text-[#001d35]' : 'font-medium text-gray-800'}`}>
                                                         {arch.label}
                                                     </span>
                                                 </div>
-                                                <div className={`text-xs mt-2 ml-6.5 ${isSelected ? 'text-[#001d35]/80 font-medium' : 'text-gray-500'}`}>
+                                                <span className="text-xs text-gray-500 mt-1 ml-5 font-normal">
                                                     {arch.sub}
-                                                </div>
+                                                </span>
                                             </button>
                                         );
                                     })}
@@ -758,16 +787,15 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                                 {/* UNITÉ DE BASE & UNITÉS DE MESURE : affichée uniquement pour Boîte/Carton et Vrac */}
                                 {formData.unitArchetype !== 'UNIT' && (
-                                    <div className="animate-in fade-in duration-150 space-y-4">
+                                    <div className="animate-in fade-in duration-150 space-y-3">
                                         {/* 1. Sélection de l'unité de base / contenant */}
                                         <div>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="flex items-center gap-2 text-[11px] font-semibold text-gray-700 uppercase tracking-widest">
-                                                    <img src="/icons8/color_96_layers.png" alt="" className="w-5 h-5" />
-                                                    <span>UNITÉ DE BASE ({formData.unitArchetype === 'BULK' ? 'CONTENANT VRAC' : 'CONTENANT'})</span>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-[#001d35] uppercase tracking-wider">
+                                                    <span>Unité de base ({formData.unitArchetype === 'BULK' ? 'Contenant Vrac' : 'Contenant'})</span>
                                                 </label>
-                                                <span className="text-[10px] text-gray-500 font-medium">
-                                                    {formData.unitArchetype === 'BULK' ? 'Classés par familles physiques (Poids, Liquide, Linéaire)' : 'Boîte, Carton, Paquet...'}
+                                                <span className="text-xs text-gray-500 font-normal">
+                                                    {formData.unitArchetype === 'BULK' ? 'Classés par familles physiques' : 'Boîte, Carton, Paquet...'}
                                                 </span>
                                             </div>
 
@@ -776,42 +804,42 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                     {boxBaseUnits.map(u => (
                                                         <label
                                                             key={u}
-                                                            className={`cursor-pointer px-3.5 py-1.5 border-2 rounded-[4px] text-xs font-bold transition-all select-none flex items-center gap-2 ${
+                                                            className={`cursor-pointer px-3 py-1.5 border-2 rounded-[2px] text-xs sm:text-sm font-medium transition-all select-none flex items-center gap-2 ${
                                                                 formData.unit === u
-                                                                    ? 'bg-transparent border-[#001d35] text-[#001d35] shadow-xs'
-                                                                    : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-900'
+                                                                    ? 'bg-transparent border-[#001d35] text-[#001d35] font-semibold shadow-xs'
+                                                                    : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
                                                             }`}
                                                         >
                                                             <input
                                                                 type="checkbox"
                                                                 checked={formData.unit === u}
                                                                 onChange={() => handleBaseUnitSelect(u)}
-                                                                className="w-3.5 h-3.5 rounded-[4px] border-gray-300 accent-[#001d35] cursor-pointer shrink-0"
+                                                                className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer shrink-0"
                                                             />
                                                             <span>{u}</span>
                                                         </label>
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <div className="space-y-2.5">
+                                                <div className="space-y-2">
                                                     {bulkBaseUnitCategories.map(cat => (
-                                                        <div key={cat.label} className="bg-white/60 p-2.5 rounded-[4px] border border-gray-200">
-                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">{cat.label}</span>
+                                                        <div key={cat.label} className="bg-white p-2.5 rounded-[4px] border border-gray-200">
+                                                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">{cat.label}</span>
                                                             <div className="flex flex-wrap gap-2">
                                                                 {cat.units.map(u => (
                                                                     <label
                                                                         key={u}
-                                                                        className={`cursor-pointer px-3 py-1.5 border-2 rounded-[4px] text-xs font-bold transition-all select-none flex items-center gap-2 ${
+                                                                        className={`cursor-pointer px-3 py-1.5 border-2 rounded-[2px] text-xs sm:text-sm font-medium transition-all select-none flex items-center gap-2 ${
                                                                             formData.unit === u
-                                                                                ? 'bg-[#001d35]/10 border-[#001d35] text-[#001d35] shadow-xs'
-                                                                                : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-900'
+                                                                                ? 'bg-blue-50 border-[#001d35] text-[#001d35] font-semibold shadow-xs'
+                                                                                : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
                                                                         }`}
                                                                     >
                                                                         <input
                                                                             type="checkbox"
                                                                             checked={formData.unit === u}
                                                                             onChange={() => handleBaseUnitSelect(u)}
-                                                                            className="w-3.5 h-3.5 rounded-[4px] border-gray-300 accent-[#001d35] cursor-pointer shrink-0"
+                                                                            className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer shrink-0"
                                                                         />
                                                                         <span>{u}</span>
                                                                     </label>
@@ -825,14 +853,14 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                                         {/* 2. Juste en dessous si VRAC : Unités de mesure qui correspondent à cette unité de base */}
                                         {formData.unitArchetype === 'BULK' && formData.unit && (
-                                            <div className="bg-blue-50/70 border-2 border-blue-200 rounded-[4px] p-3.5 animate-in fade-in duration-150">
-                                                <div className="flex items-center gap-2 mb-1.5">
-                                                    <label className="flex items-center gap-2 text-[11px] font-bold text-[#001d35] uppercase tracking-wide">
+                                            <div className="bg-blue-50/70 border-2 border-blue-200 rounded-[4px] p-3 animate-in fade-in duration-150">
+                                                <div className="flex items-center gap-1.5 mb-1">
+                                                    <label className="flex items-center gap-1.5 text-xs font-semibold text-[#001d35] uppercase tracking-wider">
                                                         <Scale className="w-4 h-4 text-blue-700 shrink-0" />
-                                                        <span>UNITÉ DE MESURE DU CONTENU POUR : <strong className="text-blue-900 underline">{formData.unit || 'ce contenant'}</strong></span>
+                                                        <span>Unité de mesure du contenu pour : <strong className="text-blue-900 underline">{formData.unit || 'ce contenant'}</strong></span>
                                                     </label>
                                                 </div>
-                                                <p className="text-xs text-gray-600 mb-2.5">
+                                                <p className="text-xs text-gray-500 mb-2 font-normal">
                                                     Indiquez comment est mesuré le contenu de votre <strong>{formData.unit || 'contenant'}</strong> (au kilo, au litre, au mètre...) :
                                                 </p>
                                                 <div className="flex flex-wrap items-center gap-2">
@@ -841,17 +869,17 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                         return (
                                                             <label
                                                                 key={meas}
-                                                                className={`cursor-pointer px-3.5 py-1.5 border-2 rounded-[4px] text-xs font-bold transition-all select-none flex items-center gap-2 ${
+                                                                className={`cursor-pointer px-3 py-1.5 border-2 rounded-[2px] text-xs sm:text-sm font-medium transition-all select-none flex items-center gap-2 ${
                                                                     isSelected
-                                                                        ? 'bg-transparent border-[#001d35] text-[#001d35] shadow-xs'
-                                                                        : 'bg-white border-slate-300 text-slate-700 hover:border-blue-400 hover:text-blue-900'
+                                                                        ? 'bg-blue-50 border-[#001d35] text-[#001d35] font-semibold shadow-xs'
+                                                                        : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
                                                                 }`}
                                                             >
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={isSelected}
                                                                     onChange={() => handleMeasurementUnitSelect(meas)}
-                                                                    className="w-3.5 h-3.5 rounded-[4px] border-gray-300 accent-[#001d35] cursor-pointer shrink-0"
+                                                                    className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer shrink-0"
                                                                 />
                                                                 <span>{meas}</span>
                                                             </label>
@@ -862,7 +890,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                         placeholder="Autre mesure..."
                                                         value={!getAvailableMeasurementUnits(formData.unit).includes(formData.bulkUnit) ? (formData.bulkUnit || '') : ''}
                                                         onChange={(e) => handleMeasurementUnitSelect(e.target.value)}
-                                                        className="px-3 py-1.5 border border-slate-300 rounded-[4px] text-xs focus:ring-2 focus:ring-[#001d35]/50 w-32 bg-white font-semibold text-slate-800"
+                                                        className="px-3 py-1.5 border border-gray-300 rounded-[2px] text-xs sm:text-sm focus:ring-1 focus:ring-[#001d35] w-32 bg-white font-normal text-gray-800"
                                                     />
                                                 </div>
                                             </div>
@@ -873,16 +901,16 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
 
                             {/* ══ Calcul du Prix d'Achat ══ */}
-                            <div className="col-span-2 mt-2">
-                                <div className="flex items-center gap-2 border-b-2 border-gray-300 pb-2 mb-1">
-                                    <h3 className="font-semibold text-gray-900/60 uppercase tracking-widest text-xs">CALCUL DU PRIX DE REVIENT</h3>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">Entrez le prix d'achat de votre lot / livraison et la quantité reçue pour calculer automatiquement le prix de revient unitaire.</p>
+                            <div className="col-span-2 pt-2 border-b-2 border-gray-300 pb-1 flex items-center justify-between">
+                                <h3 className="text-xs sm:text-sm font-semibold text-[#001d35] uppercase tracking-wider">
+                                    Calcul du prix de revient & Stock initial
+                                </h3>
+                                <span className="text-xs text-gray-500 font-normal">Calcul automatique du coût unitaire</span>
                             </div>
 
                             {/* Contenance / Quantité reçue avec Assistant */}
-                            <div className="col-span-2 bg-white/50 p-4 rounded-[4px] border-2 border-dashed border-gray-300">
-                                <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <div className="col-span-2 bg-white p-3 rounded-[4px] border border-gray-300 shadow-2xs">
+                                <h4 className="text-xs sm:text-sm font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
                                     Assistant de Réception : {formData.unit}
                                 </h4>
 
@@ -890,43 +918,36 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                     {currentUnitModel.archetype !== 'UNIT' ? (
                                         <>
                                             <div>
-                                                <label className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                                                     {formData.unitArchetype === 'BULK'
-                                                        ? `Contenance par ${formData.unit} (en ${formData.bulkUnit || currentUnitModel.subUnit || 'mesure'})`
+                                                        ? `Contenance par ${formData.unit} (${formData.bulkUnit || currentUnitModel.subUnit || 'mesure'})`
                                                         : (currentUnitModel.contentLabel || `Contenu par ${formData.unit}`)}
                                                 </label>
                                                 <input
                                                     type="number"
                                                     value={helperParams.qtyPerContainer}
                                                     onChange={(e) => handleAssistantChange('qtyPerContainer', e.target.value)}
-                                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-[4px] focus:ring-2 focus:ring-[#001d35]/50 bg-white"
-                                                    placeholder={
-                                                        formData.unitArchetype === 'BULK'
-                                                            ? ((formData.bulkUnit || currentUnitModel.subUnit) === 'Kilo' ? "Ex: 50"
-                                                                : (formData.bulkUnit || currentUnitModel.subUnit) === 'Litre' ? "Ex: 20"
-                                                                : (formData.bulkUnit || currentUnitModel.subUnit) === 'Mètre' ? "Ex: 100"
-                                                                : (formData.bulkUnit || currentUnitModel.subUnit) === 'Millilitre' ? "Ex: 310" : "Ex: 50")
-                                                            : "Ex: 100"
-                                                    }
+                                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-xs sm:text-sm font-normal"
+                                                    placeholder="Ex: 50"
                                                 />
                                             </div>
-                                            <div className="flex items-center justify-center h-10 px-1 text-gray-400 font-bold text-lg select-none">×</div>
+                                            <div className="flex items-center justify-center h-9 px-1 text-gray-400 font-bold text-sm select-none">×</div>
                                             <div>
-                                                <label className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-1">
+                                                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                                                     {currentUnitModel.containerLabel || `Nombre de ${formData.unit}(s)`}
                                                 </label>
                                                 <input
                                                     type="number"
                                                     value={helperParams.containerCount}
                                                     onChange={(e) => handleAssistantChange('containerCount', e.target.value)}
-                                                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-[4px] focus:ring-2 focus:ring-[#001d35]/50 bg-white"
+                                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-xs sm:text-sm font-normal"
                                                     placeholder="Ex: 5"
                                                 />
                                             </div>
                                         </>
                                     ) : (
                                         <div className="col-span-full">
-                                            <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Quantité Totale ({formData.unit}s)</label>
+                                            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Quantité Totale ({formData.unit}s)</label>
                                             <input
                                                 type="number"
                                                 name="conversionFactor"
@@ -935,7 +956,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                 step="any"
                                                 value={formData.conversionFactor}
                                                 onChange={handleBulkPriceOrContenanceChange}
-                                                className="w-full px-4 py-2 border border-gray-200 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                                                className="w-full px-3 py-1.5 border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-xs sm:text-sm font-normal"
                                                 placeholder="Ex: 10"
                                             />
                                         </div>
@@ -943,17 +964,15 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                 </div>
 
                                 {currentUnitModel.archetype !== 'UNIT' && (
-                                    <div className="mt-3 pt-3 border-t-2 border-gray-300 flex items-center justify-between">
-                                        <span className="text-xs text-gray-500 font-medium">Auto-calcul du stock :</span>
-                                        <div className="flex gap-2">
-                                            <div className="bg-primary-50 px-3 py-1 border border-primary-200 rounded-[4px]">
-                                                <span className="text-sm font-bold text-primary-700">
-                                                    {formData.stock || 0} {formData.unit}(s)
-                                                    <span className="text-xs font-normal text-primary-500 ml-1">
-                                                        ({(parseFloat(formData.stock) * parseFloat(formData.conversionFactor)).toLocaleString() || 0} {currentUnitModel.subUnit}{(parseFloat(formData.stock) * parseFloat(formData.conversionFactor) > 1 && currentUnitModel.subUnit === 'Pièce') ? 's' : ''})
-                                                    </span>
+                                    <div className="mt-2.5 pt-2 border-t border-gray-200 flex items-center justify-between">
+                                        <span className="text-xs text-gray-500 font-normal">Auto-calcul du stock :</span>
+                                        <div className="bg-blue-50 px-2.5 py-1 border border-blue-200 rounded-[2px]">
+                                            <span className="text-xs sm:text-sm font-semibold text-[#001d35]">
+                                                {formData.stock || 0} {formData.unit}(s)
+                                                <span className="text-xs font-normal text-slate-500 ml-1.5">
+                                                    ({(parseFloat(formData.stock) * parseFloat(formData.conversionFactor)).toLocaleString() || 0} {currentUnitModel.subUnit})
                                                 </span>
-                                            </div>
+                                            </span>
                                         </div>
                                     </div>
                                 )}
@@ -961,24 +980,24 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                             {/* Prix d'achat en gros / Montant payé */}
                             <div>
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-[#001d35] uppercase tracking-wide mb-2">
-                                    MONTANT PAYÉ (CASH/DETTE) <span className="text-red-500">*</span>
+                                <label className="block text-xs font-semibold text-[#001d35] uppercase tracking-wider mb-1">
+                                    Montant payé (Coût d'achat) *
                                 </label>
-                                <p className="text-xs text-gray-500 mb-2">Le montant total que vous avez payé pour cette livraison</p>
+                                <p className="text-xs text-gray-500 mb-1.5 font-normal">Montant total payé pour cette livraison</p>
                                 <FinancialInput
                                     name="bulkPurchasePrice"
                                     required
                                     min="0"
                                     value={formData.bulkPurchasePrice}
                                     onChange={handleBulkPriceOrContenanceChange}
-                                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#001d35]/50 bg-white font-semibold text-gray-900"
+                                    className="w-full px-3 py-1.5 border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white font-normal text-xs sm:text-sm text-gray-900"
                                     placeholder="Ex: 5 000"
                                 />
                             </div>
                             
-                            {/* ── Prix de Vente (Remonté ici) ── */}
-                            <div className="bg-blue-50 p-4 rounded-sm border-2 border-blue-200 shadow-inner col-span-2 md:col-span-1">
-                                <label className="flex items-center gap-3 text-[12px] font-semibold text-blue-900 mb-2 uppercase tracking-wide">
+                            {/* ── Prix de Vente ── */}
+                            <div className="bg-blue-50/70 p-3 rounded-[4px] border border-blue-200 shadow-2xs col-span-2 md:col-span-1">
+                                <label className="block text-xs font-semibold text-[#001d35] uppercase tracking-wider mb-1">
                                     Prix de Vente : 1 {formData.unit} *
                                 </label>
                                 <FinancialInput
@@ -987,7 +1006,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                     min="0"
                                     value={formData.price}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2 border-2 border-blue-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-blue-900 shadow-sm"
+                                    className="w-full px-3 py-1.5 border border-blue-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] font-semibold text-[#001d35] text-xs sm:text-sm shadow-2xs bg-white"
                                     placeholder="Ex: 5 000"
                                 />
                             </div>
@@ -995,83 +1014,83 @@ const ProductModal = ({ product, onClose, onSave }) => {
                             {/* ══ Ventes Multi-Modales ══ */}
                             {formData.unitArchetype !== 'UNIT' && (
                                 <>
-                                    <div className="col-span-2 mt-4">
-                                        <div className="flex items-center gap-2 border-b-2 border-gray-300 pb-2 mb-1">
-                                            <h3 className="font-semibold text-gray-900/60 uppercase tracking-widest text-xs">OPTIONS DE VENTE MULTI-MODALES</h3>
+                                    <div className="col-span-2 mt-2">
+                                        <div className="flex items-center gap-2 border-b-2 border-gray-300 pb-1 mb-1">
+                                            <h3 className="font-semibold text-[#001d35] uppercase tracking-wider text-xs sm:text-sm">OPTIONS DE VENTE MULTI-MODALES</h3>
                                         </div>
                                     </div>
 
                                     {/* Selection des Modes */}
                                     <div className="col-span-2">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <label className="block text-sm font-medium text-gray-700">Canaux de vente actifs (Optionnels)</label>
-                                            <button type="button" onClick={() => setShowRetailInfo(!showRetailInfo)} className="text-[#007185] hover:text-[#C45500] transition-colors cursor-pointer">
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                            <label className="block text-xs font-semibold text-[#001d35] uppercase tracking-wider">Canaux de vente actifs (Optionnels)</label>
+                                            <button type="button" onClick={() => setShowRetailInfo(!showRetailInfo)} className="text-[#001d35] hover:text-[#f77500] transition-colors cursor-pointer">
                                                 <Info className="w-4 h-4" />
                                             </button>
                                         </div>
                                         {showRetailInfo && (
-                                            <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-[4px] text-xs text-blue-800 shadow-sm">
+                                            <div className="mb-2.5 p-3 bg-blue-50 border border-blue-100 rounded-[4px] text-xs text-blue-900 shadow-sm">
                                                 <p className="font-semibold mb-1">Comment fonctionnent les modes cumulatifs ?</p>
-                                                <ul className="list-disc pl-5 space-y-1.5">
+                                                <ul className="list-disc pl-4 space-y-0.5">
                                                     <li><strong>Vente Classique :</strong> Toujours active par défaut.</li>
                                                     {formData.unitArchetype === 'BOX' && <li><strong>Vente en petit Lot :</strong> Ajoute une option pour vendre un lot de pièces internes (ex: 10 vis).</li>}
                                                     {formData.unitArchetype === 'BULK' && <li><strong>Vente Fractionnée :</strong> Ajoute des options pour vendre par poids/volume exacts.</li>}
                                                 </ul>
                                             </div>
                                         )}
-                                        <div className="space-y-3">
+                                        <div className="space-y-2.5">
 
                                             {/* Option par pièce */}
                                             {formData.unitArchetype === 'BOX' && (
-                                                <div className="flex flex-col md:flex-row items-stretch gap-3">
+                                                <div className="flex flex-col md:flex-row items-stretch gap-2.5">
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData(prev => ({ ...prev, hasPiece: !prev.hasPiece }))}
-                                                        className={`w-full md:w-60 shrink-0 p-3 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-center ${
+                                                        className={`w-full md:w-60 shrink-0 p-2.5 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-center ${
                                                             formData.hasPiece
-                                                                ? 'border-[#001d35] bg-[#001d35]/10 text-[#001d35] font-bold shadow-xs'
-                                                                : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50/50'
+                                                                ? 'border-[#001d35] bg-blue-50/80 text-[#001d35] shadow-xs'
+                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                                                         }`}
                                                     >
-                                                        <div className="flex items-center gap-2.5">
+                                                        <div className="flex items-center gap-2">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={formData.hasPiece}
                                                                 readOnly
-                                                                className="w-4 h-4 rounded-[4px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
+                                                                className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
                                                             />
-                                                            <span className={`text-sm ${formData.hasPiece ? 'font-bold text-[#001d35]' : 'font-semibold text-gray-800'}`}>
+                                                            <span className={`text-xs sm:text-sm ${formData.hasPiece ? 'font-semibold text-[#001d35]' : 'font-medium text-gray-800'}`}>
                                                                 Option par pièce
                                                             </span>
                                                         </div>
-                                                        <div className={`text-xs mt-1.5 ml-6.5 ${formData.hasPiece ? 'text-[#001d35]/80 font-medium' : 'text-gray-500'}`}>
+                                                        <div className="text-xs mt-1 ml-5 text-gray-500 font-normal">
                                                             Vente à l'unité depuis la boite
                                                         </div>
                                                     </button>
 
                                                     {formData.hasPiece ? (
-                                                        <div className="flex-1 bg-primary-50 p-3 rounded-[4px] border border-primary-200 animate-in fade-in duration-150 flex flex-col justify-center">
+                                                        <div className="flex-1 bg-blue-50/50 p-3 rounded-[4px] border border-blue-200 animate-in fade-in duration-150 flex flex-col justify-center">
                                                             <div>
-                                                                <label className="block text-xs font-bold text-primary-900 mb-1">Prix par pièce (FCFA)</label>
+                                                                <label className="block text-xs font-semibold text-[#001d35] uppercase tracking-wider mb-1">Prix par pièce (FCFA)</label>
                                                                 <FinancialInput
                                                                     name="piecePrice"
                                                                     required
                                                                     min="0"
                                                                     value={formData.piecePrice}
                                                                     onChange={handleChange}
-                                                                    className="w-full px-3 py-1.5 text-sm border border-primary-300 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-primary-500 font-bold bg-white"
+                                                                    className="w-full px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] font-normal bg-white"
                                                                     placeholder="Ex: 75"
                                                                 />
                                                             </div>
                                                             {!isNaN(parseFloat(formData.purchasePrice)) && parseFloat(formData.conversionFactor) > 0 && parseFloat(formData.piecePrice) > 0 && (
-                                                                <div className="mt-1.5 text-[10px] text-right text-primary-700 font-medium">
+                                                                <div className="mt-1 text-xs text-right text-slate-600 font-normal">
                                                                     Coût unitaire: {Math.round(parseFloat(formData.purchasePrice) / parseFloat(formData.conversionFactor))} FCFA
                                                                     {' '}(Marge: {Math.round(((parseFloat(formData.piecePrice) - (parseFloat(formData.purchasePrice) / parseFloat(formData.conversionFactor))) / parseFloat(formData.piecePrice)) * 100)}%)
                                                                 </div>
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <div className="hidden md:flex flex-1 items-center px-4 py-3 rounded-[4px] border border-dashed border-gray-200 text-xs text-gray-400 bg-gray-50/40">
+                                                        <div className="hidden md:flex flex-1 items-center px-3.5 py-2.5 rounded-[4px] border border-dashed border-gray-300 text-xs text-gray-400 bg-gray-50/50 font-normal">
                                                             Cochez cette option pour configurer le prix de vente à l'unité
                                                         </div>
                                                     )}
@@ -1080,7 +1099,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                                             {/* Vente Lot */}
                                             {formData.unitArchetype === 'BOX' && (
-                                                <div className="flex flex-col md:flex-row items-stretch gap-3">
+                                                <div className="flex flex-col md:flex-row items-stretch gap-2.5">
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData(prev => {
@@ -1088,24 +1107,24 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                             const currentLots = (prev.lots && prev.lots.length > 0) ? prev.lots : [{ id: 'lot_' + Date.now(), quantity: '10', price: '' }];
                                                             return { ...prev, hasLot: nextHasLot, lots: currentLots };
                                                         })}
-                                                        className={`w-full md:w-60 shrink-0 p-3 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-center ${
+                                                        className={`w-full md:w-60 shrink-0 p-2.5 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-center ${
                                                             formData.hasLot
-                                                                ? 'border-[#001d35] bg-[#001d35]/10 text-[#001d35] font-bold shadow-xs'
-                                                                : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50/50'
+                                                                ? 'border-[#001d35] bg-blue-50/80 text-[#001d35] shadow-xs'
+                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                                                         }`}
                                                     >
-                                                        <div className="flex items-center gap-2.5">
+                                                        <div className="flex items-center gap-2">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={formData.hasLot}
                                                                 readOnly
-                                                                className="w-4 h-4 rounded-[4px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
+                                                                className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
                                                             />
-                                                            <span className={`text-sm ${formData.hasLot ? 'font-bold text-[#001d35]' : 'font-semibold text-gray-800'}`}>
+                                                            <span className={`text-xs sm:text-sm ${formData.hasLot ? 'font-semibold text-[#001d35]' : 'font-medium text-gray-800'}`}>
                                                                 Option Petit Lot
                                                             </span>
                                                         </div>
-                                                        <div className={`text-xs mt-1.5 ml-6.5 ${formData.hasLot ? 'text-[#001d35]/80 font-medium' : 'text-gray-500'}`}>
+                                                        <div className="text-xs mt-1 ml-5 text-gray-500 font-normal">
                                                             {formData.hasLot && formData.lots?.length > 1
                                                                 ? `${formData.lots.length} options configurées`
                                                                 : 'Ex: Lot de 10 pièces'}
@@ -1113,15 +1132,15 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                     </button>
 
                                                     {formData.hasLot ? (
-                                                        <div className="flex-1 bg-primary-50 p-3 rounded-[4px] border border-primary-200 animate-in fade-in duration-150 flex flex-col gap-2.5">
+                                                        <div className="flex-1 bg-blue-50/50 p-3 rounded-[4px] border border-blue-200 animate-in fade-in duration-150 flex flex-col gap-2">
                                                             <div className="flex items-center justify-between">
-                                                                <span className="text-xs font-bold text-primary-900">
+                                                                <span className="text-xs font-semibold text-[#001d35] uppercase tracking-wider">
                                                                     Configuration des Petits Lots ({formData.lots?.length || 1})
                                                                 </span>
                                                                 <button
                                                                     type="button"
                                                                     onClick={handleAddLot}
-                                                                    className="text-xs bg-[#001d35] hover:bg-[#00284c] text-white px-2.5 py-1 rounded-[4px] font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                                                                    className="text-xs uppercase tracking-wider bg-[#001d35] hover:bg-[#00284c] text-white px-2.5 py-1 rounded-[4px] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                                                                     title="Ajouter une autre option de lot"
                                                                 >
                                                                     <Plus className="w-3.5 h-3.5" />
@@ -1140,13 +1159,13 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                     const marginPercent = hasCostCalculation && parsedPrice > 0 ? Math.round(((parsedPrice - lotCost) / parsedPrice) * 100) : 0;
 
                                                                     return (
-                                                                        <div key={lot.id || idx} className="p-2.5 bg-white rounded-[4px] border border-primary-200 shadow-2xs">
+                                                                        <div key={lot.id || idx} className="p-2.5 bg-white rounded-[4px] border border-gray-300 shadow-2xs">
                                                                             <div className="flex items-center gap-2">
-                                                                                <span className="text-[10px] font-bold text-primary-900 bg-primary-100/70 px-1.5 py-1 rounded-[4px] shrink-0">
+                                                                                <span className="text-[10px] font-semibold text-[#001d35] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-[2px] shrink-0 uppercase">
                                                                                     Lot #{idx + 1}
                                                                                 </span>
                                                                                 <div className="w-1/3">
-                                                                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                                                                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-0.5">
                                                                                         Qté ({currentUnitModel?.subUnit || 'Pièces'})
                                                                                     </label>
                                                                                     <input
@@ -1155,12 +1174,12 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                                         min="1"
                                                                                         value={lot.quantity || ''}
                                                                                         onChange={(e) => handleLotChange(lot.id, 'quantity', e.target.value)}
-                                                                                        className="w-full px-2 py-1 text-sm border border-primary-300 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-primary-500 hide-arrows bg-white font-medium"
+                                                                                        className="w-full px-2.5 py-1 text-xs sm:text-sm border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] hide-arrows bg-white font-normal"
                                                                                         placeholder="Ex: 10"
                                                                                     />
                                                                                 </div>
                                                                                 <div className="flex-1">
-                                                                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                                                                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-0.5">
                                                                                         Prix du Lot (FCFA)
                                                                                     </label>
                                                                                     <FinancialInput
@@ -1168,7 +1187,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                                         min="0"
                                                                                         value={lot.price || ''}
                                                                                         onChange={(e) => handleLotChange(lot.id, 'price', e.target.value)}
-                                                                                        className="w-full px-3 py-1 text-sm border border-primary-300 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-primary-500 font-bold bg-white"
+                                                                                        className="w-full px-2.5 py-1 text-xs sm:text-sm border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] font-normal bg-white"
                                                                                         placeholder="Ex: 600"
                                                                                     />
                                                                                 </div>
@@ -1176,7 +1195,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                                     <button
                                                                                         type="button"
                                                                                         onClick={() => handleRemoveLot(lot.id)}
-                                                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-[4px] transition-colors cursor-pointer self-end mb-0.5 shrink-0"
+                                                                                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-[2px] transition-colors cursor-pointer self-end mb-0.5 shrink-0"
                                                                                         title="Supprimer ce lot"
                                                                                     >
                                                                                         <X className="w-4 h-4" />
@@ -1184,8 +1203,8 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                                 )}
                                                                             </div>
                                                                             {hasCostCalculation && (
-                                                                                <div className="mt-1 text-[10px] text-right text-primary-700 font-medium">
-                                                                                    Coût Lot estimé: {lotCost} FCFA
+                                                                                <div className="mt-1 text-xs text-right text-slate-600 font-normal">
+                                                                                    Coût Lot: {lotCost} FCFA
                                                                                     {' '}(Marge: {marginPercent}%)
                                                                                 </div>
                                                                             )}
@@ -1195,7 +1214,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <div className="hidden md:flex flex-1 items-center px-4 py-3 rounded-[4px] border border-dashed border-gray-200 text-xs text-gray-400 bg-gray-50/40">
+                                                        <div className="hidden md:flex flex-1 items-center px-3.5 py-2.5 rounded-[4px] border border-dashed border-gray-300 text-xs text-gray-400 bg-gray-50/50 font-normal">
                                                             Cochez cette option pour configurer un prix par lot (ex: 10 pièces)
                                                         </div>
                                                     )}
@@ -1204,43 +1223,43 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                                             {/* Vente Fractionnée */}
                                             {formData.unitArchetype === 'BULK' && (
-                                                <div className="flex flex-col md:flex-row items-stretch gap-3">
+                                                <div className="flex flex-col md:flex-row items-stretch gap-2.5">
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData(prev => ({ ...prev, hasSubUnit: !prev.hasSubUnit }))}
-                                                        className={`w-full md:w-60 shrink-0 p-3 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-center ${
+                                                        className={`w-full md:w-60 shrink-0 p-2.5 text-left transition-all rounded-[4px] border-2 cursor-pointer select-none flex flex-col justify-center ${
                                                             formData.hasSubUnit
-                                                                ? 'border-[#001d35] bg-[#001d35]/10 text-[#001d35] font-bold shadow-xs'
-                                                                : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50/50'
+                                                                ? 'border-[#001d35] bg-blue-50/80 text-[#001d35] shadow-xs'
+                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                                                         }`}
                                                     >
-                                                        <div className="flex items-center gap-2.5">
+                                                        <div className="flex items-center gap-2">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={formData.hasSubUnit}
                                                                 readOnly
-                                                                className="w-4 h-4 rounded-[4px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
+                                                                className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer pointer-events-none shrink-0"
                                                             />
-                                                            <span className={`text-sm ${formData.hasSubUnit ? 'font-bold text-[#001d35]' : 'font-semibold text-gray-800'}`}>
+                                                            <span className={`text-xs sm:text-sm ${formData.hasSubUnit ? 'font-semibold text-[#001d35]' : 'font-medium text-gray-800'}`}>
                                                                 Vente Modèles
                                                             </span>
                                                         </div>
-                                                        <div className={`text-xs mt-1.5 ml-6.5 ${formData.hasSubUnit ? 'text-[#001d35]/80 font-medium' : 'text-gray-500'}`}>
+                                                        <div className="text-xs mt-1 ml-5 text-gray-500 font-normal">
                                                             Fractionnement (ex: 500g)
                                                         </div>
                                                     </button>
 
                                                     {formData.hasSubUnit ? (
-                                                        <div className="flex-1 bg-primary-50 px-4 py-3 rounded-[4px] border border-primary-200 animate-in fade-in duration-150 flex items-center justify-between text-xs text-primary-900">
+                                                        <div className="flex-1 bg-blue-50/50 px-3.5 py-2.5 rounded-[4px] border border-blue-200 animate-in fade-in duration-150 flex items-center justify-between text-xs sm:text-sm text-slate-800">
                                                             <div>
-                                                                <span className="font-bold">Mode fractionné actif</span> : configurez les déclinaisons de vente ci-dessous.
+                                                                <span className="font-semibold text-[#001d35]">Mode fractionné actif</span> : configurez les déclinaisons de vente ci-dessous.
                                                             </div>
-                                                            <span className="text-[11px] font-semibold bg-primary-100 text-primary-800 px-2 py-0.5 rounded-[4px]">
+                                                            <span className="text-xs font-semibold bg-blue-100 text-blue-900 px-2 py-0.5 rounded-[2px]">
                                                                 {formData.packagings.length} option(s)
                                                             </span>
                                                         </div>
                                                     ) : (
-                                                        <div className="hidden md:flex flex-1 items-center px-4 py-3 rounded-[4px] border border-dashed border-gray-200 text-xs text-gray-400 bg-gray-50/40">
+                                                        <div className="hidden md:flex flex-1 items-center px-3.5 py-2.5 rounded-[4px] border border-dashed border-gray-300 text-xs text-gray-400 bg-gray-50/50 font-normal">
                                                             Cochez cette option pour créer des portions personnalisées au poids ou volume
                                                         </div>
                                                     )}
@@ -1254,13 +1273,13 @@ const ProductModal = ({ product, onClose, onSave }) => {
                             {/* ══ Modèles de Déconditionnement / Vente Fractionnée ══ */}
                             {formData.hasSubUnit && (
                                 <div className="col-span-2">
-                                    <div className="flex items-center justify-between mb-3 pt-3 border-t-2 border-gray-200">
+                                    <div className="flex items-center justify-between mb-2 pt-2 border-t-2 border-gray-300">
                                         <div>
-                                            <h4 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+                                            <h4 className="font-semibold text-[#001d35] text-xs sm:text-sm uppercase tracking-wider flex items-center gap-1.5">
                                                 <Package className="w-4 h-4 text-[#001d35]" />
                                                 <span>Options de Vente Fractionnée (Déconditionnement Vrac)</span>
                                             </h4>
-                                            <p className="text-xs text-gray-500 mt-0.5">
+                                            <p className="text-xs text-gray-500 mt-1 font-normal">
                                                 Définissez vos portions personnalisées en {formData.bulkUnit || currentUnitModel?.subUnit || 'mesure'} (ex: 5 {formData.bulkUnit || currentUnitModel?.subUnit || 'Kg'} à 750 FCFA).
                                             </p>
                                         </div>
@@ -1273,7 +1292,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                     packagings: [...prev.packagings, { modelId: newId, name: '', targetQty: '', price: '', deductionRatio: 0 }]
                                                 }));
                                             }}
-                                            className="text-xs bg-[#001d35] text-white px-3 py-1.5 rounded-[4px] hover:bg-[#00284c] transition-colors font-bold cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                                            className="text-xs uppercase tracking-wider bg-[#001d35] text-white px-3 py-1.5 rounded-[4px] hover:bg-[#00284c] transition-colors font-semibold cursor-pointer flex items-center gap-1.5 shadow-2xs"
                                         >
                                             <Plus className="w-3.5 h-3.5" />
                                             <span>Ajouter une option</span>
@@ -1295,8 +1314,8 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                         const factor = parseFloat(formData.conversionFactor) || 1;
 
                                         return (
-                                            <div className="mb-3 p-2.5 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-wrap items-center gap-2">
-                                                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Suggestions rapides :</span>
+                                            <div className="mb-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-[4px] flex flex-wrap items-center gap-2">
+                                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Suggestions rapides :</span>
                                                 {presets.map(qty => {
                                                     if (factor > 0 && qty >= factor) return null;
                                                     return (
@@ -1321,7 +1340,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                     }]
                                                                 }));
                                                             }}
-                                                            className="px-2.5 py-1 bg-white hover:bg-blue-50 border border-slate-300 hover:border-[#001d35] rounded-[4px] text-xs font-bold text-slate-700 hover:text-[#001d35] transition-all cursor-pointer shadow-2xs"
+                                                            className="px-2.5 py-1 bg-white hover:bg-blue-50 border border-slate-300 hover:border-[#001d35] rounded-[2px] text-xs font-semibold text-slate-700 hover:text-[#001d35] transition-all cursor-pointer shadow-2xs"
                                                         >
                                                             + {qty} {currentSub}
                                                         </button>
@@ -1331,11 +1350,11 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                         );
                                     })()}
 
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {formData.packagings.length === 0 && (
-                                            <div className="p-6 text-center bg-gray-50 rounded-[4px] border border-dashed border-gray-200">
-                                                <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                                                <p className="text-sm text-gray-500">Aucune option créée. Cliquez sur Ajouter ou choisissez une suggestion.</p>
+                                            <div className="p-4 text-center bg-gray-50 rounded-[4px] border border-dashed border-gray-300">
+                                                <Package className="w-6 h-6 text-gray-400 mx-auto mb-1.5" />
+                                                <p className="text-xs text-gray-500 font-normal">Aucune option créée. Cliquez sur Ajouter ou choisissez une suggestion.</p>
                                             </div>
                                         )}
                                         {formData.packagings.map((pkg) => {
@@ -1350,7 +1369,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                             const deduction = factor > 0 ? (val / factor) : 0;
 
                                             return (
-                                                <div key={pkg.modelId} className="border-2 border-primary-200 bg-white rounded-[4px] p-3.5 relative shadow-2xs">
+                                                <div key={pkg.modelId} className="border border-gray-300 bg-white rounded-[4px] p-3 relative shadow-2xs">
                                                     <button
                                                         type="button"
                                                         onClick={() => setFormData(prev => ({
@@ -1364,7 +1383,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                     </button>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
                                                         <div>
-                                                            <label className="text-[11px] font-semibold text-gray-600 mb-1 block uppercase tracking-wide">
+                                                            <label className="text-xs font-semibold text-[#001d35] mb-1 block uppercase tracking-wider">
                                                                 Quantité vendue ({subUnitName})
                                                             </label>
                                                             <input
@@ -1386,12 +1405,12 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                         } : p)
                                                                     }));
                                                                 }}
-                                                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#001d35]/50 bg-white font-medium"
+                                                                className="w-full px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white font-normal text-gray-800"
                                                                 placeholder="Ex: 5"
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="text-[11px] font-semibold text-gray-600 mb-1 block uppercase tracking-wide">Prix de Vente (FCFA)</label>
+                                                            <label className="text-xs font-semibold text-[#001d35] mb-1 block uppercase tracking-wider">Prix de Vente (FCFA)</label>
                                                             <FinancialInput
                                                                 min="0"
                                                                 value={pkg.price}
@@ -1402,7 +1421,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                                                         packagings: prev.packagings.map(p => p.modelId === pkg.modelId ? { ...p, price: pVal } : p)
                                                                     }));
                                                                 }}
-                                                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#001d35]/50 font-semibold text-[#001d35] bg-white"
+                                                                className="w-full px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-[2px] focus:outline-none focus:ring-1 focus:ring-[#001d35] font-normal text-[#001d35] bg-white"
                                                                 placeholder="Ex: 750"
                                                             />
                                                         </div>
@@ -1410,15 +1429,15 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
                                                     <div className="mt-2.5 pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-xs">
                                                         {deduction > 0 && (
-                                                            <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-[4px] border border-amber-200">
-                                                                ⚖️ Déduit exactement <strong>{Number(deduction.toFixed(4))} {formData.unit}</strong> du stock par vente
+                                                            <span className="font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-[2px] border border-amber-200">
+                                                                ⚖️ Déduit <strong>{Number(deduction.toFixed(4))} {formData.unit}</strong> par vente
                                                             </span>
                                                         )}
                                                         {hasCostCalc && (
-                                                            <span className="text-[11px] font-medium text-slate-600 ml-auto">
+                                                            <span className="font-normal text-slate-600 ml-auto">
                                                                 Coût de revient : <strong>{estimatedCost} FCFA</strong>
                                                                 {priceVal > 0 && (
-                                                                    <span className={`ml-1 font-bold ${marginPercent >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                                    <span className={`ml-1 font-semibold ${marginPercent >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                                                                         (Marge : {marginPercent}%)
                                                                     </span>
                                                                 )}
@@ -1435,119 +1454,90 @@ const ProductModal = ({ product, onClose, onSave }) => {
 
 
                             {/* ══ Informations de Stock ══ */}
-                            <div className="col-span-2 mt-2">
-                                <div className="flex items-center gap-2 border-b-2 border-gray-300 pb-2">
-                                    <h3 className="font-semibold text-gray-900/60 uppercase tracking-widest text-xs">INFORMATIONS DE STOCK</h3>
-                                    <button type="button" onClick={() => setShowStockInfo(!showStockInfo)} className="text-[#007185] hover:text-[#C45500] transition-colors cursor-pointer">
-                                        <Info className="w-4 h-4" />
-                                    </button>
-                                </div>
-                                {showStockInfo && (
-                                    <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-sm text-xs text-blue-800 shadow-sm">
-                                        <p className="font-semibold mb-1">Gestion des quantités</p>
-                                        <ul className="list-disc pl-5 space-y-1.5">
-                                            <li><strong>Stock actuel :</strong> Saisissez la quantité totale en unité de base. (ex: 2 boîtes de 100 pièces → inscrivez "200").</li>
-                                            <li><strong>Stock minimum :</strong> Seuil d'alerte pour vous prévenir de recommander l'article.</li>
-                                        </ul>
-                                    </div>
-                                )}
+                            <div className="col-span-2 pt-2 border-b-2 border-gray-300 pb-1 flex items-center justify-between">
+                                <h3 className="text-xs sm:text-sm font-semibold text-[#001d35] uppercase tracking-wider">Informations de Stock</h3>
+                                <span className="text-xs text-gray-500 font-normal">Gestion des seuils d'alerte</span>
                             </div>
 
                             {/* Colonne 1 : Stock Actuel (Récapitulatif synchronisé) */}
                             <div>
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                    <label className="flex items-center gap-2 text-[12px] font-semibold text-[#001d35] uppercase tracking-wide">
-                                        <Package className="w-5 h-5 text-gray-700" />
-                                        STOCK ACTUEL
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                    <label className="flex items-center gap-1.5 text-xs font-semibold text-[#001d35] uppercase tracking-wider">
+                                        <Package className="w-4 h-4 text-gray-700" />
+                                        <span>Stock Actuel</span>
                                     </label>
-                                    <span className="text-[11px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-xs border border-gray-200">
+                                    <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-[2px] border border-gray-200">
                                         Auto-calculé
                                     </span>
                                 </div>
-                                <p className="text-xs text-gray-500 mb-2">
-                                    Quantité totale disponible en rayon / réserve
-                                </p>
                                 <div className="relative">
-                                    <div className="w-full px-4 py-2 pr-24 border-2 border-gray-300 rounded-sm bg-gray-50 font-bold text-gray-900 text-sm flex items-center justify-between">
-                                        <span className="text-base text-[#001d35]">{formData.stock || 0}</span>
-                                    </div>
-                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-xs font-bold text-gray-500 uppercase">
-                                        {formData.unit || 'Unité'}{parseFloat(formData.stock) > 1 ? 's' : ''}
+                                    <div className="w-full px-3 py-2 border border-gray-300 rounded-[2px] bg-gray-50 font-semibold text-gray-900 text-sm flex items-center justify-between">
+                                        <span className="text-sm font-semibold text-[#001d35]">{formData.stock || 0}</span>
+                                        <span className="text-xs font-semibold text-gray-500 uppercase">
+                                            {formData.unit || 'Unité'}{parseFloat(formData.stock) > 1 ? 's' : ''}
+                                        </span>
                                     </div>
                                 </div>
                                 {formData.unitArchetype !== 'UNIT' && parseFloat(formData.conversionFactor) > 0 && (
-                                    <p className="mt-1.5 text-[11px] font-semibold text-gray-600">
-                                        Soit au total : <strong className="text-[#001d35]">{(parseFloat(formData.stock || 0) * parseFloat(formData.conversionFactor)).toLocaleString()} {currentUnitModel.subUnit || 'pièces'}</strong>
+                                    <p className="mt-1 text-xs font-normal text-gray-600">
+                                        Soit au total : <strong className="text-[#001d35] font-semibold">{(parseFloat(formData.stock || 0) * parseFloat(formData.conversionFactor)).toLocaleString()} {currentUnitModel.subUnit || 'pièces'}</strong>
                                     </p>
                                 )}
                             </div>
 
-                            {/* Colonne 2 : Stock Minimum d'alerte avec sélecteur par Checkbox (aucun choix par défaut) */}
+                            {/* Colonne 2 : Stock Minimum d'alerte avec sélecteur par Checkbox */}
                             <div 
                                 ref={minStockRef}
-                                className={`rounded-sm transition-all duration-200 ${
+                                className={`rounded-[4px] transition-all duration-200 ${
                                     minStockError 
-                                        ? 'border-2 border-red-500 bg-red-50/70 p-3 ring-2 ring-red-200 shadow-sm' 
-                                        : 'border border-transparent p-0'
+                                        ? 'border border-red-500 bg-red-50/70 p-2 shadow-2xs' 
+                                        : 'border border-transparent'
                                 }`}
                             >
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                                    <label className={`flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide ${minStockError ? 'text-red-700' : 'text-[#001d35]'}`}>
-                                        <img src="/icons8/color_96_high-priority.png" alt="" className="w-6 h-6" />
-                                        <span>STOCK MINIMUM D'ALERTE</span>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+                                    <label className={`text-xs font-semibold uppercase tracking-wider ${minStockError ? 'text-red-700' : 'text-[#001d35]'}`}>
+                                        Stock Minimum d'Alerte *
                                     </label>
 
-                                    {/* Sélecteur d'unité par Checkbox (aucun choix par défaut) */}
-                                    <div className="flex items-center gap-2">
-                                        {/* Option 1: Unité de base (Boîte, Carton, Sac ou Unité) */}
-                                        <label className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border cursor-pointer select-none transition-all ${
+                                    {/* Sélecteur d'unité par Checkbox */}
+                                    <div className="flex items-center gap-1.5">
+                                        <label className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] border cursor-pointer select-none transition-all ${
                                             minStockUnit === 'base'
-                                                ? 'bg-[#001d35] text-white border-[#001d35] shadow-xs font-bold'
-                                                : minStockError
-                                                    ? 'bg-white border-red-300 text-red-800 hover:border-red-400'
-                                                    : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
+                                                ? 'bg-[#001d35] text-white border-[#001d35] font-semibold'
+                                                : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
                                         }`}>
                                             <input
                                                 type="checkbox"
                                                 name="minStockUnitChoice"
                                                 checked={minStockUnit === 'base'}
                                                 onChange={() => handleMinStockUnitChange('base')}
-                                                className="w-3.5 h-3.5 rounded-xs border-gray-300 accent-[#001d35] cursor-pointer"
+                                                className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer"
                                             />
-                                            <span className="text-[11px] font-bold">
+                                            <span className="text-[10px] font-semibold">
                                                 {formData.unit || (formData.unitArchetype === 'UNIT' ? 'Unité' : 'Boîte')}
                                             </span>
                                         </label>
 
-                                        {/* Option 2: Sous-unité / Pièce (affiché si Boîte ou Vrac) */}
                                         {formData.unitArchetype !== 'UNIT' && (
-                                            <label className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border cursor-pointer select-none transition-all ${
+                                            <label className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] border cursor-pointer select-none transition-all ${
                                                 minStockUnit === 'piece'
-                                                    ? 'bg-[#001d35] text-white border-[#001d35] shadow-xs font-bold'
-                                                    : minStockError
-                                                        ? 'bg-white border-red-300 text-red-800 hover:border-red-400'
-                                                        : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
+                                                    ? 'bg-[#001d35] text-white border-[#001d35] font-semibold'
+                                                    : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
                                             }`}>
                                                 <input
                                                     type="checkbox"
                                                     name="minStockUnitChoice"
                                                     checked={minStockUnit === 'piece'}
                                                     onChange={() => handleMinStockUnitChange('piece')}
-                                                    className="w-3.5 h-3.5 rounded-xs border-gray-300 accent-[#001d35] cursor-pointer"
+                                                    className="w-3.5 h-3.5 rounded-[2px] border-gray-300 accent-[#001d35] cursor-pointer"
                                                 />
-                                                <span className="text-[11px] font-bold">
+                                                <span className="text-[10px] font-semibold">
                                                     {currentUnitModel.subUnit || 'Pièce'}
                                                 </span>
                                             </label>
                                         )}
                                     </div>
                                 </div>
-
-                                <p className={`text-xs mb-2 ${minStockError ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                                    {minStockUnit 
-                                        ? `En dessous de ce seuil (${minStockUnit === 'piece' ? (currentUnitModel.subUnit || 'pièces') : (formData.unit || 'unités')}), une alerte sera déclenchée`
-                                        : "Veuillez cocher une unité ci-dessus pour définir le seuil d'alerte"}
-                                </p>
 
                                 <div className="relative">
                                     <input
@@ -1557,81 +1547,64 @@ const ProductModal = ({ product, onClose, onSave }) => {
                                         step="any"
                                         value={minStockInput}
                                         onChange={handleMinStockInputChange}
-                                        className={`w-full px-4 py-2 pr-24 border-2 rounded-sm focus:outline-none bg-white font-semibold text-gray-900 text-sm transition-colors ${
+                                        className={`w-full px-3 py-2 pr-20 border rounded-[2px] focus:outline-none bg-white font-normal text-gray-900 text-xs sm:text-sm transition-colors ${
                                             minStockError 
-                                                ? 'border-red-500 focus:ring-2 focus:ring-red-300' 
-                                                : 'border-gray-300 focus:ring-2 focus:ring-[#001d35]/50'
+                                                ? 'border-red-500 focus:ring-1 focus:ring-red-400' 
+                                                : 'border-gray-300 focus:ring-1 focus:ring-[#001d35]'
                                         }`}
-                                        placeholder={minStockUnit ? (minStockUnit === 'piece' ? "Ex: 20" : "Ex: 2") : "Cochez d'abord une unité..."}
+                                        placeholder={minStockUnit ? (minStockUnit === 'piece' ? "Ex: 20" : "Ex: 2") : "Cochez une unité..."}
                                     />
-                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-xs font-bold uppercase">
-                                        {minStockUnit ? (
-                                            <span className="text-gray-400">
-                                                {minStockUnit === 'piece' 
-                                                    ? (currentUnitModel.subUnit || 'Pièce') 
-                                                    : (formData.unit || 'Unité')}
-                                            </span>
-                                        ) : (
-                                            <span className="text-amber-500 italic text-[11px]">Unité requise</span>
-                                        )}
+                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[10px] font-semibold uppercase text-gray-400">
+                                        {minStockUnit ? (minStockUnit === 'piece' ? (currentUnitModel.subUnit || 'Pièce') : (formData.unit || 'Unité')) : 'Requis'}
                                     </div>
                                 </div>
 
-                                {/* Message d'erreur et zone d'avertissement rouge */}
                                 {minStockError && (
-                                    <div className="flex items-center gap-2 mt-2.5 text-xs text-red-700 font-bold bg-white p-2.5 rounded-sm border border-red-300 shadow-2xs animate-in fade-in">
+                                    <div className="flex items-center gap-1.5 mt-1 text-xs text-red-700 font-normal bg-white p-1 rounded-[2px] border border-red-300">
                                         <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
-                                        <span>Erreur : Vous devez cocher une unité de seuil d'alerte et saisir une quantité valide avant d'enregistrer.</span>
+                                        <span>Sélectionnez une unité et saisissez le seuil.</span>
                                     </div>
-                                )}
-
-                                {/* Équivalence automatique visuelle discrète */}
-                                {formData.unitArchetype !== 'UNIT' && parseFloat(formData.conversionFactor) > 0 && parseFloat(minStockInput) > 0 && minStockUnit && (
-                                    <p className="mt-1.5 text-[11px] font-semibold text-[#001d35]">
-                                        {minStockUnit === 'piece' ? (
-                                            <>Équivaut à <strong>{(parseFloat(minStockInput) / parseFloat(formData.conversionFactor)).toFixed(2)} {formData.unit}</strong> restante{parseFloat(minStockInput) / parseFloat(formData.conversionFactor) > 1 ? 's' : ''}</>
-                                        ) : (
-                                            <>Équivaut à <strong>{(parseFloat(minStockInput) * parseFloat(formData.conversionFactor)).toLocaleString()} {currentUnitModel.subUnit || 'pièce'}{parseFloat(minStockInput) * parseFloat(formData.conversionFactor) > 1 ? 's' : ''}</strong></>
-                                        )}
-                                    </p>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-6 border-t-2 border-gray-300 bg-gray-50/50 p-6">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="px-6 py-2.5 text-gray-700 hover:bg-gray-200 border-2 border-gray-300 rounded-sm font-bold transition-colors cursor-pointer"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="bg-[#001d35] hover:bg-[#001222] text-white px-8 py-2.5 rounded-sm font-bold shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
-                            >
-                                {isLoading ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                                {product ? 'Mettre à jour' : 'Enregistrer le produit'}
-                            </button>
-                        </div>
-                    </form>
                 </div>
-            </div>
 
-            {/* Full-screen Loader for saving */}
+                {/* Pied de page fixe avec boutons d'action (Style Inventaire Physique) */}
+                <div className="flex items-center justify-between gap-3 px-4 py-3 border-t-2 border-gray-300 bg-white shrink-0 rounded-b-[4px]">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-4 py-2 text-xs font-semibold rounded-[4px] border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer flex items-center gap-1.5 uppercase tracking-wider"
+                    >
+                        <X className="w-4 h-4" />
+                        <span>Fermer</span>
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="px-5 py-2 bg-[#f77500] hover:bg-[#e66a00] text-white text-xs font-semibold uppercase tracking-wider rounded-[4px] shadow-sm flex items-center gap-2 transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span>{product ? 'Mettre à jour le produit' : 'Enregistrer le produit'}</span>
+                    </button>
+                </div>
+            </form>
+
+            {/* OVERLAY LOADER DE VALIDATION (Identique à Inventaire Physique & Contrôle des Stocks) */}
             {isLoading && (
-                <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-150">
-                    <div className="flex flex-col items-center gap-5 bg-white px-10 py-8 rounded-sm shadow-2xl border border-gray-100">
-                        <div className="w-14 h-14 border-4 border-[#001d35]/20 border-t-[#001d35] rounded-full animate-spin"></div>
-                        <div className="text-center">
-                            <p className="text-gray-900 font-bold text-base">
-                                {product ? 'Modification du produit...' : 'Création du produit...'}
-                            </p>
-                            <p className="text-gray-500 text-sm mt-1">
-                                Enregistrement dans le catalogue
-                            </p>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[200] p-4 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-[4px] p-6 shadow-2xl border-2 border-[#001d35] flex flex-col items-center max-w-sm text-center">
+                        <div className="relative h-12 w-12 mb-3">
+                            <div className="absolute inset-0 animate-spin rounded-full border-4 border-gray-200 border-t-[#001d35]"></div>
+                            <div className="absolute inset-2 animate-spin-reverse rounded-full border-2 border-transparent border-b-[#f77500]"></div>
                         </div>
+                        <h4 className="text-xs sm:text-sm font-semibold text-[#001d35] uppercase tracking-wider">
+                            Traitement en cours...
+                        </h4>
+                        <p className="text-xs text-gray-600 mt-1 font-medium">
+                            {product ? 'Mise à jour du produit...' : 'Enregistrement dans le catalogue...'}
+                        </p>
                     </div>
                 </div>
             )}

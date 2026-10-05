@@ -97,7 +97,9 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
             ? 'Espèces'
             : transaction.paymentMethod === 'credit'
             ? 'Crédit / À terme'
-            : 'Carte bancaire';
+            : transaction.paymentMethod === 'avoir'
+            ? "Bon d'Avoir / Reliquat"
+            : 'Carte bancaire / Mobile';
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 overflow-y-auto">
@@ -322,6 +324,14 @@ const ReceiptA4 = ({ transaction, onClose, onBack, initialDeliverySlip = false }
                                 <span>TOTAL NET</span>
                                 <span>{formatPrice(transaction.total)}</span>
                             </div>
+
+                            {/* Deduction Bon d'Avoir si appliqué */}
+                            {transaction.appliedCreditNote && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1.5mm 3mm', fontSize: '8.5pt', color: '#581c87', backgroundColor: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '2px', marginTop: '1.5mm' }}>
+                                    <span>Déduction Avoir ({transaction.appliedCreditNote.code})</span>
+                                    <span style={{ fontWeight: '700' }}>-{formatPrice(transaction.appliedCreditNote.amount)}</span>
+                                </div>
+                            )}
 
                             {/* Payment mode block */}
                             {!isDeliverySlip && (

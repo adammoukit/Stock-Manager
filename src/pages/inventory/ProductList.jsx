@@ -285,14 +285,27 @@ const ProductList = () => {
         refreshProducts();
     }, []);
 
+    const savedCatalogScrollY = useRef(0);
+
     const handleAddClick = () => {
+        savedCatalogScrollY.current = window.scrollY;
         setSelectedProduct(null);
         setIsProductModalOpen(true);
+        window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
     const handleEditClick = (product) => {
+        savedCatalogScrollY.current = window.scrollY;
         setSelectedProduct(product);
         setIsProductModalOpen(true);
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+
+    const handleCloseProductModal = () => {
+        setIsProductModalOpen(false);
+        setTimeout(() => {
+            window.scrollTo({ top: savedCatalogScrollY.current, behavior: 'instant' });
+        }, 10);
     };
 
     const handleEntryClick = (product) => {
@@ -540,6 +553,9 @@ const ProductList = () => {
             T.productCreated(productData.name);
         }
         setIsProductModalOpen(false);
+        setTimeout(() => {
+            window.scrollTo({ top: savedCatalogScrollY.current, behavior: 'instant' });
+        }, 10);
     };
 
     const handleSaveSupply = (productId, supplyData) => {
@@ -640,6 +656,16 @@ const ProductList = () => {
                     </div>
                 </div>
             </div>
+        );
+    }
+
+    if (isProductModalOpen) {
+        return (
+            <ProductModal
+                product={selectedProduct}
+                onClose={handleCloseProductModal}
+                onSave={handleSaveProduct}
+            />
         );
     }
 
@@ -1452,13 +1478,6 @@ const ProductList = () => {
             )}
 
             {/* Modales */}
-            {isProductModalOpen && (
-                <ProductModal
-                    product={selectedProduct}
-                    onClose={() => setIsProductModalOpen(false)}
-                    onSave={handleSaveProduct}
-                />
-            )}
 
             {isEntryModalOpen && selectedProduct && (
                 <StockEntryModal

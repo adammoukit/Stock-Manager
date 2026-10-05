@@ -5,6 +5,7 @@ import { useSession } from '../../context/SessionContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../utils/currency';
 import ReturnReceipt from '../../components/ReturnReceipt';
+import CashRefundReceipt from '../../components/CashRefundReceipt';
 import FinancialInput from '../../components/FinancialInput';
 import T from '../../utils/toast';
 import { 
@@ -27,11 +28,11 @@ import {
     RotateCcw, Ticket, Banknote, ShieldAlert, ShieldCheck, CheckCircle2,
     AlertTriangle, Search, Plus, Filter, Printer, Eye, Copy, ArrowRight,
     Package, ArrowLeftRight, Clock, User, Calendar, Check, X, Building2,
-    Layers, AlertCircle
+    Layers, AlertCircle, ClipboardList, CheckSquare, Download, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const Returns = () => {
-    const { returns, creditNotes, createReturn, transactions } = useSales();
+    const { returns, creditNotes, createReturn, refundCreditNoteInCash, transactions, expenses } = useSales();
     const { products } = useInventory();
     const { activeSession } = useSession();
     const { user } = useAuth();
@@ -39,7 +40,7 @@ const Returns = () => {
     const [nowTimestamp] = useState(() => Date.now());
 
     // ── Filtre de Période (Par défaut : Aujourd'hui) ──
-    const [period, setPeriod] = useState('day'); // 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'
+    const [period, setPeriod] = useState('today'); // 'today' | '7days' | 'month' | 'all' | 'custom' | 'day' | 'week' ...
     const [customStartDate, setCustomStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [customEndDate, setCustomEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
@@ -58,8 +59,14 @@ const Returns = () => {
         try { localStorage.setItem('kblx_sidebar_seen_returns', String(count)); } catch {}
     };
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [methodFilter, setMethodFilter] = useState('all');
+    const [operationFilter, setOperationFilter] = useState('none'); // 'none' (Aucun) | 'all' (Toutes) | options spécifiques
+    const [clientFilter, setClientFilter] = useState('all');
+    const [selectedKpi, setSelectedKpi] = useState(null); // null | 'returns' | 'active_avoirs' | 'reintegrated' | 'damaged'
+
+    // ── Pagination (10 éléments par page par défaut) & Sélection groupée ──
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [selectedRowIds, setSelectedRowIds] = useState([]);
 
     // ── Loader de 1 seconde lors du clic sur les filtres ──
     const [filterLoading, setFilterLoading] = useState(false);
@@ -67,11 +74,43 @@ const Returns = () => {
 
     const handleFilterChange = (setter, value) => {
         setFilterLoading(true);
-        setter(value);
+        setCurrentPage(1);
+        setSelectedRowIds([]);
+        if (typeof setter === 'function') {
+            if (value !== undefined) {
+                setter(value);
+            } else {
+                setter();
+            }
+        }
         if (filterTimerRef.current) clearTimeout(filterTimerRef.current);
         filterTimerRef.current = setTimeout(() => {
             setFilterLoading(false);
         }, 1000);
+    };
+
+    // ── Gestion interactive des clics sur les cartes KPI ──
+    const handleKpiClick = (kpiKey) => {
+        handleFilterChange(() => {
+            if (selectedKpi === kpiKey) {
+                // Dé-sélection si on reclique sur la même carte
+                setSelectedKpi(null);
+            } else {
+                setSelectedKpi(kpiKey);
+                setPeriod('today');
+                setCustomStartDate('');
+                setCustomEndDate('');
+                if (kpiKey === 'returns') {
+                    setActiveTab('returns');
+                    setOperationFilter('none');
+                } else if (kpiKey === 'active_avoirs') {
+                    setActiveTab('activeVouchers');
+                    setOperationFilter('none');
+                } else if (kpiKey === 'reintegrated' || kpiKey === 'damaged') {
+                    setActiveTab('returns');
+                }
+            }
+        });
     };
 
     useEffect(() => {
@@ -83,6 +122,77 @@ const Returns = () => {
     // Receipt modal states
     const [viewingReturn, setViewingReturn] = useState(null);
     const [viewingCreditNote, setViewingCreditNote] = useState(null);
+
+    // ── Cash Refund Modal States & Handlers ──
+    const [cashRefundTarget, setCashRefundTarget] = useState(null); // creditNote object
+    const [cashRefundAmount, setCashRefundAmount] = useState('');
+    const [cashRefundRecipient, setCashRefundRecipient] = useState('');
+    const [cashRefundMotif, setCashRefundMotif] = useState('');
+    const [cashRefundLoading, setCashRefundLoading] = useState(false);
+    const [printedCashRefund, setPrintedCashRefund] = useState(null); // for CashRefundReceipt modal
+
+    const handleOpenCashRefund = (note) => {
+        if (!note) return;
+        const remaining = parseFloat(note.remainingAmount) || 0;
+        if (remaining <= 0) {
+            T.error("Ce bon ne possède aucun solde disponible à rembourser.");
+            return;
+        }
+        setCashRefundTarget(note);
+        setCashRefundAmount(remaining);
+        setCashRefundRecipient(note.customerName || 'Client');
+        setCashRefundMotif("Demande de remboursement en espèces par le client");
+    };
+
+    const handleConfirmCashRefund = () => {
+        if (!cashRefundTarget) return;
+        const numAmount = parseFloat(cashRefundAmount);
+        const remaining = parseFloat(cashRefundTarget.remainingAmount) || 0;
+
+        if (!numAmount || numAmount <= 0) {
+            T.error("Veuillez saisir un montant supérieur à 0.");
+            return;
+        }
+        if (numAmount > remaining) {
+            T.error(`Le montant ne peut pas dépasser le solde restant disponible (${formatPrice(remaining)}).`);
+            return;
+        }
+
+        setCashRefundLoading(true);
+        setTimeout(() => {
+            const cashierDisplayName = (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.username) || 'Caissier';
+            const recipientFinal = cashRefundRecipient.trim() || cashRefundTarget.customerName || 'Client';
+
+            const res = refundCreditNoteInCash({
+                id: cashRefundTarget.id,
+                code: cashRefundTarget.code,
+                amountToRefund: numAmount,
+                cashierName: cashierDisplayName,
+                recipientName: recipientFinal,
+                motif: cashRefundMotif.trim()
+            });
+
+            setCashRefundLoading(false);
+
+            if (res.success) {
+                T.success(`Remboursement de ${formatPrice(res.refundedAmount)} effectué en espèces ! Sortie de caisse enregistrée.`);
+                setPrintedCashRefund({
+                    receiptCode: res.receiptCode,
+                    refundedAmount: res.refundedAmount,
+                    remainingBalance: res.remainingBalance,
+                    creditNote: res.creditNote,
+                    expense: res.expense,
+                    cashierName: cashierDisplayName,
+                    recipientName: recipientFinal,
+                    motif: cashRefundMotif.trim(),
+                    date: new Date()
+                });
+                setCashRefundTarget(null);
+            } else {
+                T.error(res.message || "Erreur lors du remboursement.");
+            }
+        }, 1500);
+    };
 
     // New Return Assistant Modal state
     const [showNewReturnModal, setShowNewReturnModal] = useState(false);
@@ -122,10 +232,17 @@ const Returns = () => {
         let currStart, currEnd, label;
 
         switch (period) {
+            case 'today':
             case 'day':
                 currStart = startOfDay(now);
                 currEnd = endOfDay(now);
                 label = `Aujourd'hui (${format(now, 'dd/MM/yyyy')})`;
+                break;
+
+            case '7days':
+                currStart = startOfDay(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+                currEnd = endOfDay(now);
+                label = `7 derniers jours`;
                 break;
 
             case 'week':
@@ -207,14 +324,33 @@ const Returns = () => {
         return (creditNotes || []).filter(c => c.status === 'active' || c.status === 'partial');
     }, [creditNotes]);
 
+    // ── Liste unique des clients issus des retours et avoirs pour le sélecteur ──
+    const uniqueClients = useMemo(() => {
+        const set = new Set();
+        (returns || []).forEach(r => {
+            if (r.customerName && r.customerName.trim()) set.add(r.customerName.trim());
+        });
+        (creditNotes || []).forEach(c => {
+            if (c.customerName && c.customerName.trim()) set.add(c.customerName.trim());
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [returns, creditNotes]);
+
     const filteredAllActiveCreditNotes = useMemo(() => {
         return allActiveCreditNotes.filter(c => {
             const matchSearch = !searchTerm ||
                 (c.code && c.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (c.customerName && c.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
-            return matchSearch;
+
+            let matchOp = true;
+            if (operationFilter === 'reliquat') matchOp = c.type === 'change_reliquat';
+            else if (operationFilter === 'standard') matchOp = c.type !== 'change_reliquat';
+
+            const matchClient = clientFilter === 'all' || (c.customerName && c.customerName.toLowerCase() === clientFilter.toLowerCase());
+
+            return matchSearch && matchOp && matchClient;
         });
-    }, [allActiveCreditNotes, searchTerm]);
+    }, [allActiveCreditNotes, searchTerm, operationFilter, clientFilter]);
 
     // Nombre de retours non encore vus (nouveaux depuis dernier clic sur l'onglet)
     const newReturnsCount = Math.max(0, (returns || []).length - lastSeenReturnsCount);
@@ -254,9 +390,27 @@ const Returns = () => {
         const totalItemsCount = totalReintegratedItems + totalDamagedItems;
         const damagedRate = totalItemsCount > 0 ? ((totalDamagedItems / totalItemsCount) * 100).toFixed(1) : 0;
 
-        // Métriques de la période choisie (affichées en sous-titre)
+        // Métriques de la période choisie (affichées dans les cartes KPI et sous-titres)
         const periodReturnsCount = periodReturns.length;
         const periodReturnsAmount = periodReturns.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+
+        let periodReintegratedItems = 0;
+        let periodDamagedItems = 0;
+
+        periodReturns.forEach(r => {
+            (r.items || []).forEach(item => {
+                const qty = item.quantityReturned || item.quantity || 0;
+                if (item.condition === 'intact' || item.reintegrated) {
+                    periodReintegratedItems += qty;
+                } else {
+                    periodDamagedItems += qty;
+                }
+            });
+        });
+
+        const periodTotalItemsCount = periodReintegratedItems + periodDamagedItems;
+        const periodDamagedRate = periodTotalItemsCount > 0 ? ((periodDamagedItems / periodTotalItemsCount) * 100).toFixed(1) : 0;
+        const periodAvoirsCount = periodCreditNotes.length;
 
         return {
             totalReturnsCount,
@@ -268,11 +422,258 @@ const Returns = () => {
             totalReintegratedItems,
             totalDamagedItems,
             damagedRate,
-            // Sous-totaux de la période pour les sous-titres
+            // Sous-totaux et compteurs de la période sélectionnée
             periodReturnsCount,
-            periodReturnsAmount
+            periodReturnsAmount,
+            periodReintegratedItems,
+            periodDamagedItems,
+            periodDamagedRate,
+            periodAvoirsCount
         };
-    }, [returns, allActiveCreditNotes, periodReturns]);
+    }, [returns, allActiveCreditNotes, periodReturns, periodCreditNotes]);
+
+    // ── Libellé court de la période affiché directement à côté de la valeur des KPI ──
+    const periodShortLabel = useMemo(() => {
+        switch (period) {
+            case 'today':
+            case 'day':
+                return "Aujourd'hui";
+            case '7days':
+                return "7 jours";
+            case 'week':
+                return "Semaine";
+            case 'month':
+                return "Ce mois";
+            case 'quarter':
+                return "Trimestre";
+            case 'year':
+                return "Année";
+            case 'custom':
+                return customStartDate && customEndDate
+                    ? `${format(parseISO(customStartDate), 'dd/MM')} au ${format(parseISO(customEndDate), 'dd/MM')}`
+                    : "Période";
+            case 'all':
+            default:
+                return "Tout l'historique";
+        }
+    }, [period, customStartDate, customEndDate]);
+
+    // ── Grand Livre Unifié de Toutes les Opérations (Retours + Bons d'Avoir + Reliquats) ──
+    const allUnifiedOperations = useMemo(() => {
+        const ops = [];
+
+        // 1. Tous les Retours de marchandises
+        (returns || []).forEach(r => {
+            const rawDate = r.date || r.createdAt || new Date().toISOString();
+            const isCash = r.refundMethod === 'cash';
+            const isAvoir = r.refundMethod === 'avoir';
+            const isDebt = r.refundMethod === 'debt_deduction';
+
+            ops.push({
+                id: `op_ret_${r.id || r.returnNumber}`,
+                date: rawDate,
+                kind: 'return',
+                category: isCash ? 'cash' : (isAvoir ? 'avoir' : (isDebt ? 'debt_deduction' : 'returns_other')),
+                refCode: r.returnNumber || 'RET-000',
+                typeLabel: 'Retour Marchandise',
+                badgeText: isCash ? '💵 Remboursement Espèces' : (isAvoir ? "🎟️ Bon d'Avoir Émis" : (isDebt ? '📉 Déduction Dette' : '📦 Retour')),
+                badgeColor: isCash ? 'bg-amber-100 text-amber-950 border-amber-300' : (isAvoir ? 'bg-blue-100 text-blue-950 border-blue-300' : 'bg-purple-100 text-purple-950 border-purple-300'),
+                customerName: r.customerName || 'Client Comptoir',
+                clientId: r.clientId || null,
+                siteName: r.siteName || null,
+                amount: r.totalAmount || 0,
+                remainingAmount: 0,
+                status: 'completed',
+                statusLabel: 'Effectué',
+                statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                details: `${(r.items || []).length} article(s) retourné(s)`,
+                rawReturn: r,
+                transactionNumber: r.transactionNumber
+            });
+        });
+
+        // 2. Tous les Bons d'Avoir et Reliquats
+        const recordedRefundCodes = new Set();
+
+        (creditNotes || []).forEach(c => {
+            const rawDate = c.createdAt || c.date || new Date().toISOString();
+            const isReliquat = c.type === 'change_reliquat';
+            const isExpired = c.expiresAt && new Date(c.expiresAt).getTime() < nowTimestamp;
+            const isUsed = c.status === 'used' || (c.remainingAmount !== undefined && c.remainingAmount <= 0);
+            const isPartial = c.status === 'partial' && (c.remainingAmount || 0) > 0;
+            const isActive = (c.status === 'active' || !c.status) && !isExpired && (c.remainingAmount || 0) > 0;
+
+            ops.push({
+                id: `op_cn_${c.id || c.code}`,
+                date: rawDate,
+                kind: 'credit_note',
+                category: isReliquat ? 'reliquat' : (isActive ? 'active' : (isPartial ? 'partial' : (isUsed ? 'used' : 'cancelled'))),
+                refCode: c.code || 'AVR-000',
+                typeLabel: isReliquat ? 'Reliquat de Caisse' : "Bon d'Avoir Client",
+                badgeText: isReliquat ? '🎟️ Reliquat Monnaie' : "🏷️ Avoir Marchandise",
+                badgeColor: isReliquat ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold' : 'bg-blue-50 text-blue-900 border-blue-200',
+                customerName: c.customerName || 'Client Comptoir',
+                clientId: c.clientId || null,
+                siteName: c.siteName || null,
+                amount: c.initialAmount || 0,
+                remainingAmount: c.remainingAmount !== undefined ? c.remainingAmount : c.initialAmount,
+                status: c.status,
+                statusLabel: isActive ? 'Actif' : (isPartial ? 'Partiel' : (isUsed ? 'Consommé' : (isExpired ? 'Expiré' : c.status || 'Actif'))),
+                statusColor: isActive ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : (isPartial ? 'bg-amber-100 text-amber-800 border-amber-300' : (isUsed ? 'bg-gray-100 text-gray-700 border-gray-300' : 'bg-rose-100 text-rose-800 border-rose-300')),
+                details: isReliquat ? `Reliquat caisse (Solde: ${formatPrice(c.remainingAmount || 0)})` : `Solde disponible: ${formatPrice(c.remainingAmount || 0)}`,
+                rawCreditNote: c,
+                expiresAt: c.expiresAt
+            });
+
+            // 2.b Remboursements en espèces effectués sur ce bon d'avoir
+            (c.usageHistory || []).forEach((u, uIdx) => {
+                if (u.type === 'cash_refund') {
+                    const refCode = u.receiptCode || `RMB-${c.code}-${uIdx}`;
+                    recordedRefundCodes.add(refCode);
+                    ops.push({
+                        id: `op_rf_${refCode}`,
+                        date: u.date || rawDate,
+                        kind: 'cash_refund',
+                        category: 'cash_refund',
+                        refCode: refCode,
+                        typeLabel: 'Remboursement Espèces',
+                        badgeText: '💵 Décaissement Espèces',
+                        badgeColor: 'bg-emerald-100 text-emerald-950 border-emerald-300 font-bold',
+                        customerName: u.recipientName || c.customerName || 'Client Comptoir',
+                        clientId: c.clientId || null,
+                        siteName: c.siteName || null,
+                        amount: u.amountDeducted || 0,
+                        remainingAmount: u.remainingBalance !== undefined ? u.remainingBalance : (c.remainingAmount || 0),
+                        status: 'refunded',
+                        statusLabel: 'Espèces Remboursées',
+                        statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                        details: `Remboursement sur bon ${c.code}${u.motif ? ` • Motif: ${u.motif}` : ''}`,
+                        transactionNumber: c.code,
+                        rawCreditNote: c,
+                        rawRefund: {
+                            receiptCode: refCode,
+                            refundedAmount: u.amountDeducted,
+                            remainingBalance: u.remainingBalance !== undefined ? u.remainingBalance : (c.remainingAmount || 0),
+                            creditNote: c,
+                            cashierName: u.cashierName || 'Caissier',
+                            recipientName: u.recipientName || c.customerName || 'Client',
+                            motif: u.motif || '',
+                            date: u.date ? new Date(u.date) : new Date()
+                        }
+                    });
+                }
+            });
+        });
+
+        // 3. Remboursements d'Avoirs enregistrés dans le journal des dépenses (pour résilience totale)
+        (expenses || []).forEach(exp => {
+            if (exp.category === 'Remboursement Avoir Espèces') {
+                const refCode = exp.receiptCode || `EXP-${exp.id}`;
+                if (!recordedRefundCodes.has(refCode)) {
+                    recordedRefundCodes.add(refCode);
+                    const matchingCreditNote = (creditNotes || []).find(c => c.code === exp.creditNoteCode || String(c.id) === String(exp.creditNoteId));
+                    ops.push({
+                        id: `op_rf_${refCode}`,
+                        date: exp.date || new Date().toISOString(),
+                        kind: 'cash_refund',
+                        category: 'cash_refund',
+                        refCode: refCode,
+                        typeLabel: 'Remboursement Espèces',
+                        badgeText: '💵 Décaissement Espèces',
+                        badgeColor: 'bg-emerald-100 text-emerald-950 border-emerald-300 font-bold',
+                        customerName: exp.customerName || matchingCreditNote?.customerName || 'Client Comptoir',
+                        clientId: exp.clientId || matchingCreditNote?.clientId || null,
+                        siteName: matchingCreditNote?.siteName || null,
+                        amount: exp.amount || 0,
+                        remainingAmount: matchingCreditNote?.remainingAmount !== undefined ? matchingCreditNote.remainingAmount : 0,
+                        status: 'refunded',
+                        statusLabel: 'Espèces Remboursées',
+                        statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                        details: exp.motif || (exp.creditNoteCode ? `Remboursement sur bon ${exp.creditNoteCode}` : "Remboursement d'avoir en espèces"),
+                        transactionNumber: exp.creditNoteCode || '',
+                        rawCreditNote: matchingCreditNote,
+                        rawRefund: {
+                            receiptCode: refCode,
+                            refundedAmount: exp.amount,
+                            remainingBalance: matchingCreditNote?.remainingAmount !== undefined ? matchingCreditNote.remainingAmount : 0,
+                            creditNote: matchingCreditNote || { code: exp.creditNoteCode, initialAmount: exp.amount, remainingAmount: 0 },
+                            cashierName: exp.cashier || 'Caissier',
+                            recipientName: exp.customerName || matchingCreditNote?.customerName || 'Client',
+                            motif: exp.motif || '',
+                            date: exp.date ? new Date(exp.date) : new Date()
+                        }
+                    });
+                }
+            }
+        });
+
+        // Tri chronologique décroissant (plus récent au début)
+        return ops.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [returns, creditNotes, expenses, nowTimestamp]);
+
+    // Filtrage temporel des opérations unifiées
+    const periodUnifiedOperations = useMemo(() => {
+        if (period === 'all' || !currentRange.start) return allUnifiedOperations;
+        return allUnifiedOperations.filter(op => {
+            if (!op.date) return false;
+            const d = new Date(op.date);
+            if (isNaN(d.getTime())) return true;
+            return isWithinInterval(d, { start: currentRange.start, end: currentRange.end });
+        });
+    }, [allUnifiedOperations, period, currentRange]);
+
+    // Filtrage dynamique complet (recherche + type opération + client + KPI sélectionné)
+    const filteredUnifiedOperations = useMemo(() => {
+        return periodUnifiedOperations.filter(op => {
+            const matchSearch = !searchTerm ||
+                (op.refCode && op.refCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (op.customerName && op.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (op.siteName && op.siteName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (op.typeLabel && op.typeLabel.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (op.transactionNumber && op.transactionNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            const matchClient = clientFilter === 'all' || (op.customerName && op.customerName.toLowerCase() === clientFilter.toLowerCase());
+
+            let matchOp = true;
+            if (operationFilter === 'none' || operationFilter === 'all') {
+                matchOp = true;
+            } else if (operationFilter === 'returns_all') {
+                matchOp = op.kind === 'return';
+            } else if (operationFilter === 'cash') {
+                matchOp = (op.kind === 'return' && op.category === 'cash') || op.kind === 'cash_refund';
+            } else if (operationFilter === 'cash_refund') {
+                matchOp = op.kind === 'cash_refund';
+            } else if (operationFilter === 'avoir' || operationFilter === 'debt_deduction') {
+                matchOp = op.kind === 'return' && op.category === operationFilter;
+            } else if (operationFilter === 'credit_all') {
+                matchOp = op.kind === 'credit_note' || op.kind === 'cash_refund';
+            } else if (operationFilter === 'reliquat') {
+                matchOp = op.category === 'reliquat';
+            } else if (operationFilter === 'active') {
+                matchOp = op.kind === 'credit_note' && (op.status === 'active' || op.statusLabel === 'Actif');
+            } else if (operationFilter === 'partial') {
+                matchOp = op.kind === 'credit_note' && (op.status === 'partial' || op.statusLabel === 'Partiel');
+            } else if (operationFilter === 'used') {
+                matchOp = (op.kind === 'credit_note' && (op.status === 'used' || op.remainingAmount <= 0)) || op.kind === 'cash_refund';
+            } else if (operationFilter === 'cancelled') {
+                matchOp = op.kind === 'credit_note' && (op.status === 'cancelled' || op.statusLabel === 'Expiré');
+            }
+
+            // Filtre interactif issu du clic sur l'un des 4 KPI
+            let matchKpi = true;
+            if (selectedKpi === 'returns') {
+                matchKpi = op.kind === 'return';
+            } else if (selectedKpi === 'active_avoirs') {
+                matchKpi = op.kind === 'credit_note' && (op.status === 'active' || op.status === 'partial' || op.remainingAmount > 0);
+            } else if (selectedKpi === 'reintegrated') {
+                matchKpi = op.kind === 'return' && (op.rawReturn?.items || []).some(i => i.condition === 'intact' || i.reintegrated);
+            } else if (selectedKpi === 'damaged') {
+                matchKpi = op.kind === 'return' && (op.rawReturn?.items || []).some(i => i.condition === 'damaged' && !i.reintegrated);
+            }
+
+            return matchSearch && matchClient && matchOp && matchKpi;
+        });
+    }, [periodUnifiedOperations, searchTerm, clientFilter, operationFilter, selectedKpi]);
 
     // Filtered returns table
     const filteredReturns = useMemo(() => {
@@ -283,11 +684,28 @@ const Returns = () => {
                 (r.voucherCode && r.voucherCode.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (r.transactionNumber && r.transactionNumber.toLowerCase().includes(searchTerm.toLowerCase()));
 
-            const matchMethod = methodFilter === 'all' || r.refundMethod === methodFilter;
+            let matchMethod = true;
+            if (operationFilter === 'none' || operationFilter === 'all' || operationFilter === 'returns_all') {
+                matchMethod = true;
+            } else if (operationFilter === 'cash' || operationFilter === 'avoir' || operationFilter === 'debt_deduction') {
+                matchMethod = r.refundMethod === operationFilter;
+            } else {
+                matchMethod = false;
+            }
 
-            return matchSearch && matchMethod;
+            const matchClient = clientFilter === 'all' || (r.customerName && r.customerName.toLowerCase() === clientFilter.toLowerCase());
+
+            // Filtre interactif issu du clic sur KPI (Articles réintégrés ou Avaries/rebuts)
+            let matchKpi = true;
+            if (selectedKpi === 'reintegrated') {
+                matchKpi = (r.items || []).some(i => i.condition === 'intact' || i.reintegrated);
+            } else if (selectedKpi === 'damaged') {
+                matchKpi = (r.items || []).some(i => i.condition === 'damaged' && !i.reintegrated);
+            }
+
+            return matchSearch && matchMethod && matchClient && matchKpi;
         });
-    }, [periodReturns, searchTerm, methodFilter]);
+    }, [periodReturns, searchTerm, operationFilter, clientFilter, selectedKpi]);
 
     // Filtered credit notes table
     const filteredCreditNotes = useMemo(() => {
@@ -296,11 +714,181 @@ const Returns = () => {
                 (c.code && c.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (c.customerName && c.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
 
-            const matchStatus = statusFilter === 'all' || c.status === statusFilter;
+            let matchStatus = true;
+            if (operationFilter === 'none' || operationFilter === 'all' || operationFilter === 'credit_all') {
+                matchStatus = true;
+            } else if (operationFilter === 'reliquat') {
+                matchStatus = c.type === 'change_reliquat';
+            } else if (operationFilter === 'standard') {
+                matchStatus = c.type !== 'change_reliquat';
+            } else if (operationFilter === 'active' || operationFilter === 'partial' || operationFilter === 'used' || operationFilter === 'cancelled') {
+                matchStatus = c.status === operationFilter;
+            } else {
+                matchStatus = false;
+            }
 
-            return matchSearch && matchStatus;
+            const matchClient = clientFilter === 'all' || (c.customerName && c.customerName.toLowerCase() === clientFilter.toLowerCase());
+
+            // Filtre interactif KPI pour les avoirs actifs
+            let matchKpi = true;
+            if (selectedKpi === 'active_avoirs') {
+                matchKpi = (c.status === 'active' || c.status === 'partial') && (c.remainingAmount > 0);
+            }
+
+            return matchSearch && matchStatus && matchClient && matchKpi;
         });
-    }, [periodCreditNotes, searchTerm, statusFilter]);
+    }, [periodCreditNotes, searchTerm, operationFilter, clientFilter, selectedKpi]);
+
+    // ── Pagination & Sélection groupée pour les 4 tableaux ──
+    const activeDataList = useMemo(() => {
+        switch (activeTab) {
+            case 'all': return filteredUnifiedOperations;
+            case 'returns': return filteredReturns;
+            case 'activeVouchers': return filteredAllActiveCreditNotes;
+            case 'creditNotes': return filteredCreditNotes;
+            default: return filteredUnifiedOperations;
+        }
+    }, [activeTab, filteredUnifiedOperations, filteredReturns, filteredAllActiveCreditNotes, filteredCreditNotes]);
+
+    const totalPages = Math.max(1, Math.ceil(activeDataList.length / itemsPerPage));
+
+    const paginatedUnifiedOperations = useMemo(() => {
+        if (activeTab !== 'all') return [];
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredUnifiedOperations.slice(start, start + itemsPerPage);
+    }, [filteredUnifiedOperations, currentPage, itemsPerPage, activeTab]);
+
+    const paginatedReturns = useMemo(() => {
+        if (activeTab !== 'returns') return [];
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredReturns.slice(start, start + itemsPerPage);
+    }, [filteredReturns, currentPage, itemsPerPage, activeTab]);
+
+    const paginatedAllActiveCreditNotes = useMemo(() => {
+        if (activeTab !== 'activeVouchers') return [];
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredAllActiveCreditNotes.slice(start, start + itemsPerPage);
+    }, [filteredAllActiveCreditNotes, currentPage, itemsPerPage, activeTab]);
+
+    const paginatedCreditNotes = useMemo(() => {
+        if (activeTab !== 'creditNotes') return [];
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredCreditNotes.slice(start, start + itemsPerPage);
+    }, [filteredCreditNotes, currentPage, itemsPerPage, activeTab]);
+
+    const paginatedCurrentList = useMemo(() => {
+        switch (activeTab) {
+            case 'all': return paginatedUnifiedOperations;
+            case 'returns': return paginatedReturns;
+            case 'activeVouchers': return paginatedAllActiveCreditNotes;
+            case 'creditNotes': return paginatedCreditNotes;
+            default: return [];
+        }
+    }, [activeTab, paginatedUnifiedOperations, paginatedReturns, paginatedAllActiveCreditNotes, paginatedCreditNotes]);
+
+    const allCurrentPageSelected = paginatedCurrentList.length > 0 && paginatedCurrentList.every(item => selectedRowIds.includes(item.id));
+
+    const handleSelectAll = () => {
+        const pageIds = paginatedCurrentList.map(item => item.id);
+        if (allCurrentPageSelected) {
+            setSelectedRowIds(prev => prev.filter(id => !pageIds.includes(id)));
+        } else {
+            setSelectedRowIds(prev => Array.from(new Set([...prev, ...pageIds])));
+        }
+    };
+
+    const handleSelectRow = (id) => {
+        setSelectedRowIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkExportCSV = () => {
+        if (selectedRowIds.length === 0) return;
+
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+        let filename = "export.csv";
+
+        if (activeTab === 'all') {
+            filename = `operations_retours_avoirs_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
+            csvContent += "Date;Heure;Nature;Reference;Client;Chantier;Montant;Solde_Restant;Statut\r\n";
+            filteredUnifiedOperations
+                .filter(op => selectedRowIds.includes(op.id))
+                .forEach(op => {
+                    const d = new Date(op.date);
+                    const dStr = !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '';
+                    const tStr = !isNaN(d.getTime()) ? format(d, 'HH:mm') : '';
+                    const row = [
+                        dStr,
+                        tStr,
+                        op.typeLabel || '',
+                        op.refCode || '',
+                        (op.customerName || '').replace(/;/g, ' '),
+                        (op.siteName || '').replace(/;/g, ' '),
+                        op.amount || 0,
+                        op.remainingAmount || 0,
+                        op.statusLabel || ''
+                    ].join(';');
+                    csvContent += row + "\r\n";
+                });
+        } else if (activeTab === 'returns') {
+            filename = `retours_marchandises_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
+            csvContent += "Date;Heure;Numero_Retour;Client;Chantier;Vente_Liee;Montant;Reglement;Articles\r\n";
+            filteredReturns
+                .filter(r => selectedRowIds.includes(r.id))
+                .forEach(r => {
+                    const d = new Date(r.date);
+                    const dStr = !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '';
+                    const tStr = !isNaN(d.getTime()) ? format(d, 'HH:mm') : '';
+                    const itemsStr = (r.items || []).map(i => `${i.name} (x${i.quantityReturned || i.quantity || 1})`).join(' | ');
+                    const row = [
+                        dStr,
+                        tStr,
+                        r.returnNumber || '',
+                        (r.customerName || '').replace(/;/g, ' '),
+                        (r.siteName || '').replace(/;/g, ' '),
+                        r.transactionNumber || 'Comptoir libre',
+                        r.totalAmount || 0,
+                        r.refundMethod === 'avoir' ? "Bon d'Avoir" : (r.refundMethod === 'cash' ? "Espèces" : "Dette Déduite"),
+                        `"${itemsStr.replace(/"/g, '""')}"`
+                    ].join(';');
+                    csvContent += row + "\r\n";
+                });
+        } else {
+            const sourceList = activeTab === 'activeVouchers' ? filteredAllActiveCreditNotes : filteredCreditNotes;
+            filename = `bons_avoir_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
+            csvContent += "Code_Avoir;Type;Client;Chantier;Date_Emission;Date_Expiration;Montant_Initial;Solde_Restant;Statut\r\n";
+            sourceList
+                .filter(c => selectedRowIds.includes(c.id))
+                .forEach(c => {
+                    const d = new Date(c.createdAt);
+                    const dStr = !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '';
+                    const exp = c.expiresAt ? new Date(c.expiresAt) : null;
+                    const expStr = exp && !isNaN(exp.getTime()) ? format(exp, 'dd/MM/yyyy') : '';
+                    const row = [
+                        c.code || '',
+                        c.type === 'change_reliquat' ? 'Reliquat Monnaie' : 'Avoir Retour',
+                        (c.customerName || '').replace(/;/g, ' '),
+                        (c.siteName || '').replace(/;/g, ' '),
+                        dStr,
+                        expStr,
+                        c.initialAmount || 0,
+                        c.remainingAmount || 0,
+                        c.status || 'Actif'
+                    ].join(';');
+                    csvContent += row + "\r\n";
+                });
+        }
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        T.success(`${selectedRowIds.length} élément(s) exporté(s) en CSV.`);
+    };
 
     // Open Return modal from sale
     const handleSelectSale = (sale) => {
@@ -417,28 +1005,24 @@ const Returns = () => {
 
     return (
         <div className="space-y-2.5 font-sans">
-            {/* ── EN-TÊTE ÉCRAN OFFICIEL KABLLIX ERP (COMPACT & ÉPURÉ) ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white px-3 py-2 rounded-[4px] border-2 border-gray-300 shadow-xs">
+            {/* ── EN-TÊTE ÉCRAN OFFICIEL KABLLIX ERP ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-[4px] border-2 border-gray-300 shadow-sm">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <span className="p-1.5 bg-[#001d35] text-white rounded-[4px]">
-                            <RotateCcw className="w-3.5 h-3.5 text-[#f77500]" />
-                        </span>
-                        <h1 className="text-sm sm:text-base font-bold text-[#001d35] tracking-tight">
-                            Retours d'Articles & Bons d'Avoir
-                        </h1>
-                    </div>
+                    <h1 className="text-base sm:text-lg font-bold text-[#001d35] tracking-tight">
+                        Retours d'Articles & Bons d'Avoir
+                    </h1>
                 </div>
 
                 <div className="flex items-center gap-2">
                     <button
+                        type="button"
                         onClick={() => {
                             setModalStep(1);
                             setSelectedSale(null);
                             setReturnedItems([]);
                             setShowNewReturnModal(true);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-[4px] bg-[#001d35] hover:bg-[#00284a] text-white transition-all cursor-pointer shadow-xs active:scale-95"
+                        className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold uppercase tracking-wider rounded-[4px] bg-[#001d35] hover:bg-[#00284a] text-white transition-all cursor-pointer shadow-sm active:scale-95"
                     >
                         <Plus className="w-3.5 h-3.5 text-[#f77500]" />
                         <span>Nouveau Retour Client</span>
@@ -446,62 +1030,22 @@ const Returns = () => {
                 </div>
             </div>
 
-            {/* ─── BARRE DES ONGLETS DE PÉRIODE COMPACTE ─── */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-white p-1.5 sm:px-2.5 sm:py-1.5 rounded-[4px] border-2 border-gray-300 shadow-xs print:hidden">
-                <div className="flex flex-wrap items-center gap-1 bg-gray-100/80 p-0.5 rounded-[4px] border border-gray-300">
-                    {[
-                        { key: 'day', label: "Aujourd'hui" },
-                        { key: 'week', label: 'Hebdomadaire' },
-                        { key: 'month', label: 'Ce mois' },
-                        { key: 'quarter', label: 'Trimestrielle' },
-                        { key: 'year', label: 'Annuelle' },
-                        { key: 'all', label: "Tout l'historique" },
-                        { key: 'custom', label: 'Personnalisée' }
-                    ].map(opt => (
-                        <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => handleFilterChange(setPeriod, opt.key)}
-                            className={`px-2.5 py-1 text-xs font-semibold rounded-[4px] transition-all cursor-pointer ${
-                                period === opt.key
-                                    ? 'bg-[#001d35] text-white shadow-xs'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
-                            }`}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
 
-                {/* Filtre Date Personnalisée si sélectionné */}
-                {period === 'custom' && (
-                    <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded-[4px] border border-gray-300">
-                        <input
-                            type="date"
-                            value={customStartDate}
-                            onChange={(e) => handleFilterChange(setCustomStartDate, e.target.value)}
-                            className="bg-white border border-gray-300 text-gray-800 text-xs rounded-[4px] px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
-                        />
-                        <span className="text-gray-400 text-xs font-semibold">au</span>
-                        <input
-                            type="date"
-                            value={customEndDate}
-                            onChange={(e) => handleFilterChange(setCustomEndDate, e.target.value)}
-                            className="bg-white border border-gray-300 text-gray-800 text-xs rounded-[4px] px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
-                        />
-                    </div>
-                )}
 
-                <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium pr-1">
-                    <Calendar className="w-3.5 h-3.5 text-[#001d35]" />
-                    <span>Période : <strong className="text-[#001d35] font-semibold">{periodLabel}</strong></span>
-                </div>
-            </div>
-
-            {/* ── 4 CARTES KPI (MÊME ASPECT EXACT QUE LA GESTION DES SESSIONS) ── */}
+            {/* ── 4 CARTES KPI (INTERACTIVES : CLIC POUR FILTRER L'OBJECTIF DANS LA LISTE) ── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* 1. Retours Effectués */}
-                <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-center min-h-[120px]">
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleKpiClick('returns')}
+                    title="Cliquer pour afficher tous les retours effectués dans la liste"
+                    className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                        selectedKpi === 'returns'
+                            ? 'bg-blue-50/50 border-blue-600 ring-2 ring-blue-500/30 shadow-md scale-[1.01]'
+                            : 'bg-white border-gray-300 hover:border-blue-500 hover:shadow-md hover:scale-[1.005]'
+                    }`}
+                >
                     {filterLoading ? (
                         <div className="flex flex-col items-center justify-center py-4">
                             <div className="relative h-8 w-8">
@@ -513,14 +1057,36 @@ const Returns = () => {
                         <>
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
-                                    <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/70">Retours Effectués</p>
-                                    <div className="flex items-baseline mt-2 font-semibold opacity-85" style={{ color: '#001d35', opacity: 0.85 }}>
-                                        <h3 className="text-xl sm:text-2xl font-semibold">{formatPrice(metrics.totalReturnsAmount)}</h3>
+                                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/80">Retours Effectués</p>
+                                        {selectedKpi === 'returns' ? (
+                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-blue-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                ✓ Filtré
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                Filtrer ↵
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#001d35', opacity: 0.85 }}>
+                                        <h3 className="text-xl sm:text-2xl font-semibold">
+                                            {formatPrice(period !== 'all' ? metrics.periodReturnsAmount : metrics.totalReturnsAmount)}
+                                        </h3>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-blue-50 text-blue-800 border border-blue-200 uppercase tracking-wider">
+                                            {periodShortLabel}
+                                        </span>
                                     </div>
                                     <p className="text-xs text-gray-400 mt-1.5 font-medium">
-                                        {metrics.totalReturnsCount} retour(s) au total
-                                        {period !== 'all' && metrics.periodReturnsCount !== metrics.totalReturnsCount && (
-                                            <span className="ml-1 text-blue-500 font-semibold">· {metrics.periodReturnsCount} cette période</span>
+                                        {period !== 'all' ? (
+                                            <>
+                                                <strong className="text-gray-700">{metrics.periodReturnsCount}</strong> retour(s) sur cette période
+                                                {metrics.totalReturnsCount !== metrics.periodReturnsCount && (
+                                                    <span className="text-gray-400 font-normal ml-1">({metrics.totalReturnsCount} au total)</span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <><strong className="text-gray-700">{metrics.totalReturnsCount}</strong> retour(s) au total</>
                                         )}
                                     </p>
                                 </div>
@@ -531,7 +1097,17 @@ const Returns = () => {
                 </div>
 
                 {/* 2. Avoirs Actifs en Cours */}
-                <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-center min-h-[120px]">
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleKpiClick('active_avoirs')}
+                    title="Cliquer pour afficher tous les avoirs actifs au rachat dans la liste"
+                    className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                        selectedKpi === 'active_avoirs'
+                            ? 'bg-amber-50/50 border-amber-600 ring-2 ring-amber-500/30 shadow-md scale-[1.01]'
+                            : 'bg-white border-gray-300 hover:border-amber-500 hover:shadow-md hover:scale-[1.005]'
+                    }`}
+                >
                     {filterLoading ? (
                         <div className="flex flex-col items-center justify-center py-4">
                             <div className="relative h-8 w-8">
@@ -543,12 +1119,29 @@ const Returns = () => {
                         <>
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
-                                    <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-600/80">Avoirs Actifs</p>
-                                    <div className="flex items-baseline mt-2 font-semibold opacity-85" style={{ color: '#b45309', opacity: 0.85 }}>
+                                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-600/80">Avoirs Actifs</p>
+                                        {selectedKpi === 'active_avoirs' ? (
+                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-amber-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                ✓ Filtré
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                Filtrer ↵
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#b45309', opacity: 0.85 }}>
                                         <h3 className="text-xl sm:text-2xl font-semibold">{formatPrice(metrics.activeAvoirsTotal)}</h3>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-amber-50 text-amber-800 border border-amber-300 uppercase tracking-wider">
+                                            En cours
+                                        </span>
                                     </div>
                                     <p className="text-xs text-gray-400 mt-1.5 font-medium">
-                                        {metrics.activeAvoirsCount} bon(s) prêts au rachat POS
+                                        <strong className="text-gray-700">{metrics.activeAvoirsCount}</strong> bon(s) disponibles au rachat
+                                        {period !== 'all' && metrics.periodAvoirsCount > 0 && (
+                                            <span className="text-amber-700 font-semibold ml-1">· {metrics.periodAvoirsCount} émis ({periodShortLabel})</span>
+                                        )}
                                     </p>
                                     {metrics.reliquatCount > 0 && (
                                         <div className="mt-1.5 flex items-center gap-1.5">
@@ -565,7 +1158,17 @@ const Returns = () => {
                 </div>
 
                 {/* 3. Articles Réintégrés */}
-                <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-center min-h-[120px]">
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleKpiClick('reintegrated')}
+                    title="Cliquer pour afficher les retours avec articles réintégrés en stock"
+                    className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                        selectedKpi === 'reintegrated'
+                            ? 'bg-emerald-50/50 border-emerald-600 ring-2 ring-emerald-500/30 shadow-md scale-[1.01]'
+                            : 'bg-white border-gray-300 hover:border-emerald-500 hover:shadow-md hover:scale-[1.005]'
+                    }`}
+                >
                     {filterLoading ? (
                         <div className="flex flex-col items-center justify-center py-4">
                             <div className="relative h-8 w-8">
@@ -577,11 +1180,29 @@ const Returns = () => {
                         <>
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
-                                    <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-600/80">Articles Réintégrés</p>
-                                    <div className="flex items-baseline mt-2 font-semibold opacity-85" style={{ color: '#059669', opacity: 0.85 }}>
-                                        <h3 className="text-xl sm:text-2xl font-semibold">{metrics.totalReintegratedItems} unités</h3>
+                                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-600/80">Articles Réintégrés</p>
+                                        {selectedKpi === 'reintegrated' ? (
+                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-emerald-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                ✓ Filtré
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                Filtrer ↵
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-1.5 font-medium">Total remises en stock physique</p>
+                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#059669', opacity: 0.85 }}>
+                                        <h3 className="text-xl sm:text-2xl font-semibold">
+                                            {period !== 'all' ? metrics.periodReintegratedItems : metrics.totalReintegratedItems} unités
+                                        </h3>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+                                            {periodShortLabel}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 font-medium">
+                                        {period !== 'all' ? `Remises en stock (${periodShortLabel})` : "Total remises en stock physique"}
+                                    </p>
                                 </div>
                             </div>
                             <img src="/icons8/fluency_240_box.png" alt="" className="absolute bottom-2 right-2 w-16 h-16 opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all pointer-events-none" />
@@ -590,7 +1211,17 @@ const Returns = () => {
                 </div>
 
                 {/* 4. Avaries / Rebuts */}
-                <div className="bg-white p-3 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden flex flex-col justify-center min-h-[120px]">
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleKpiClick('damaged')}
+                    title="Cliquer pour afficher les retours contenant des articles avariés ou rebuts"
+                    className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                        selectedKpi === 'damaged'
+                            ? 'bg-rose-50/50 border-rose-600 ring-2 ring-rose-500/30 shadow-md scale-[1.01]'
+                            : 'bg-white border-gray-300 hover:border-rose-500 hover:shadow-md hover:scale-[1.005]'
+                    }`}
+                >
                     {filterLoading ? (
                         <div className="flex flex-col items-center justify-center py-4">
                             <div className="relative h-8 w-8">
@@ -602,11 +1233,29 @@ const Returns = () => {
                         <>
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
-                                    <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-600/80">Avaries & Rebuts</p>
-                                    <div className="flex items-baseline mt-2 font-semibold opacity-85" style={{ color: '#e11d48', opacity: 0.85 }}>
-                                        <h3 className="text-xl sm:text-2xl font-semibold">{metrics.totalDamagedItems} unités</h3>
+                                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-600/80">Avaries & Rebuts</p>
+                                        {selectedKpi === 'damaged' ? (
+                                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-rose-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
+                                                ✓ Filtré
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] font-bold px-1 py-0.2 rounded-[2px] text-gray-400 bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
+                                                Filtrer ↵
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-1.5 font-medium">{metrics.damagedRate}% de taux de rebut</p>
+                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#e11d48', opacity: 0.85 }}>
+                                        <h3 className="text-xl sm:text-2xl font-semibold">
+                                            {period !== 'all' ? metrics.periodDamagedItems : metrics.totalDamagedItems} unités
+                                        </h3>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-rose-50 text-rose-800 border border-rose-200 uppercase tracking-wider">
+                                            {periodShortLabel}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 font-medium">
+                                        {period !== 'all' ? `${metrics.periodDamagedRate}% de taux de rebut (${periodShortLabel})` : `${metrics.damagedRate}% de taux de rebut (Global)`}
+                                    </p>
                                 </div>
                             </div>
                             <img src="/icons8/fluency_240_high-priority.png" alt="" className="absolute bottom-2 right-2 w-16 h-16 opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all pointer-events-none" />
@@ -615,20 +1264,56 @@ const Returns = () => {
                 </div>
             </div>
 
-            {/* ── BARRE UNIFIÉE ONGLETS & FILTRES (TAILLE NÉCESSAIRE COMPACTE) ── */}
-            <div className="bg-white p-1.5 sm:p-2 rounded-[4px] border-2 border-gray-300 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-2">
-                {/* Onglets avec badges */}
-                <div className="flex items-center gap-1 bg-gray-100/80 p-0.5 rounded-[4px] border border-gray-300 flex-wrap">
+            {/* ── BARRE D'ONGLETS PRINCIPAUX & RECHERCHE (STYLE OFFICIEL KABLLIX ERP) ── */}
+            <div className="bg-white p-2 sm:p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Onglets de sélection principale : Toutes les Opérations / Registre des Retours / Portefeuille Bons d'Avoir / Tous les Avoirs Actifs */}
+                <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-[4px] border-2 border-gray-300 flex-wrap">
+                    {/* Onglet 0 : Grand Livre - Toutes les Opérations */}
                     <button
                         type="button"
                         onClick={() => {
-                            handleFilterChange(setActiveTab, 'returns');
+                            handleFilterChange(() => {
+                                setActiveTab('all');
+                                setOperationFilter('all');
+                                setPeriod('today');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                            activeTab === 'all'
+                                ? 'bg-[#001d35] text-white shadow-xs'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
+                        }`}
+                    >
+                        <ClipboardList className={`w-3.5 h-3.5 ${activeTab === 'all' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                        <span>Toutes les Opérations</span>
+                        {periodUnifiedOperations.length > 0 && (
+                            <span className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs ${
+                                activeTab === 'all' ? 'bg-[#f77500] text-white' : 'bg-gray-200 text-gray-800'
+                            }`}>
+                                {periodUnifiedOperations.length}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Onglet 1 : Registre des Retours */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleFilterChange(() => {
+                                setActiveTab('returns');
+                                setOperationFilter('none');
+                                setPeriod('today');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
                             markReturnsAsSeen();
                         }}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
                             activeTab === 'returns'
                                 ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
                         }`}
                     >
                         <RotateCcw className={`w-3.5 h-3.5 ${activeTab === 'returns' ? 'text-[#f77500]' : 'text-gray-500'}`} />
@@ -641,13 +1326,20 @@ const Returns = () => {
                         )}
                     </button>
 
+                    {/* Onglet 2 : Portefeuille Bons d'Avoir */}
                     <button
                         type="button"
-                        onClick={() => handleFilterChange(setActiveTab, 'creditNotes')}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                        onClick={() => handleFilterChange(() => {
+                            setActiveTab('creditNotes');
+                            setOperationFilter('none');
+                            setPeriod('today');
+                            setCustomStartDate('');
+                            setCustomEndDate('');
+                        })}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
                             activeTab === 'creditNotes'
                                 ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
                         }`}
                     >
                         <Ticket className={`w-3.5 h-3.5 ${activeTab === 'creditNotes' ? 'text-[#f77500]' : 'text-gray-500'}`} />
@@ -660,14 +1352,20 @@ const Returns = () => {
                         )}
                     </button>
 
-                    {/* Nouvel onglet : Tous les Avoirs Actifs (indépendant de la date) */}
+                    {/* Onglet 3 : Tous les Avoirs Actifs (indépendant de la date) */}
                     <button
                         type="button"
-                        onClick={() => handleFilterChange(setActiveTab, 'activeVouchers')}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
+                        onClick={() => handleFilterChange(() => {
+                            setActiveTab('activeVouchers');
+                            setOperationFilter('none');
+                            setPeriod('today');
+                            setCustomStartDate('');
+                            setCustomEndDate('');
+                        })}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
                             activeTab === 'activeVouchers'
                                 ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
                         }`}
                     >
                         <span className="flex items-center -space-x-1.5 flex-shrink-0">
@@ -683,58 +1381,331 @@ const Returns = () => {
                     </button>
                 </div>
 
-                {/* Filtres et Recherche ajustés à la taille nécessaire */}
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                    <div className="relative w-full sm:w-56">
-                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder={activeTab === 'returns' ? "Rechercher N° retour, client..." : "Rechercher code d'avoir, client..."}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-8 pr-2.5 py-1 text-xs bg-gray-50 border border-gray-300 focus:border-[#001d35] rounded-[4px] font-medium text-gray-800 focus:outline-none"
-                        />
+                {/* Recherche à droite */}
+                <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder={
+                            activeTab === 'all'
+                                ? "Rechercher opération, N°, client..."
+                                : activeTab === 'returns'
+                                ? "Rechercher N° retour, client..."
+                                : "Rechercher code d'avoir, client..."
+                        }
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                            setSelectedRowIds([]);
+                        }}
+                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 border-2 border-gray-300 focus:border-[#001d35] rounded-[4px] font-medium text-gray-800 focus:outline-none"
+                    />
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange(setSearchTerm, '')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                            title="Effacer la recherche"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── BARRE D'OUTILS EN BAS DÉDIÉE (SÉLECTEUR COMPACT + CLIENT + FILTRES PAR DATE — IDENTIQUE À HISTORIQUE DES OPÉRATIONS) ── */}
+            <div className="bg-white p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col gap-2.5 animate-in fade-in duration-150">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    {/* Sélecteur de type d'opération */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <label htmlFor="operation-type-select" className="text-xs font-semibold text-[#001d35] uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                            <Filter className="w-3.5 h-3.5 text-[#f77500]" />
+                            <span>Opération :</span>
+                        </label>
+                        <select
+                            id="operation-type-select"
+                            value={operationFilter}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                handleFilterChange(() => {
+                                    setOperationFilter(val);
+                                    setPeriod('today');
+                                    setCustomStartDate('');
+                                    setCustomEndDate('');
+                                    if (val === 'all' || val === 'cash_refund') {
+                                        setActiveTab('all');
+                                    } else if (val === 'returns_all' || val === 'cash' || val === 'avoir' || val === 'debt_deduction') {
+                                        if (activeTab !== 'all' && activeTab !== 'returns') {
+                                            setActiveTab('returns');
+                                        }
+                                    } else if (val === 'credit_all' || val === 'active' || val === 'partial' || val === 'reliquat' || val === 'used' || val === 'cancelled') {
+                                        if (activeTab !== 'all' && activeTab !== 'creditNotes') {
+                                            setActiveTab('creditNotes');
+                                        }
+                                    }
+                                });
+                            }}
+                            className="px-3 py-1.5 text-xs font-semibold border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-[#001d35] cursor-pointer shadow-2xs"
+                        >
+                            <option value="none">Aucun (Par défaut)</option>
+                            <option value="all">📋 Toutes les opérations (Retours & Avoirs)</option>
+                            <optgroup label="Retours de Marchandises">
+                                <option value="returns_all">📦 Tous les Retours de Marchandises</option>
+                                <option value="cash">💵 Remboursement Espèces</option>
+                                <option value="avoir">🎟️ Bon d'Avoir Émis</option>
+                                <option value="debt_deduction">📉 Déduction Dette</option>
+                            </optgroup>
+                            <optgroup label="Bons d'Avoir & Reliquats">
+                                <option value="credit_all">🏷️ Tous les Bons d'Avoir & Reliquats</option>
+                                <option value="cash_refund">💵 Décaissements Espèces (Remboursements)</option>
+                                <option value="active">🟢 Actif (Rachat disponible)</option>
+                                <option value="partial">🟡 Partiel (Solde restant)</option>
+                                <option value="reliquat">🎟️ Reliquats de Caisse</option>
+                                <option value="used">⚪ Consommé (Épuisé)</option>
+                                <option value="cancelled">🔴 Expiré / Annulé</option>
+                            </optgroup>
+                        </select>
                     </div>
 
-                    <div>
-                        {activeTab === 'returns' ? (
-                            <select
-                                value={methodFilter}
-                                onChange={(e) => handleFilterChange(setMethodFilter, e.target.value)}
-                                className="text-xs bg-gray-50 border border-gray-300 focus:border-[#001d35] rounded-[4px] px-2.5 py-1 font-semibold text-gray-700 focus:outline-none cursor-pointer"
-                            >
-                                <option value="all">Tous règlements</option>
-                                <option value="avoir">Bon d'Avoir (Crédit)</option>
-                                <option value="cash">Remboursement Espèces</option>
-                                <option value="debt_deduction">Déduction Dette</option>
-                            </select>
-                        ) : activeTab === 'creditNotes' ? (
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => handleFilterChange(setStatusFilter, e.target.value)}
-                                className="text-xs bg-gray-50 border border-gray-300 focus:border-[#001d35] rounded-[4px] px-2.5 py-1 font-semibold text-gray-700 focus:outline-none cursor-pointer"
-                            >
-                                <option value="all">Tous statuts</option>
-                                <option value="active">Actif (Rachat)</option>
-                                <option value="partial">Partiel</option>
-                                <option value="used">Consommé</option>
-                                <option value="cancelled">Expiré / Annulé</option>
-                            </select>
-                        ) : null}
+                    {/* Sélecteur de Client (filtrer par nom de client) */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <label htmlFor="operation-client-select" className="text-xs font-semibold text-[#001d35] uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                            <User className="w-3.5 h-3.5 text-[#f77500]" />
+                            <span>Client :</span>
+                        </label>
+                        <select
+                            id="operation-client-select"
+                            value={clientFilter}
+                            onChange={(e) => handleFilterChange(setClientFilter, e.target.value)}
+                            className="px-3 py-1.5 text-xs font-semibold border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-[#001d35] cursor-pointer shadow-2xs max-w-[210px]"
+                        >
+                            <option value="all">Tous les clients</option>
+                            {uniqueClients.map(cName => (
+                                <option key={cName} value={cName}>{cName}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Filtres par date (Aujourd'hui, 7 jours, Ce mois, Tout, Période...) */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-[#001d35] uppercase tracking-wider hidden lg:flex">
+                            <Calendar className="w-3.5 h-3.5 text-[#f77500]" />
+                            <span>Période :</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-gray-100/80 p-1 rounded-[4px] border-2 border-gray-300">
+                            {[
+                                { key: 'today', label: "Aujourd'hui" },
+                                { key: '7days', label: '7 jours' },
+                                { key: 'month', label: 'Ce mois' },
+                                { key: 'all', label: 'Tout' },
+                                { key: 'custom', label: 'Période...' }
+                            ].map(opt => (
+                                <button
+                                    key={opt.key}
+                                    type="button"
+                                    onClick={() => handleFilterChange(setPeriod, opt.key)}
+                                    className={`px-2.5 py-1 rounded-[4px] text-xs font-semibold transition-all cursor-pointer ${
+                                        period === opt.key
+                                            ? 'bg-[#001d35] text-white shadow-xs'
+                                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {period === 'custom' && (
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <input
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={e => handleFilterChange(setCustomStartDate, e.target.value)}
+                                    className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                />
+                                <span className="text-gray-400 text-xs font-medium">à</span>
+                                <input
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={e => handleFilterChange(setCustomEndDate, e.target.value)}
+                                    className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
+
+                {/* Actions groupées / Bulk actions lorsque des cases sont cochées */}
+                {selectedRowIds.length > 0 && (
+                    <div className="flex items-center justify-between gap-2 flex-wrap bg-blue-50/90 px-3 py-1.5 rounded-[4px] border-2 border-blue-400 animate-in fade-in duration-150">
+                        <span className="text-xs font-bold text-[#001d35] flex items-center gap-1.5">
+                            <CheckSquare className="w-4 h-4 text-[#001d35]" />
+                            <span>{selectedRowIds.length} {activeTab === 'returns' ? 'retour(s)' : activeTab === 'all' ? 'opération(s)' : 'bon(s)'} sélectionné(s)</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleBulkExportCSV}
+                                className="px-2.5 py-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 rounded-[4px] text-xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-2xs transition-all active:scale-95"
+                                title="Exporter les éléments cochés au format CSV"
+                            >
+                                <Download className="w-3.5 h-3.5 text-[#f77500]" />
+                                <span>Exporter ({selectedRowIds.length})</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedRowIds([])}
+                                className="p-1 text-gray-500 hover:text-gray-800 cursor-pointer ml-1"
+                                title="Désélectionner tout"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Ligne informative : Filtre actif(s) pour Retours & Avoirs */}
+                {(operationFilter !== 'none' || clientFilter !== 'all' || period !== 'all' || searchTerm || selectedKpi) && (
+                    <div className="pt-2 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-[1px] bg-[#f77500] animate-pulse"></span>
+                                <span>Filtre actif(s) :</span>
+                            </span>
+
+                            {selectedKpi && (
+                                <span className="inline-flex items-center gap-1 bg-[#001d35] text-white border border-[#001d35] px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider shadow-2xs">
+                                    <span>
+                                        {selectedKpi === 'returns' && '📊 KPI : Retours Effectués'}
+                                        {selectedKpi === 'active_avoirs' && '📊 KPI : Avoirs Actifs au Rachat'}
+                                        {selectedKpi === 'reintegrated' && '📊 KPI : Articles Réintégrés en Stock'}
+                                        {selectedKpi === 'damaged' && '📊 KPI : Avaries & Rebuts'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleKpiClick(selectedKpi)}
+                                        className="hover:text-[#f77500] cursor-pointer ml-0.5 text-white/80"
+                                        title="Retirer le filtre KPI"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </span>
+                            )}
+
+                            {operationFilter !== 'none' && (
+                                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                    <span>
+                                        {operationFilter === 'all' && '📋 Toutes les opérations'}
+                                        {operationFilter === 'returns_all' && '📦 Tous les Retours'}
+                                        {operationFilter === 'avoir' && "🎟️ Bon d'Avoir (Crédit)"}
+                                        {operationFilter === 'cash' && '💵 Remboursement Espèces'}
+                                        {operationFilter === 'cash_refund' && '💵 Décaissement Espèces'}
+                                        {operationFilter === 'debt_deduction' && '📉 Déduction Dette'}
+                                        {operationFilter === 'credit_all' && "🏷️ Tous les Bons d'Avoir & Reliquats"}
+                                        {operationFilter === 'active' && '🟢 Actif (Rachat)'}
+                                        {operationFilter === 'partial' && '🟡 Partiel'}
+                                        {operationFilter === 'used' && '⚪ Consommé'}
+                                        {operationFilter === 'cancelled' && '🔴 Expiré / Annulé'}
+                                        {operationFilter === 'reliquat' && '🎟️ Reliquats de caisse'}
+                                        {operationFilter === 'standard' && '🏷️ Avoirs standards'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleFilterChange(setOperationFilter, 'none')}
+                                        className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                        title="Retirer le filtre d'opération"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </span>
+                            )}
+
+                            {clientFilter !== 'all' && (
+                                <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                    <span>👤 Client : {clientFilter}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleFilterChange(setClientFilter, 'all')}
+                                        className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                        title="Retirer le filtre client"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </span>
+                            )}
+
+                            {period !== 'all' && (
+                                <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                    <span>
+                                        📅 {period === 'today' || period === 'day' ? "Aujourd'hui" :
+                                            period === '7days' || period === 'week' ? "7 derniers jours" :
+                                            period === 'month' ? "Ce mois" :
+                                            period === 'custom' ? `Du ${customStartDate || '...'} au ${customEndDate || '...'}` : periodLabel}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleFilterChange(() => {
+                                            setPeriod('all');
+                                            setCustomStartDate('');
+                                            setCustomEndDate('');
+                                        })}
+                                        className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                        title="Retirer le filtre de période"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </span>
+                            )}
+
+                            {searchTerm && (
+                                <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-800 border border-gray-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                    <span>🔍 Recherche : "{searchTerm}"</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleFilterChange(setSearchTerm, '')}
+                                        className="hover:text-rose-600 cursor-pointer ml-0.5"
+                                        title="Effacer la recherche"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </span>
+                            )}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange(() => {
+                                setSelectedKpi(null);
+                                setOperationFilter('none');
+                                setClientFilter('all');
+                                setPeriod('all');
+                                setSearchTerm('');
+                            })}
+                            className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+                        >
+                            Effacer tous les filtres
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* ── TABLEAU GRAND LIVRE DES RETOURS & AVOIRS ── */}
             <div className="bg-white border-2 border-gray-300 rounded-[4px] shadow-xs overflow-hidden">
                 <div className="px-3 py-1.5 border-b-2 border-gray-300 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 bg-white">
-                    <span className="text-xs font-bold text-[#001d35] uppercase tracking-wider">
-                        {activeTab === 'returns' ? "Grand Livre des Retours de Marchandises"
+                    <span className="text-xs font-semibold text-[#001d35] uppercase tracking-wider">
+                        {selectedKpi === 'reintegrated' ? "Grand Livre des Retours — Articles Réintégrés en Stock"
+                            : selectedKpi === 'damaged' ? "Grand Livre des Retours — Avaries & Rebuts"
+                            : selectedKpi === 'active_avoirs' ? "Portefeuille des Bons d'Avoir Actifs au Rachat"
+                            : selectedKpi === 'returns' ? "Grand Livre des Retours de Marchandises Effectués"
+                            : activeTab === 'all' ? "Grand Livre Unifié — Toutes les Opérations (Retours & Avoirs)"
+                            : activeTab === 'returns' ? "Grand Livre des Retours de Marchandises"
                             : activeTab === 'activeVouchers' ? "Tous les Bons d'Avoir Actifs — Sans restriction de date"
                             : "Portefeuille Officiel des Bons d'Avoir"}
                     </span>
-                    <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-[4px] border border-gray-300">
-                        {activeTab === 'returns' ? `${filteredReturns.length} retour(s)`
+                    <span className="text-[10px] font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-[4px] border border-gray-300">
+                        {activeTab === 'all' ? `${filteredUnifiedOperations.length} opération(s)`
+                            : activeTab === 'returns' ? `${filteredReturns.length} retour(s)`
                             : activeTab === 'activeVouchers' ? `${filteredAllActiveCreditNotes.length} avoir(s) actif(s)`
                             : `${filteredCreditNotes.length} bon(s)`}
                     </span>
@@ -747,10 +1718,186 @@ const Returns = () => {
                                 <div className="absolute inset-0 animate-spin rounded-full border-2 border-gray-200 border-t-[#001d35]"></div>
                                 <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-transparent border-b-[#f77500]"></div>
                             </div>
-                            <p className="text-xs font-bold text-[#001d35] mt-2 uppercase tracking-wider">
+                            <p className="text-xs font-semibold text-[#001d35] mt-2 uppercase tracking-wider">
                                 Synchronisation...
                             </p>
                         </div>
+                    ) : activeTab === 'all' ? (
+                        filteredUnifiedOperations.length === 0 ? (
+                            <div className="p-8 min-h-[160px] flex flex-col items-center justify-center text-center text-gray-400">
+                                <ClipboardList className="w-8 h-8 mx-auto text-gray-300 mb-1.5 opacity-50" />
+                                <p className="text-xs font-semibold text-gray-600 uppercase">
+                                    {period !== 'all' ? `Aucune opération enregistrée (${periodLabel})` : "Aucune opération enregistrée"}
+                                </p>
+                                <p className="text-[11px] text-gray-400 mt-0.5 font-normal">
+                                    {period !== 'all' ? "Sélectionnez « Tout l'historique » pour afficher l'ensemble des opérations." : "Les retours clients et émissions d'avoirs apparaîtront ici."}
+                                </p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
+                                                checked={paginatedUnifiedOperations.length > 0 && paginatedUnifiedOperations.every(op => selectedRowIds.includes(op.id))}
+                                                onChange={handleSelectAll}
+                                                title="Tout cocher / Tout décocher"
+                                            />
+                                        </th>
+                                        <th className="py-1.5 px-2.5">Date & Heure</th>
+                                        <th className="py-1.5 px-2.5">Nature Opération</th>
+                                        <th className="py-1.5 px-2.5">Référence / Code</th>
+                                        <th className="py-1.5 px-2.5">Client & Chantier</th>
+                                        <th className="py-1.5 px-2.5 text-right">Montant Opération</th>
+                                        <th className="py-1.5 px-2.5 text-right">Solde Restant</th>
+                                        <th className="py-1.5 px-2.5 text-center">Statut</th>
+                                        <th className="py-1.5 px-2.5 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {paginatedUnifiedOperations.map((op, opIdx) => {
+                                        const isSelected = selectedRowIds.includes(op.id);
+                                        return (
+                                        <tr key={op.id} className={`transition-colors border-b border-gray-200 select-none ${
+                                            isSelected ? 'bg-blue-50' : opIdx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
+                                        }`}>
+                                            <td className="px-1 py-1.5 text-center w-10">
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
+                                                    checked={isSelected}
+                                                    onChange={() => handleSelectRow(op.id)}
+                                                />
+                                            </td>
+                                            <td className="py-1.5 px-2.5 whitespace-nowrap">
+                                                <div className="font-semibold text-gray-900">
+                                                    {format(new Date(op.date), 'dd/MM/yyyy')}
+                                                </div>
+                                                <div className="text-[10px] text-gray-500 font-medium">
+                                                    {format(new Date(op.date), 'HH:mm')}
+                                                </div>
+                                            </td>
+                                            <td className="py-1.5 px-2.5 whitespace-nowrap">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] border font-bold text-[10px] uppercase tracking-wider ${op.badgeColor}`}>
+                                                    {op.badgeText}
+                                                </span>
+                                            </td>
+                                            <td className="py-1.5 px-2.5 font-semibold text-[#001d35] whitespace-nowrap tracking-wide">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span>{op.refCode}</span>
+                                                    {(op.kind === 'credit_note' || op.kind === 'cash_refund') && (
+                                                        <button onClick={() => handleCopyCode(op.refCode)} title="Copier le code" className="text-gray-400 hover:text-gray-700 cursor-pointer">
+                                                            <Copy className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {op.kind === 'cash_refund' && op.transactionNumber ? (
+                                                    <div className="text-[10px] text-gray-500 font-normal">
+                                                        Bon source : {op.transactionNumber}
+                                                    </div>
+                                                ) : op.transactionNumber && (
+                                                    <div className="text-[10px] text-gray-500 font-normal">
+                                                        Vente : {op.transactionNumber}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="py-1.5 px-2.5">
+                                                <p className="font-semibold text-gray-900">{op.customerName}</p>
+                                                {op.siteName && (
+                                                    <p className="text-[10px] text-gray-500 font-medium">Chantier : {op.siteName}</p>
+                                                )}
+                                            </td>
+                                            <td className="py-1.5 px-2.5 text-right font-medium text-gray-700 whitespace-nowrap">
+                                                {formatPrice(op.amount)}
+                                            </td>
+                                            <td className="py-1.5 px-2.5 text-right font-semibold whitespace-nowrap text-xs tracking-tight">
+                                                {op.kind === 'credit_note' ? (
+                                                    <span className={op.remainingAmount > 0 ? "text-emerald-700" : "text-gray-400"}>
+                                                        {formatPrice(op.remainingAmount)}
+                                                    </span>
+                                                ) : op.kind === 'cash_refund' ? (
+                                                    <span className="text-emerald-700 font-medium text-[11px]">
+                                                        {formatPrice(op.remainingAmount)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400 font-normal text-[11px]">—</span>
+                                                )}
+                                            </td>
+                                            <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider border ${op.statusColor}`}>
+                                                    {op.statusLabel}
+                                                </span>
+                                            </td>
+                                            <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
+                                                {op.kind === 'return' ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setViewingReturn(op.rawReturn)}
+                                                        className="inline-flex items-center gap-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer"
+                                                        title="Voir le bon de retour"
+                                                    >
+                                                        <Printer className="w-3 h-3 text-[#f77500]" />
+                                                        <span>Reçu</span>
+                                                    </button>
+                                                ) : op.kind === 'cash_refund' ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPrintedCashRefund(op.rawRefund)}
+                                                        className="inline-flex items-center gap-1 bg-white hover:bg-gray-100 text-emerald-800 border border-emerald-300 px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer active:scale-95"
+                                                        title="Imprimer la décharge de remboursement espèces"
+                                                    >
+                                                        <Printer className="w-3 h-3 text-emerald-600" />
+                                                        <span>Quittance</span>
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        {op.rawCreditNote && op.remainingAmount > 0 && op.rawCreditNote.status !== 'cancelled' && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenCashRefund(op.rawCreditNote)}
+                                                                className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer active:scale-95"
+                                                                title="Rembourser cet avoir en espèces"
+                                                            >
+                                                                <Banknote className="w-3 h-3 text-emerald-100" />
+                                                                <span>Espèces</span>
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const c = op.rawCreditNote;
+                                                                const isReliquat = c.type === 'change_reliquat';
+                                                                const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
+                                                                setViewingReturn(parentReturn || {
+                                                                    returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
+                                                                    customerName: c.customerName,
+                                                                    date: c.createdAt,
+                                                                    refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
+                                                                    type: c.type,
+                                                                    totalAmount: c.initialAmount,
+                                                                    voucherCode: c.code,
+                                                                    items: [],
+                                                                    notes: c.notes || (isReliquat ? 'Reliquat monnaie converti en bon' : "Bon d'avoir émis")
+                                                                });
+                                                                setViewingCreditNote(c);
+                                                            }}
+                                                            className="inline-flex items-center gap-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer"
+                                                            title="Imprimer l'avoir"
+                                                        >
+                                                            <Printer className="w-3 h-3 text-[#f77500]" />
+                                                            <span>Imprimer</span>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                    })}
+                                </tbody>
+                            </table>
+                        )
                     ) : activeTab === 'returns' ? (
                         filteredReturns.length === 0 ? (
                             <div className="p-8 min-h-[160px] flex flex-col items-center justify-center text-center text-gray-400">
@@ -765,7 +1912,16 @@ const Returns = () => {
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-[#001d35] text-white font-bold uppercase tracking-wider text-[10px] divide-x divide-white/10 sticky top-0">
+                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
+                                                checked={paginatedReturns.length > 0 && paginatedReturns.every(r => selectedRowIds.includes(r.id))}
+                                                onChange={handleSelectAll}
+                                                title="Tout cocher / Tout décocher"
+                                            />
+                                        </th>
                                         <th className="py-1.5 px-2.5">Date & Heure</th>
                                         <th className="py-1.5 px-2.5">N° de Retour</th>
                                         <th className="py-1.5 px-2.5">Client & Chantier</th>
@@ -778,7 +1934,8 @@ const Returns = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredReturns.map((r, rIdx) => {
+                                    {paginatedReturns.map((r, rIdx) => {
+                                        const isSelected = selectedRowIds.includes(r.id);
                                         const isAvoir = r.refundMethod === 'avoir';
                                         const isCash = r.refundMethod === 'cash';
                                         const intactCount = (r.items || []).filter(i => i.condition === 'intact' || i.reintegrated).length;
@@ -791,7 +1948,17 @@ const Returns = () => {
                                         const dimmed = newReturnsCount > 0 && !isNew;
 
                                         return (
-                                            <tr key={r.id} className={`hover:bg-blue-50/40 odd:bg-gray-50/50 transition-all ${dimmed ? 'opacity-45' : ''}`}>
+                                            <tr key={r.id} className={`transition-all border-b border-gray-200 select-none ${dimmed ? 'opacity-45' : ''} ${
+                                                isSelected ? 'bg-blue-50' : rIdx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
+                                            }`}>
+                                                <td className="px-1 py-1.5 text-center w-10">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectRow(r.id)}
+                                                    />
+                                                </td>
                                                 <td className="py-1.5 px-2.5 whitespace-nowrap">
                                                     <div className="font-semibold text-gray-900">
                                                         {format(new Date(r.date), 'dd/MM/yyyy')}
@@ -892,13 +2059,22 @@ const Returns = () => {
                                     <Ticket className="w-8 h-8 text-gray-300" />
                                     <Ticket className="w-8 h-8 text-gray-300" />
                                 </div>
-                                <p className="text-xs font-bold text-gray-600 uppercase">Aucun avoir actif en ce moment</p>
-                                <p className="text-[11px] text-gray-400 mt-0.5">Les bons d'avoir actifs et partiels apparaîtront ici, quelle que soit leur date d'émission.</p>
+                                <p className="text-xs font-semibold text-gray-600 uppercase">Aucun avoir actif en ce moment</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5 font-normal">Les bons d'avoir actifs et partiels apparaîtront ici, quelle que soit leur date d'émission.</p>
                             </div>
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-emerald-700 text-white font-bold uppercase tracking-wider text-[10px] divide-x divide-white/10 sticky top-0">
+                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
+                                                checked={paginatedAllActiveCreditNotes.length > 0 && paginatedAllActiveCreditNotes.every(c => selectedRowIds.includes(c.id))}
+                                                onChange={handleSelectAll}
+                                                title="Tout cocher / Tout décocher"
+                                            />
+                                        </th>
                                         <th className="py-1.5 px-2.5">Code Bon d'Avoir</th>
                                         <th className="py-1.5 px-2.5">Client Bénéficiaire</th>
                                         <th className="py-1.5 px-2.5">Date Émission</th>
@@ -910,10 +2086,21 @@ const Returns = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredAllActiveCreditNotes.map(c => {
+                                    {paginatedAllActiveCreditNotes.map((c, cIdx) => {
+                                        const isSelected = selectedRowIds.includes(c.id);
                                         const isExpired = new Date(c.expiresAt).getTime() < nowTimestamp;
                                         return (
-                                            <tr key={c.id} className="hover:bg-emerald-50/40 odd:bg-gray-50/50 transition-colors">
+                                            <tr key={c.id} className={`transition-colors border-b border-gray-200 select-none ${
+                                                isSelected ? 'bg-blue-50' : cIdx % 2 === 0 ? 'bg-white hover:bg-emerald-50/40' : 'bg-slate-50/70 hover:bg-emerald-50/40'
+                                            }`}>
+                                                <td className="px-1 py-1.5 text-center w-10">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectRow(c.id)}
+                                                    />
+                                                </td>
                                                 <td className="py-1.5 px-2.5 font-semibold text-gray-900 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         <span className="text-[#001d35] font-semibold tracking-wider">{c.code}</span>
@@ -958,30 +2145,41 @@ const Returns = () => {
                                                     )}
                                                 </td>
                                                 <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => {
-                                                            const isReliquat = c.type === 'change_reliquat';
-                                                            const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
-                                                            setViewingReturn(parentReturn || {
-                                                                returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
-                                                                customerName: c.customerName,
-                                                                date: c.createdAt,
-                                                                refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
-                                                                type: c.type,
-                                                                totalAmount: c.initialAmount,
-                                                                voucherCode: c.code,
-                                                                reason: c.notes || (isReliquat ? 'Reliquat de monnaie non rendue en caisse' : "Bon d'avoir"),
-                                                                cashierName: c.cashierName,
-                                                                items: []
-                                                            });
-                                                            setViewingCreditNote(c);
-                                                        }}
-                                                        className="inline-flex items-center gap-1 bg-[#001d35] hover:bg-[#00284a] text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
-                                                        title="Imprimer le bon d'avoir"
-                                                    >
-                                                        <Printer className="w-3 h-3 text-[#f77500]" />
-                                                        <span>Imprimer</span>
-                                                    </button>
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenCashRefund(c)}
+                                                            className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
+                                                            title="Rembourser ce bon en espèces"
+                                                        >
+                                                            <Banknote className="w-3 h-3 text-emerald-200" />
+                                                            <span>Rembourser Espèces</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                const isReliquat = c.type === 'change_reliquat';
+                                                                const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
+                                                                setViewingReturn(parentReturn || {
+                                                                    returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
+                                                                    customerName: c.customerName,
+                                                                    date: c.createdAt,
+                                                                    refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
+                                                                    type: c.type,
+                                                                    totalAmount: c.initialAmount,
+                                                                    voucherCode: c.code,
+                                                                    reason: c.notes || (isReliquat ? 'Reliquat de monnaie non rendue en caisse' : "Bon d'avoir"),
+                                                                    cashierName: c.cashierName,
+                                                                    items: []
+                                                                });
+                                                                setViewingCreditNote(c);
+                                                            }}
+                                                            className="inline-flex items-center gap-1 bg-[#001d35] hover:bg-[#00284a] text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
+                                                            title="Imprimer le bon d'avoir"
+                                                        >
+                                                            <Printer className="w-3 h-3 text-[#f77500]" />
+                                                            <span>Imprimer</span>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -993,17 +2191,26 @@ const Returns = () => {
                         filteredCreditNotes.length === 0 ? (
                             <div className="p-8 min-h-[160px] flex flex-col items-center justify-center text-center text-gray-400">
                                 <Ticket className="w-8 h-8 mx-auto text-gray-300 mb-1.5 opacity-50" />
-                                <p className="text-xs font-bold text-gray-600 uppercase">
+                                <p className="text-xs font-semibold text-gray-600 uppercase">
                                     {period !== 'all' ? `Aucun bon d'avoir (${periodLabel})` : "Aucun bon d'avoir actif"}
                                 </p>
-                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                <p className="text-[11px] text-gray-400 mt-0.5 font-normal">
                                     {period !== 'all' ? "Essayez de sélectionner « Tout l'historique » ou ajustez la période." : "Les avoirs émis lors des retours apparaîtront ici."}
                                 </p>
                             </div>
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-[#001d35] text-white font-bold uppercase tracking-wider text-[10px] divide-x divide-white/10 sticky top-0">
+                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
+                                                checked={paginatedCreditNotes.length > 0 && paginatedCreditNotes.every(c => selectedRowIds.includes(c.id))}
+                                                onChange={handleSelectAll}
+                                                title="Tout cocher / Tout décocher"
+                                            />
+                                        </th>
                                         <th className="py-1.5 px-2.5">Code Bon d'Avoir</th>
                                         <th className="py-1.5 px-2.5">Client Bénéficiaire</th>
                                         <th className="py-1.5 px-2.5">Date Émission</th>
@@ -1015,12 +2222,23 @@ const Returns = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredCreditNotes.map(c => {
+                                    {paginatedCreditNotes.map((c, cIdx) => {
+                                        const isSelected = selectedRowIds.includes(c.id);
                                         const isExpired = new Date(c.expiresAt).getTime() < nowTimestamp;
                                         const isUsed = c.status === 'used' || c.remainingAmount <= 0;
 
                                         return (
-                                            <tr key={c.id} className="hover:bg-blue-50/40 odd:bg-gray-50/50 transition-colors">
+                                            <tr key={c.id} className={`transition-colors border-b border-gray-200 select-none ${
+                                                isSelected ? 'bg-blue-50' : cIdx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
+                                            }`}>
+                                                <td className="px-1 py-1.5 text-center w-10">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectRow(c.id)}
+                                                    />
+                                                </td>
                                                 <td className="py-1.5 px-2.5 font-semibold text-gray-900 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         <span className="text-[#001d35] font-semibold tracking-wider">{c.code}</span>
@@ -1090,6 +2308,17 @@ const Returns = () => {
                                                 </td>
                                                 <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
                                                     <div className="flex items-center justify-center gap-1.5">
+                                                        {c.remainingAmount > 0 && c.status !== 'cancelled' && !isExpired && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenCashRefund(c)}
+                                                                className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
+                                                                title="Rembourser ce bon en espèces"
+                                                            >
+                                                                <Banknote className="w-3 h-3 text-emerald-200" />
+                                                                <span>Rembourser Espèces</span>
+                                                            </button>
+                                                        )}
                                                         <button
                                                             onClick={() => {
                                                                 const isReliquat = c.type === 'change_reliquat';
@@ -1129,45 +2358,125 @@ const Returns = () => {
                         )
                     )}
                 </div>
+
+                {/* ── Barre de pagination (10 éléments par page par défaut) ── */}
+                {activeDataList.length > 0 && (
+                    <div className="bg-gray-50 px-3 py-2 border-t-2 border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs select-none">
+                        <div className="flex items-center gap-2 text-gray-600">
+                            <span>
+                                Affichage de <strong className="text-[#001d35] font-semibold">{activeDataList.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</strong> à <strong className="text-[#001d35] font-semibold">{Math.min(currentPage * itemsPerPage, activeDataList.length)}</strong> sur <strong className="text-[#001d35] font-semibold">{activeDataList.length}</strong> {activeTab === 'returns' ? 'retour(s)' : activeTab === 'all' ? 'opération(s)' : 'bon(s)'}
+                            </span>
+                            <span className="text-gray-300">|</span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] text-gray-500 font-medium">Lignes :</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => {
+                                        setItemsPerPage(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-2 py-0.5 text-xs font-semibold border border-gray-300 rounded-[4px] bg-white text-[#001d35] focus:outline-none focus:ring-1 focus:ring-[#001d35] cursor-pointer"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-2.5 py-1 rounded-[4px] border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-semibold disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 transition-all active:scale-95"
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Précédent</span>
+                            </button>
+
+                            <div className="flex items-center gap-1 px-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                    .map((p, pIdx, arr) => {
+                                        const prevP = arr[pIdx - 1];
+                                        const showEllipsis = prevP && p - prevP > 1;
+                                        return (
+                                            <React.Fragment key={p}>
+                                                {showEllipsis && <span className="px-1 text-gray-400 font-bold">...</span>}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCurrentPage(p)}
+                                                    className={`w-7 h-7 text-xs font-bold rounded-[4px] transition-all cursor-pointer ${
+                                                        currentPage === p
+                                                            ? 'bg-[#001d35] text-white shadow-xs'
+                                                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                                                    }`}
+                                                >
+                                                    {p}
+                                                </button>
+                                            </React.Fragment>
+                                        );
+                                    })}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-2.5 py-1 rounded-[4px] border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-semibold disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 transition-all active:scale-95"
+                            >
+                                <span className="hidden sm:inline">Suivant</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── MODAL ASSISTANT NOUVEAU RETOUR CLIENT COMPACT ── */}
             {showNewReturnModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-                    <div className="bg-white w-full max-w-xl rounded-[4px] shadow-2xl border-t-4 border-[#001d35] border-x-2 border-b-2 border-gray-300 overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-150">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+                    <div className="bg-white w-full max-w-xl rounded-[4px] shadow-2xl border-2 border-[#001d35] overflow-hidden flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-150">
                         {/* Modal Header */}
-                        <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 border-b-2 border-[#001d35] flex justify-between items-start bg-[#001d35] text-white flex-shrink-0">
-                            <div>
-                                <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                                    <RotateCcw className="w-3.5 h-3.5 text-[#f77500]" />
-                                    Assistant Retour & Bon d'Avoir
-                                </h3>
-                                <p className="text-blue-100/70 text-[11px] mt-0.5 font-medium">
-                                    Étape {modalStep} sur 3 — {
-                                        modalStep === 1 ? "Identification Ticket ou Comptoir" :
-                                        modalStep === 2 ? "Sélection & État des Marchandises" :
-                                        "Règle Financière & Clôture"
-                                    }
-                                </p>
+                        <div className="bg-[#001d35] text-white px-4 py-3 flex items-center justify-between border-b-2 border-[#f77500] shrink-0">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center shrink-0">
+                                    <RotateCcw className="w-4 h-4 text-[#f77500]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+                                        Assistant Retour & Bon d'Avoir
+                                    </h3>
+                                    <p className="text-[10px] text-gray-300 font-normal">
+                                        Étape {modalStep} sur 3 &bull; {
+                                            modalStep === 1 ? "Identification Ticket ou Comptoir" :
+                                            modalStep === 2 ? "Sélection & État des Marchandises" :
+                                            "Règle Financière & Clôture"
+                                        }
+                                    </p>
+                                </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowNewReturnModal(false)}
-                                className="text-blue-200 hover:text-white p-1 rounded-[4px] transition-colors cursor-pointer"
+                                className="text-gray-300 hover:text-white p-1 rounded-[4px] transition-colors cursor-pointer"
+                                title="Fermer"
                             >
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
                         {/* Stepper bar */}
-                        <div className="grid grid-cols-3 border-b-2 border-gray-300 bg-gray-50 text-[10px] font-bold uppercase tracking-wider text-center flex-shrink-0">
-                            <div className={`py-1.5 border-r-2 border-gray-300 transition-colors ${modalStep === 1 ? 'bg-white text-[#001d35] border-b-2 border-[#001d35]' : modalStep > 1 ? 'text-emerald-700 bg-emerald-50/50' : 'text-gray-400'}`}>
+                        <div className="grid grid-cols-3 border-b-2 border-gray-300 bg-gray-50 text-[10px] font-semibold uppercase tracking-wider text-center flex-shrink-0">
+                            <div className={`py-2 border-r-2 border-gray-300 transition-colors ${modalStep === 1 ? 'bg-white text-[#001d35] border-b-2 border-[#f77500] font-bold' : modalStep > 1 ? 'text-emerald-700 bg-emerald-50/50' : 'text-gray-400'}`}>
                                 1. Origine & Client
                             </div>
-                            <div className={`py-1.5 border-r-2 border-gray-300 transition-colors ${modalStep === 2 ? 'bg-white text-[#001d35] border-b-2 border-[#001d35]' : modalStep > 2 ? 'text-emerald-700 bg-emerald-50/50' : 'text-gray-400'}`}>
+                            <div className={`py-2 border-r-2 border-gray-300 transition-colors ${modalStep === 2 ? 'bg-white text-[#001d35] border-b-2 border-[#f77500] font-bold' : modalStep > 2 ? 'text-emerald-700 bg-emerald-50/50' : 'text-gray-400'}`}>
                                 2. Articles & Stock
                             </div>
-                            <div className={`py-1.5 transition-colors ${modalStep === 3 ? 'bg-white text-[#001d35] border-b-2 border-[#001d35]' : 'text-gray-400'}`}>
+                            <div className={`py-2 transition-colors ${modalStep === 3 ? 'bg-white text-[#001d35] border-b-2 border-[#f77500] font-bold' : 'text-gray-400'}`}>
                                 3. Règlement & Clôture
                             </div>
                         </div>
@@ -1610,10 +2919,197 @@ const Returns = () => {
                 <ReturnReceipt
                     returnRecord={viewingReturn}
                     creditNote={viewingCreditNote}
+                    onRefundCash={(note) => {
+                        setViewingReturn(null);
+                        setViewingCreditNote(null);
+                        handleOpenCashRefund(note);
+                    }}
                     onClose={() => {
                         setViewingReturn(null);
                         setViewingCreditNote(null);
                     }}
+                />
+            )}
+
+            {/* ── MODAL FORMULAIRE DÉCAISSEMENT / REMBOURSEMENT D'AVOIR EN ESPÈCES ── */}
+            {cashRefundTarget && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[110] p-4 animate-in fade-in duration-150">
+                    <div className="bg-white rounded-[4px] shadow-2xl border-2 border-[#001d35] max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+                        {/* Header */}
+                        <div className="bg-[#001d35] text-white px-4 py-3 flex items-center justify-between border-b-2 border-[#f77500] shrink-0">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center shrink-0">
+                                    <Banknote className="w-4 h-4 text-[#f77500]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xs font-semibold uppercase tracking-wider text-white flex items-center gap-1.5">
+                                        <span>Remboursement d'Avoir en Espèces</span>
+                                        <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-1.5 py-0.2 rounded font-semibold">
+                                            Sortie Caisse
+                                        </span>
+                                    </h3>
+                                    <p className="text-[10px] text-gray-300 font-normal">
+                                        Bon N° <span className="font-semibold text-white">{cashRefundTarget.code}</span> &bull; {cashRefundTarget.type === 'change_reliquat' ? 'Reliquat Monnaie' : "Avoir sur Retour"}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => !cashRefundLoading && setCashRefundTarget(null)}
+                                disabled={cashRefundLoading}
+                                className="text-gray-300 hover:text-white p-1 rounded-[4px] transition-colors cursor-pointer"
+                                title="Fermer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Corps Formulaire */}
+                        <div className="p-4 space-y-3.5 overflow-y-auto flex-1 custom-scrollbar">
+                            {/* Summary Card */}
+                            <div className="bg-emerald-50/60 border border-emerald-200 rounded-[4px] p-3 flex justify-between items-center">
+                                <div>
+                                    <p className="text-[10px] uppercase font-semibold text-[#001d35] tracking-wider">Client Bénéficiaire</p>
+                                    <p className="text-xs font-semibold text-[#001d35] mt-0.5">{cashRefundTarget.customerName || 'Client Comptoir'}</p>
+                                    {cashRefundTarget.siteName && (
+                                        <p className="text-[10px] text-gray-500 font-medium">Chantier : {cashRefundTarget.siteName}</p>
+                                    )}
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] uppercase font-semibold text-emerald-800 tracking-wider">Solde Restant Disponible</p>
+                                    <p className="text-base font-semibold text-emerald-700 mt-0.5">{formatPrice(cashRefundTarget.remainingAmount)}</p>
+                                    <p className="text-[10px] text-gray-500 font-medium">Montant initial : {formatPrice(cashRefundTarget.initialAmount)}</p>
+                                </div>
+                            </div>
+
+                            {/* Montant à décaisser */}
+                            <div>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-[11px] font-semibold text-[#001d35] uppercase tracking-wider">
+                                        Montant à Décaisser en Espèces <span className="text-rose-500">*</span>
+                                    </label>
+                                    <div className="flex gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setCashRefundAmount(cashRefundTarget.remainingAmount)}
+                                            className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-[3px] border border-emerald-300 cursor-pointer uppercase tracking-wider"
+                                        >
+                                            100% ({formatPrice(cashRefundTarget.remainingAmount)})
+                                        </button>
+                                        {cashRefundTarget.remainingAmount > 100 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setCashRefundAmount(Math.round(cashRefundTarget.remainingAmount / 2))}
+                                                className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-2 py-0.5 rounded-[3px] border border-gray-300 cursor-pointer uppercase tracking-wider"
+                                            >
+                                                50%
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={cashRefundTarget.remainingAmount}
+                                        value={cashRefundAmount}
+                                        onChange={(e) => setCashRefundAmount(e.target.value)}
+                                        className="w-full pl-3 pr-16 py-1.5 bg-white border border-gray-300 rounded-[4px] text-sm font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                        placeholder="0"
+                                    />
+                                    <span className="absolute right-3 top-2 text-xs font-semibold text-gray-500">FCFA</span>
+                                </div>
+                                {parseFloat(cashRefundAmount) > 0 && (
+                                    <div className="mt-1 flex justify-between text-[10px] text-gray-500 font-medium">
+                                        <span>Nouveau solde restant après décaissement :</span>
+                                        <span className="font-semibold text-[#001d35]">
+                                            {formatPrice(Math.max(0, (cashRefundTarget.remainingAmount || 0) - (parseFloat(cashRefundAmount) || 0)))}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Bénéficiaire */}
+                            <div>
+                                <label className="block text-[11px] font-semibold text-[#001d35] uppercase tracking-wider mb-1">
+                                    Nom de la Personne Réceptionnant les Espèces <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={cashRefundRecipient}
+                                    onChange={(e) => setCashRefundRecipient(e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-[4px] text-xs font-normal text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                    placeholder="Ex: M. Koffi / Porteur du bon"
+                                    required
+                                />
+                            </div>
+
+                            {/* Motif */}
+                            <div>
+                                <label className="block text-[11px] font-semibold text-[#001d35] uppercase tracking-wider mb-1">
+                                    Motif / Justification du Décaissement
+                                </label>
+                                <input
+                                    type="text"
+                                    value={cashRefundMotif}
+                                    onChange={(e) => setCashRefundMotif(e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-[4px] text-xs font-normal text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#001d35]"
+                                    placeholder="Ex: Demande expresse du client, remboursement reliquat"
+                                />
+                            </div>
+
+                            {/* Alerte Audit Caisse */}
+                            <div className="bg-amber-50 border border-amber-300 rounded-[3px] p-2.5 flex items-start gap-2">
+                                <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+                                <div className="text-[10px] text-amber-900 leading-tight font-normal">
+                                    <strong className="font-semibold">Impact Caisse & Anti-Coulage :</strong> Cette opération crée automatiquement une <strong className="font-semibold">sortie de caisse de {formatPrice(parseFloat(cashRefundAmount) || 0)}</strong> dans le journal des dépenses de la session active. Le solde du bon d'avoir sera immédiatement débité.
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-3 bg-gray-50 border-t-2 border-gray-300 flex justify-end items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setCashRefundTarget(null)}
+                                disabled={cashRefundLoading}
+                                className="px-3.5 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-[4px] transition-colors cursor-pointer"
+                            >
+                                Annuler
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleConfirmCashRefund}
+                                disabled={cashRefundLoading || !parseFloat(cashRefundAmount) || parseFloat(cashRefundAmount) <= 0}
+                                className={`px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-white rounded-[4px] shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 ${
+                                    cashRefundLoading || !parseFloat(cashRefundAmount) || parseFloat(cashRefundAmount) <= 0
+                                        ? 'bg-gray-400 cursor-not-allowed opacity-70'
+                                        : 'bg-[#001d35] hover:bg-[#00284a]'
+                                }`}
+                            >
+                                {cashRefundLoading ? (
+                                    <>
+                                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        <span>Décaissement en cours...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Banknote className="w-3.5 h-3.5 text-[#f77500]" />
+                                        <span>Valider le Décaissement ({formatPrice(parseFloat(cashRefundAmount) || 0)})</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── MODAL REÇU DÉCHARGE REMBOURSEMENT ESPÈCES (80mm & A4) ── */}
+            {printedCashRefund && (
+                <CashRefundReceipt
+                    refundData={printedCashRefund}
+                    onClose={() => setPrintedCashRefund(null)}
                 />
             )}
         </div>

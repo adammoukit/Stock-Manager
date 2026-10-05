@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { X, Printer, RotateCcw, CheckCircle2, AlertTriangle, Ticket } from 'lucide-react';
+import { X, Printer, RotateCcw, CheckCircle2, AlertTriangle, Ticket, Banknote } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { formatPrice } from '../utils/currency';
 import { useSettings } from '../context/SettingsContext';
@@ -7,7 +7,7 @@ import { Barcode } from '../utils/barcodeGenerator';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const ReturnReceipt = ({ returnRecord, creditNote, onClose }) => {
+const ReturnReceipt = ({ returnRecord, creditNote, onClose, onRefundCash }) => {
     const receiptRef = useRef();
     const [formatMode, setFormatMode] = useState('thermal'); // 'thermal' | 'a4'
     const { company, stores, currentStoreId } = useSettings();
@@ -38,48 +38,61 @@ const ReturnReceipt = ({ returnRecord, creditNote, onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 print:p-0 print:bg-white print:static">
-            <div className={`bg-white rounded-[4px] shadow-2xl border-t-4 border-[#001d35] border-x-2 border-b-2 border-gray-300 flex flex-col max-h-[92vh] w-full transition-all duration-200 print:shadow-none print:max-h-none print:w-full print:border-none ${
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[110] p-4 print:p-0 print:bg-white print:static animate-in fade-in duration-150">
+            <div className={`bg-white rounded-[4px] shadow-2xl border-2 border-[#001d35] flex flex-col max-h-[92vh] w-full transition-all duration-200 print:shadow-none print:max-h-none print:w-full print:border-none ${
                 formatMode === 'a4' ? 'max-w-3xl' : 'max-w-md'
             }`}>
                 {/* Modal Toolbar (hidden on print) */}
-                <div className="p-3.5 border-b-2 border-gray-300 flex justify-between items-center bg-gray-50 print:hidden flex-shrink-0">
+                <div className="bg-[#001d35] text-white px-4 py-3 flex justify-between items-center border-b-2 border-[#f77500] print:hidden shrink-0">
                     <div className="flex items-center gap-2">
-                        <span className="p-1.5 bg-[#001d35] text-white rounded-[4px]">
+                        <div className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center shrink-0">
                             <RotateCcw className="w-4 h-4 text-[#f77500]" />
-                        </span>
+                        </div>
                         <div>
-                            <h2 className="text-xs font-bold text-[#001d35] uppercase tracking-wide">
+                            <h2 className="text-xs font-semibold uppercase tracking-wider text-white">
                                 {isReliquat ? "Bon de Reliquat (Avoir de Monnaie)" : isAvoir ? "Bon d'Avoir Client" : isCash ? 'Remboursement Espèces' : 'Avoir sur Créance'}
                             </h2>
-                            <p className="text-[10px] text-gray-500 font-bold tracking-tight">{isReliquat ? (creditNote?.code || voucherCode) : returnRecord.returnNumber}</p>
+                            <p className="text-[10px] text-gray-300 font-normal">
+                                {isReliquat ? (creditNote?.code || voucherCode) : returnRecord.returnNumber}
+                            </p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                         {/* Format selector */}
-                        <div className="flex bg-gray-200 p-0.5 rounded-[4px] text-xs font-medium border border-gray-300">
+                        <div className="flex bg-white/10 p-0.5 rounded-[4px] text-xs font-medium border border-white/20">
                             <button
                                 onClick={() => setFormatMode('thermal')}
-                                className={`px-2.5 py-1 rounded-[4px] transition-colors cursor-pointer text-[11px] font-bold uppercase tracking-wider ${
-                                    formatMode === 'thermal' ? 'bg-[#001d35] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                                className={`px-2.5 py-1 rounded-[4px] transition-colors cursor-pointer text-[10px] font-semibold uppercase tracking-wider ${
+                                    formatMode === 'thermal' ? 'bg-[#f77500] text-white shadow-xs' : 'text-gray-300 hover:text-white'
                                 }`}
                             >
                                 Ticket 80mm
                             </button>
                             <button
                                 onClick={() => setFormatMode('a4')}
-                                className={`px-2.5 py-1 rounded-[4px] transition-colors cursor-pointer text-[11px] font-bold uppercase tracking-wider ${
-                                    formatMode === 'a4' ? 'bg-[#001d35] text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                                className={`px-2.5 py-1 rounded-[4px] transition-colors cursor-pointer text-[10px] font-semibold uppercase tracking-wider ${
+                                    formatMode === 'a4' ? 'bg-[#f77500] text-white shadow-xs' : 'text-gray-300 hover:text-white'
                                 }`}
                             >
                                 Document A4
                             </button>
                         </div>
 
+                        {onRefundCash && creditNote && parseFloat(creditNote.remainingAmount) > 0 && creditNote.status !== 'cancelled' && (
+                            <button
+                                onClick={() => onRefundCash(creditNote)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[4px] text-xs font-semibold uppercase tracking-wider transition-all shadow-sm cursor-pointer active:scale-95"
+                                title="Rembourser ce bon en espèces au client"
+                            >
+                                <Banknote className="w-3.5 h-3.5 text-emerald-200" />
+                                <span>Rembourser Espèces</span>
+                            </button>
+                        )}
+
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-1.5 bg-[#001d35] hover:bg-[#00284a] text-white px-3.5 py-1.5 rounded-[4px] text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer active:scale-95"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-[4px] text-xs font-semibold uppercase tracking-wider transition-all border border-white/20 cursor-pointer active:scale-95"
                         >
                             <Printer className="w-3.5 h-3.5 text-[#f77500]" />
                             <span>Imprimer</span>
@@ -87,7 +100,8 @@ const ReturnReceipt = ({ returnRecord, creditNote, onClose }) => {
 
                         <button
                             onClick={onClose}
-                            className="p-1.5 hover:bg-gray-200 rounded-[4px] text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
+                            className="text-gray-300 hover:text-white p-1 rounded-[4px] transition-colors cursor-pointer"
+                            title="Fermer"
                         >
                             <X className="w-4 h-4" />
                         </button>
