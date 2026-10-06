@@ -3,6 +3,7 @@ import { useInventory } from '../../context/InventoryContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useSales } from '../../context/SalesContext';
 import { useDeliveries } from '../../context/DeliveryContext';
+import { exportToExcel } from '../../utils/excelExport';
 import T from '../../utils/toast';
 import { 
     Search, Plus, Grid, List, Download, Printer, 
@@ -329,28 +330,21 @@ const ProductList = () => {
     const handleBulkExport = () => {
         const targetIds = selectedProductIds.length > 0 ? selectedProductIds : filteredProducts.map(p => p.id);
         const selected = products.filter(p => targetIds.includes(p.id));
-        const headers = ['SKU / Code', 'Code-Barres', 'Nom Produit', 'Catégorie', 'Prix de Vente', 'Prix d\'Achat', 'Stock Actuel', 'Stock Min', 'Fournisseur', 'Unité'];
-        const rows = selected.map(p => [
-            p.id?.substring(0, 8) || '',
-            p.barcode || '',
-            p.name,
-            p.category,
-            p.price,
-            p.purchasePrice || 0,
-            p.stockLevels?.[currentStoreId] || 0,
-            p.minStockLevels?.[currentStoreId] || p.minStock || 0,
-            p.supplier || '',
-            p.unit || ''
-        ]);
-        const csvContent = [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; 
-        a.download = `Export_Produits_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click(); 
-        URL.revokeObjectURL(url);
-        T.export(`${selected.length} produit(s) exporté(s) en CSV`);
+        const rows = selected.map(p => ({
+            'SKU / Code': p.id?.substring(0, 8) || '',
+            'Code-Barres': p.barcode || '',
+            'Nom Produit': p.name || '',
+            'Catégorie': p.category || '',
+            'Prix de Vente (DH)': p.price || 0,
+            'Prix d\'Achat (DH)': p.purchasePrice || 0,
+            'Stock Actuel': p.stockLevels?.[currentStoreId] || 0,
+            'Stock Min': p.minStockLevels?.[currentStoreId] || p.minStock || 0,
+            'Fournisseur': p.supplier || '',
+            'Unité': p.unit || ''
+        }));
+        const filename = `Export_Catalogue_Produits_${new Date().toISOString().slice(0, 10)}`;
+        exportToExcel(rows, filename, 'Catalogue Produits');
+        T.export(`${selected.length} produit(s) exporté(s) au format Excel (.xlsx)`);
     };
 
     const handlePrintLabels = (targetProduct = null) => {
@@ -955,10 +949,10 @@ const ProductList = () => {
                         <button
                             onClick={handleBulkExport}
                             className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#001d35] text-xs font-bold uppercase tracking-wider rounded-sm flex items-center gap-1 transition-colors cursor-pointer border border-gray-300"
-                            title="Exporter la vue au format CSV"
+                            title="Exporter la vue au format Excel (.xlsx)"
                         >
                             <FileSpreadsheet className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">CSV</span>
+                            <span className="hidden md:inline">Excel</span>
                         </button>
                     </div>
                 </div>
@@ -1351,7 +1345,7 @@ const ProductList = () => {
                                             className="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-blue-50 hover:text-[#001d35] flex items-center gap-2 cursor-pointer"
                                         >
                                             <FileSpreadsheet className="w-4 h-4 text-[#001d35]" />
-                                            Exporter au format CSV ({sortedProducts.length})
+                                            Exporter au format Excel ({sortedProducts.length})
                                         </button>
                                         <button
                                             type="button"

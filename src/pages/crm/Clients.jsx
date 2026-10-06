@@ -9,6 +9,7 @@ import {
     Ticket, Wallet, History, UserCheck, UserPlus, Coins, Filter
 } from 'lucide-react';
 import { formatPrice } from '../../utils/currency';
+import { exportToExcel } from '../../utils/excelExport';
 import T from '../../utils/toast';
 
 const Clients = () => {
@@ -886,38 +887,32 @@ const Clients = () => {
     };
 
     // Export CSV Clients List ou Historique des Opérations
-    const handleExportCSV = () => {
+    const handleExportExcel = () => {
         if (currentView === 'operations') {
             if (filteredOperations.length === 0) {
                 T.warning("Aucune opération à exporter.");
                 return;
             }
-            triggerActionLoading("Génération de l'export CSV de l'historique...", () => {
-                const headers = ['Date', 'Type Opération', 'Référence', 'Client', 'Chantier', 'Montant (FCFA)', 'Impact Solde', 'Statut', 'Auteur / Caisse', 'Notes & Motif'];
-                const rows = filteredOperations.map(o => [
-                    new Date(o.date).toLocaleString('fr-FR'),
-                    o.typeLabel,
-                    o.refCode,
-                    o.clientName,
-                    o.siteName || 'Comptoir',
-                    o.amount || 0,
-                    o.impactType === 'credit_advance' ? '+Avance Client' : (o.impactType === 'debt_increase' ? '+Dette' : (o.impactType === 'debt_decrease' ? '-Dette (Règlement)' : 'Info')),
-                    o.status,
-                    o.cashier,
-                    (o.notes || '').replace(/"/g, '""')
-                ]);
-
-                const csvContent = [
-                    headers.join(','),
-                    ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
-                ].join('\n');
-
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `historique_operations_clients_${new Date().toISOString().slice(0, 10)}.csv`;
-                link.click();
-                T.export("Export CSV de l'historique réussi !");
+            triggerActionLoading("Génération de l'export Excel de l'historique...", () => {
+                const rows = filteredOperations.map(o => {
+                    const dateObj = new Date(o.date);
+                    return {
+                        'Date': !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR') : '',
+                        'Heure': !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '',
+                        'Type Opération': o.typeLabel || '',
+                        'Référence': o.refCode || '',
+                        'Client': o.clientName || '',
+                        'Chantier': o.siteName || 'Comptoir',
+                        'Montant (FCFA)': o.amount || 0,
+                        'Impact Solde': o.impactType === 'credit_advance' ? '+Avance Client' : (o.impactType === 'debt_increase' ? '+Dette' : (o.impactType === 'debt_decrease' ? '-Dette (Règlement)' : 'Info')),
+                        'Statut': o.status || 'OK',
+                        'Auteur / Caisse': o.cashier || '',
+                        'Notes & Motif': o.notes || ''
+                    };
+                });
+                const filename = `historique_operations_clients_${new Date().toISOString().slice(0, 10)}`;
+                exportToExcel(rows, filename, 'Opérations');
+                T.export("Export Excel de l'historique réussi !");
             });
             return;
         }
@@ -927,32 +922,22 @@ const Clients = () => {
             return;
         }
 
-        triggerActionLoading("Génération de l'export CSV des clients...", () => {
-            const headers = ['Nom Client', 'Type', 'Téléphone', 'Email', 'Adresse', 'NIF', 'Plafond Crédit (FCFA)', 'Dette Active (FCFA)', 'Chantiers Actifs', 'Barème'];
-            const rows = enrichedClients.map(c => [
-                c.name,
-                c.type || 'particulier',
-                c.phone || '',
-                c.email || '',
-                c.address || '',
-                c.nif || '',
-                c.creditLimit || 0,
-                c.totalDebt || 0,
-                c.activeSitesCount || 0,
-                c.pricingTier || 'normal'
-            ]);
-
-            const csvContent = [
-                headers.join(','),
-                ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
-            ].join('\n');
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `fichier_clients_${new Date().toISOString().slice(0, 10)}.csv`;
-            link.click();
-            T.export("Export CSV des clients réussi !");
+        triggerActionLoading("Génération de l'export Excel des clients...", () => {
+            const rows = enrichedClients.map(c => ({
+                'Nom Client': c.name || '',
+                'Type': c.type || 'particulier',
+                'Téléphone': c.phone || '',
+                'Email': c.email || '',
+                'Adresse': c.address || '',
+                'NIF': c.nif || '',
+                'Plafond Crédit (FCFA)': c.creditLimit || 0,
+                'Dette Active (FCFA)': c.totalDebt || 0,
+                'Chantiers Actifs': c.activeSitesCount || 0,
+                'Barème': c.pricingTier || 'normal'
+            }));
+            const filename = `fichier_clients_${new Date().toISOString().slice(0, 10)}`;
+            exportToExcel(rows, filename, 'Clients');
+            T.export("Export Excel des clients réussi !");
         });
     };
 
@@ -975,30 +960,25 @@ const Clients = () => {
         });
     };
 
-    const handleBulkExportSelectedCSV = () => {
+    const handleBulkExportSelectedExcel = () => {
         const target = enrichedClients.filter(c => selectedClientIds.includes(c.id));
         if (target.length === 0) return;
-        triggerActionLoading("Export CSV des clients sélectionnés...", () => {
-            const headers = ['Nom Client', 'Type', 'Téléphone', 'Email', 'Adresse', 'NIF', 'Plafond Crédit (FCFA)', 'Dette Active (FCFA)', 'Chantiers Actifs', 'Barème'];
-            const rows = target.map(c => [
-                c.name,
-                c.type || 'particulier',
-                c.phone || '',
-                c.email || '',
-                c.address || '',
-                c.nif || '',
-                c.creditLimit || 0,
-                c.totalDebt || 0,
-                c.activeSitesCount || 0,
-                c.pricingTier || 'normal'
-            ]);
-            const csvContent = [headers.join(','), ...rows.map(r => r.map(cell => `"${cell}"`).join(','))].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `clients_selectionnes_${new Date().toISOString().slice(0, 10)}.csv`;
-            link.click();
-            T.export(`${target.length} client(s) sélectionné(s) exporté(s) en CSV`);
+        triggerActionLoading("Export Excel des clients sélectionnés...", () => {
+            const rows = target.map(c => ({
+                'Nom Client': c.name || '',
+                'Type': c.type || 'particulier',
+                'Téléphone': c.phone || '',
+                'Email': c.email || '',
+                'Adresse': c.address || '',
+                'NIF': c.nif || '',
+                'Plafond Crédit (FCFA)': c.creditLimit || 0,
+                'Dette Active (FCFA)': c.totalDebt || 0,
+                'Chantiers Actifs': c.activeSitesCount || 0,
+                'Barème': c.pricingTier || 'normal'
+            }));
+            const filename = `clients_selectionnes_${new Date().toISOString().slice(0, 10)}`;
+            exportToExcel(rows, filename, 'Clients');
+            T.export(`${target.length} client(s) sélectionné(s) exporté(s) au format Excel (.xlsx)`);
         });
     };
 
@@ -1036,36 +1016,31 @@ const Clients = () => {
         });
     };
 
-    const handleBulkExportOperationsCSV = () => {
+    const handleBulkExportOperationsExcel = () => {
         const target = allOperationsList.filter(op => selectedOperationIds.includes(op.id));
         if (target.length === 0) return;
-        triggerActionLoading("Export CSV des opérations sélectionnées...", () => {
-            const headers = ['Date', 'Heure', 'Opération', 'Référence', 'Client', 'Chantier', 'Montant (FCFA)', 'Solde Restant (FCFA)', 'Statut', 'Auteur / Caissier', 'Notes'];
+        triggerActionLoading("Export Excel des opérations sélectionnées...", () => {
             const rows = target.map(op => {
                 const dateObj = new Date(op.date);
                 const dStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('fr-FR') : '';
                 const tStr = !isNaN(dateObj.getTime()) ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-                return [
-                    dStr,
-                    tStr,
-                    op.typeLabel || '',
-                    op.refCode || '',
-                    op.clientName || '',
-                    op.siteName || 'Comptoir',
-                    op.amount || 0,
-                    op.remainingAmount || 0,
-                    op.status || 'OK',
-                    op.cashier || '',
-                    op.notes || ''
-                ];
+                return {
+                    'Date': dStr,
+                    'Heure': tStr,
+                    'Opération': op.typeLabel || '',
+                    'Référence': op.refCode || '',
+                    'Client': op.clientName || '',
+                    'Chantier': op.siteName || 'Comptoir',
+                    'Montant (FCFA)': op.amount || 0,
+                    'Solde Restant (FCFA)': op.remainingAmount || 0,
+                    'Statut': op.status || 'OK',
+                    'Auteur / Caissier': op.cashier || '',
+                    'Notes': op.notes || ''
+                };
             });
-            const csvContent = [headers.join(','), ...rows.map(r => r.map(cell => `"${cell}"`).join(','))].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `operations_selectionnees_${new Date().toISOString().slice(0, 10)}.csv`;
-            link.click();
-            T.export(`${target.length} opération(s) sélectionnée(s) exportée(s) en CSV`);
+            const filename = `operations_selectionnees_${new Date().toISOString().slice(0, 10)}`;
+            exportToExcel(rows, filename, 'Opérations');
+            T.export(`${target.length} opération(s) sélectionnée(s) exportée(s) au format Excel (.xlsx)`);
         });
     };
 
@@ -1185,12 +1160,12 @@ const Clients = () => {
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={handleExportCSV}
+                        onClick={handleExportExcel}
                         className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[4px] border-2 border-gray-300 bg-white hover:bg-gray-50 text-[#001d35] transition-all cursor-pointer shadow-sm active:scale-95"
-                        title={currentView === 'operations' ? "Exporter l'historique des opérations au format CSV" : "Exporter le fichier clients au format CSV"}
+                        title={currentView === 'operations' ? "Exporter l'historique des opérations au format Excel (.xlsx)" : "Exporter le fichier clients au format Excel (.xlsx)"}
                     >
                         <Download className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>{currentView === 'operations' ? 'Exporter Historique (CSV)' : 'Exporter CSV'}</span>
+                        <span>{currentView === 'operations' ? 'Exporter Historique (Excel)' : 'Exporter Excel'}</span>
                     </button>
                     <button
                         type="button"
@@ -1634,12 +1609,12 @@ const Clients = () => {
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={handleBulkExportSelectedCSV}
+                                    onClick={handleBulkExportSelectedExcel}
                                     className="px-2.5 py-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 rounded-[4px] text-xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-2xs transition-all active:scale-95"
-                                    title="Exporter les clients cochés au format CSV"
+                                    title="Exporter les clients cochés au format Excel (.xlsx)"
                                 >
                                     <Download className="w-3.5 h-3.5 text-[#f77500]" />
-                                    <span>Exporter ({selectedClientIds.length})</span>
+                                    <span>Exporter Excel ({selectedClientIds.length})</span>
                                 </button>
                                 <button
                                     type="button"
@@ -1868,12 +1843,12 @@ const Clients = () => {
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={handleBulkExportOperationsCSV}
+                                    onClick={handleBulkExportOperationsExcel}
                                     className="px-2.5 py-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 rounded-[4px] text-xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-2xs transition-all active:scale-95"
-                                    title="Exporter les opérations cochées au format CSV"
+                                    title="Exporter les opérations cochées au format Excel (.xlsx)"
                                 >
                                     <Download className="w-3.5 h-3.5 text-[#f77500]" />
-                                    <span>Exporter ({selectedOperationIds.length})</span>
+                                    <span>Exporter Excel ({selectedOperationIds.length})</span>
                                 </button>
                                 <button
                                     type="button"

@@ -5,6 +5,8 @@ import { useInventory } from '../../context/InventoryContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../utils/currency';
+import { exportToExcel } from '../../utils/excelExport';
+import T from '../../utils/toast';
 import { 
     Download, Printer, Search, CheckCircle2, AlertCircle, 
     Calendar, Filter, Eye, Loader2, RotateCcw
@@ -776,29 +778,24 @@ const SalesPerformance = () => {
         );
     };
 
-    // Export CSV
-    const exportCSV = () => {
-        if (currentPeriodTx.length === 0) return;
-        const headers = ['ID Vente', 'Date', 'Mode de Règlement', 'Montant TTC (FCFA)', 'Marge Réalisée (FCFA)', 'Articles'];
-        const rows = currentPeriodTx.map(t => [
-            t.id,
-            format(new Date(t.date || t.transactionDate), 'dd/MM/yyyy HH:mm'),
-            t.paymentMethod || 'Espèces',
-            t.total,
-            Math.round(calculateTxMargin(t)),
-            (t.items || []).map(i => `${i.name} (x${i.inputQuantity || i.quantity || 1})`).join('; ')
-        ]);
+    // Export Excel
+    const exportExcel = () => {
+        if (currentPeriodTx.length === 0) {
+            T.warning("Aucune vente sur la période à exporter.");
+            return;
+        }
+        const rows = currentPeriodTx.map(t => ({
+            'ID Vente': t.id,
+            'Date': format(new Date(t.date || t.transactionDate), 'dd/MM/yyyy HH:mm'),
+            'Mode de Règlement': t.paymentMethod || 'Espèces',
+            'Montant TTC': t.total,
+            'Marge Réalisée': Math.round(calculateTxMargin(t)),
+            'Articles': (t.items || []).map(i => `${i.name} (x${i.inputQuantity || i.quantity || 1})`).join('; ')
+        }));
 
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `performances_ventes_${period}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-        link.click();
+        const filename = `Performances_Ventes_${period}_${format(new Date(), 'yyyy-MM-dd')}`;
+        exportToExcel(rows, filename, 'Performances Ventes');
+        T.export(`${rows.length} vente(s) exportée(s) au format Excel (.xlsx)`);
     };
 
     if (isLoading || isLoadingSales) {
@@ -849,12 +846,12 @@ const SalesPerformance = () => {
                 {/* Boutons Actions Rapides */}
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={exportCSV}
+                        onClick={exportExcel}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-sm border-2 border-gray-300 bg-white hover:bg-gray-50 text-[#001d35] transition-all cursor-pointer shadow-sm"
-                        title="Exporter au format Excel / CSV"
+                        title="Exporter au format Excel (.xlsx)"
                     >
                         <Download className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Exporter CSV</span>
+                        <span>Exporter Excel</span>
                     </button>
                     <button
                         onClick={() => window.print()}

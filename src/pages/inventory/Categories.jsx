@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { useSettings } from '../../context/SettingsContext';
 import { formatPrice } from '../../utils/currency';
+import { exportToExcel } from '../../utils/excelExport';
 import T from '../../utils/toast';
 import { 
     Package, Plus, Search, Edit2, Trash2, X, Eye, 
@@ -236,34 +237,25 @@ const Categories = () => {
         });
     };
 
-    const handleExportCSV = () => {
+    const handleExportExcel = () => {
         if (enrichedCategories.length === 0) {
             T.warning("Aucune catégorie à exporter.");
             return;
         }
 
-        triggerActionLoading("Génération de l'export CSV...", () => {
-            const headers = ['Nom Catégorie', 'Description', 'Nombre Articles', 'Stock Total', 'Valeur Stock (FCFA)', 'Prix Moyen (FCFA)'];
-            const rows = enrichedCategories.map(c => [
-                c.name,
-                c.description || '',
-                c.productCount,
-                c.totalStockUnits,
-                c.totalStockValue,
-                Math.round(c.avgPrice)
-            ]);
+        triggerActionLoading("Génération de l'export Excel...", () => {
+            const rows = enrichedCategories.map(c => ({
+                'Nom Catégorie': c.name,
+                'Description': c.description || '',
+                'Nombre Articles': c.productCount,
+                'Stock Total': c.totalStockUnits,
+                'Valeur Stock': c.totalStockValue,
+                'Prix Moyen': Math.round(c.avgPrice)
+            }));
 
-            const csvContent = [
-                headers.join(','),
-                ...rows.map(r => r.map(cell => `"${cell}"`).join(','))
-            ].join('\n');
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `categories_quincaillerie_${new Date().toISOString().slice(0, 10)}.csv`;
-            link.click();
-            T.export("Export CSV des catégories réussi !");
+            const filename = `Categories_Quincaillerie_${new Date().toISOString().slice(0, 10)}`;
+            exportToExcel(rows, filename, 'Catégories');
+            T.export("Export Excel des catégories réussi !");
         });
     };
 
@@ -291,12 +283,12 @@ const Categories = () => {
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={handleExportCSV}
+                        onClick={handleExportExcel}
                         className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[4px] border-2 border-gray-300 bg-white hover:bg-gray-50 text-[#001d35] transition-all cursor-pointer shadow-sm active:scale-95"
-                        title="Exporter le résumé des catégories au format CSV"
+                        title="Exporter le résumé des catégories au format Excel (.xlsx)"
                     >
                         <Download className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Exporter CSV</span>
+                        <span>Exporter Excel</span>
                     </button>
                     <button
                         type="button"

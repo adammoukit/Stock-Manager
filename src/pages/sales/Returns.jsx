@@ -7,6 +7,7 @@ import { formatPrice } from '../../utils/currency';
 import ReturnReceipt from '../../components/ReturnReceipt';
 import CashRefundReceipt from '../../components/CashRefundReceipt';
 import FinancialInput from '../../components/FinancialInput';
+import { exportToExcel } from '../../utils/excelExport';
 import T from '../../utils/toast';
 import { 
     format, 
@@ -803,91 +804,71 @@ const Returns = () => {
         );
     };
 
-    const handleBulkExportCSV = () => {
+    const handleBulkExportExcel = () => {
         if (selectedRowIds.length === 0) return;
 
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-        let filename = "export.csv";
-
         if (activeTab === 'all') {
-            filename = `operations_retours_avoirs_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
-            csvContent += "Date;Heure;Nature;Reference;Client;Chantier;Montant;Solde_Restant;Statut\r\n";
-            filteredUnifiedOperations
+            const filename = `operations_retours_avoirs_${format(new Date(), 'yyyyMMdd_HHmm')}`;
+            const rows = filteredUnifiedOperations
                 .filter(op => selectedRowIds.includes(op.id))
-                .forEach(op => {
+                .map(op => {
                     const d = new Date(op.date);
-                    const dStr = !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '';
-                    const tStr = !isNaN(d.getTime()) ? format(d, 'HH:mm') : '';
-                    const row = [
-                        dStr,
-                        tStr,
-                        op.typeLabel || '',
-                        op.refCode || '',
-                        (op.customerName || '').replace(/;/g, ' '),
-                        (op.siteName || '').replace(/;/g, ' '),
-                        op.amount || 0,
-                        op.remainingAmount || 0,
-                        op.statusLabel || ''
-                    ].join(';');
-                    csvContent += row + "\r\n";
+                    return {
+                        'Date': !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '',
+                        'Heure': !isNaN(d.getTime()) ? format(d, 'HH:mm') : '',
+                        'Nature Opération': op.typeLabel || '',
+                        'Référence / Code': op.refCode || '',
+                        'Client': op.customerName || '',
+                        'Chantier': op.siteName || '',
+                        'Montant Opération': op.amount || 0,
+                        'Solde Restant': op.remainingAmount || 0,
+                        'Statut': op.statusLabel || ''
+                    };
                 });
+            exportToExcel(rows, filename, 'Opérations');
         } else if (activeTab === 'returns') {
-            filename = `retours_marchandises_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
-            csvContent += "Date;Heure;Numero_Retour;Client;Chantier;Vente_Liee;Montant;Reglement;Articles\r\n";
-            filteredReturns
+            const filename = `retours_marchandises_${format(new Date(), 'yyyyMMdd_HHmm')}`;
+            const rows = filteredReturns
                 .filter(r => selectedRowIds.includes(r.id))
-                .forEach(r => {
+                .map(r => {
                     const d = new Date(r.date);
-                    const dStr = !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '';
-                    const tStr = !isNaN(d.getTime()) ? format(d, 'HH:mm') : '';
-                    const itemsStr = (r.items || []).map(i => `${i.name} (x${i.quantityReturned || i.quantity || 1})`).join(' | ');
-                    const row = [
-                        dStr,
-                        tStr,
-                        r.returnNumber || '',
-                        (r.customerName || '').replace(/;/g, ' '),
-                        (r.siteName || '').replace(/;/g, ' '),
-                        r.transactionNumber || 'Comptoir libre',
-                        r.totalAmount || 0,
-                        r.refundMethod === 'avoir' ? "Bon d'Avoir" : (r.refundMethod === 'cash' ? "Espèces" : "Dette Déduite"),
-                        `"${itemsStr.replace(/"/g, '""')}"`
-                    ].join(';');
-                    csvContent += row + "\r\n";
+                    const itemsStr = (r.items || []).map(i => `${i.name} (x${i.quantityReturned || i.quantity || 1})`).join(', ');
+                    return {
+                        'Date': !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '',
+                        'Heure': !isNaN(d.getTime()) ? format(d, 'HH:mm') : '',
+                        'N° Retour': r.returnNumber || '',
+                        'Client': r.customerName || '',
+                        'Chantier': r.siteName || '',
+                        'Vente Liée': r.transactionNumber || 'Comptoir libre',
+                        'Montant Remboursé': r.totalAmount || 0,
+                        'Mode Règlement': r.refundMethod === 'avoir' ? "Bon d'Avoir" : (r.refundMethod === 'cash' ? "Espèces" : "Dette Déduite"),
+                        'Articles Retournés': itemsStr
+                    };
                 });
+            exportToExcel(rows, filename, 'Retours');
         } else {
             const sourceList = activeTab === 'activeVouchers' ? filteredAllActiveCreditNotes : filteredCreditNotes;
-            filename = `bons_avoir_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
-            csvContent += "Code_Avoir;Type;Client;Chantier;Date_Emission;Date_Expiration;Montant_Initial;Solde_Restant;Statut\r\n";
-            sourceList
+            const filename = `bons_avoir_${format(new Date(), 'yyyyMMdd_HHmm')}`;
+            const rows = sourceList
                 .filter(c => selectedRowIds.includes(c.id))
-                .forEach(c => {
+                .map(c => {
                     const d = new Date(c.createdAt);
-                    const dStr = !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '';
                     const exp = c.expiresAt ? new Date(c.expiresAt) : null;
-                    const expStr = exp && !isNaN(exp.getTime()) ? format(exp, 'dd/MM/yyyy') : '';
-                    const row = [
-                        c.code || '',
-                        c.type === 'change_reliquat' ? 'Reliquat Monnaie' : 'Avoir Retour',
-                        (c.customerName || '').replace(/;/g, ' '),
-                        (c.siteName || '').replace(/;/g, ' '),
-                        dStr,
-                        expStr,
-                        c.initialAmount || 0,
-                        c.remainingAmount || 0,
-                        c.status || 'Actif'
-                    ].join(';');
-                    csvContent += row + "\r\n";
+                    return {
+                        'Code Bon': c.code || '',
+                        'Type': c.type === 'change_reliquat' ? 'Reliquat Monnaie' : 'Avoir Retour',
+                        'Client Bénéficiaire': c.customerName || '',
+                        'Chantier': c.siteName || '',
+                        'Date Émission': !isNaN(d.getTime()) ? format(d, 'dd/MM/yyyy') : '',
+                        'Date Expiration': exp && !isNaN(exp.getTime()) ? format(exp, 'dd/MM/yyyy') : '',
+                        'Montant Initial': c.initialAmount || 0,
+                        'Solde Restant': c.remainingAmount || 0,
+                        'Statut': c.status || 'Actif'
+                    };
                 });
+            exportToExcel(rows, filename, "Bons d'Avoir");
         }
-
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        T.success(`${selectedRowIds.length} élément(s) exporté(s) en CSV.`);
+        T.success(`${selectedRowIds.length} élément(s) exporté(s) au format Excel (.xlsx)`);
     };
 
     // Open Return modal from sale
@@ -1546,12 +1527,12 @@ const Returns = () => {
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
-                                onClick={handleBulkExportCSV}
+                                onClick={handleBulkExportExcel}
                                 className="px-2.5 py-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 rounded-[4px] text-xs font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer shadow-2xs transition-all active:scale-95"
-                                title="Exporter les éléments cochés au format CSV"
+                                title="Exporter les éléments cochés au format Excel (.xlsx)"
                             >
                                 <Download className="w-3.5 h-3.5 text-[#f77500]" />
-                                <span>Exporter ({selectedRowIds.length})</span>
+                                <span>Exporter Excel ({selectedRowIds.length})</span>
                             </button>
                             <button
                                 type="button"

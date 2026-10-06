@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { formatPrice } from '../../utils/currency';
 import FinancialInput from '../../components/FinancialInput';
+import { exportToExcel } from '../../utils/excelExport';
 import T from '../../utils/toast';
 import Icon360 from '../../components/Icon360';
 import { useAnomalies } from '../../hooks/useAnomalies';
@@ -881,21 +882,20 @@ const Reports = () => {
         T.success("Rapport synthétique prêt pour WhatsApp !");
     };
 
-    // Export CSV Général
-    const handleGlobalCSVExport = () => {
-        let csv = "ID;Type;Date;Description;Montant;ModePaiement;Statut\n";
-        periodTransactions.forEach(t => {
-            csv += `"${t.id}";"Vente";"${new Date(t.date).toLocaleString('fr-FR')}";"Vente ${t.items?.length || 0} article(s)";"${t.total || 0}";"${t.paymentMethod || 'Espèces'}";"${t.status}"\n`;
-        });
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `kabllix_analyse_360_${todayStr}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        T.success("Exportation CSV téléchargée avec succès !");
+    // Export Excel Général
+    const handleGlobalExcelExport = () => {
+        const rows = periodTransactions.map(t => ({
+            'ID Transaction': t.id,
+            'Type': 'Vente',
+            'Date': new Date(t.date).toLocaleString('fr-FR'),
+            'Description': `Vente ${t.items?.length || 0} article(s)`,
+            'Montant': t.total || 0,
+            'Mode de Paiement': t.paymentMethod || 'Espèces',
+            'Statut': t.status
+        }));
+        const filename = `Kabllix_Analyse_360_${todayStr}`;
+        exportToExcel(rows, filename, 'Transactions 360');
+        T.export(`${rows.length} transaction(s) exportée(s) au format Excel (.xlsx)`);
     };
 
     // ── Arbitrage Patron ──
@@ -2370,12 +2370,12 @@ const Reports = () => {
                     </button>
 
                     <button
-                        onClick={handleGlobalCSVExport}
+                        onClick={handleGlobalExcelExport}
                         className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-300 hover:border-[#001d35] rounded-sm font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95"
-                        title="Exporter l'ensemble des données brutes en CSV"
+                        title="Exporter l'ensemble des données brutes au format Excel (.xlsx)"
                     >
                         <Download className="w-3.5 h-3.5 text-[#001d35]" />
-                        <span>Export CSV</span>
+                        <span>Export Excel</span>
                     </button>
                 </div>
             </div>
