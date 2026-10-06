@@ -98,17 +98,23 @@ const Returns = () => {
                 setSelectedKpi(null);
             } else {
                 setSelectedKpi(kpiKey);
-                setPeriod('today');
-                setCustomStartDate('');
-                setCustomEndDate('');
-                if (kpiKey === 'returns') {
-                    setActiveTab('returns');
-                    setOperationFilter('none');
-                } else if (kpiKey === 'active_avoirs') {
+                if (kpiKey === 'active_avoirs') {
+                    // Clic sur le KPI Avoirs Actifs : filtre avec Toutes les Dates
+                    setPeriod('all');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
                     setActiveTab('activeVouchers');
                     setOperationFilter('none');
-                } else if (kpiKey === 'reintegrated' || kpiKey === 'damaged') {
-                    setActiveTab('returns');
+                } else {
+                    setPeriod('today');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                    if (kpiKey === 'returns') {
+                        setActiveTab('returns');
+                        setOperationFilter('none');
+                    } else if (kpiKey === 'reintegrated' || kpiKey === 'damaged') {
+                        setActiveTab('returns');
+                    }
                 }
             }
         });
@@ -339,6 +345,17 @@ const Returns = () => {
 
     const filteredAllActiveCreditNotes = useMemo(() => {
         return allActiveCreditNotes.filter(c => {
+            // Filtrage temporel si une période spécifique est sélectionnée (ex: Aujourd'hui, 7 jours, Ce mois...)
+            if (period !== 'all' && currentRange.start) {
+                const rawDate = c.createdAt || c.date || c.issuedAt;
+                if (rawDate) {
+                    const d = new Date(rawDate);
+                    if (!isNaN(d.getTime()) && !isWithinInterval(d, { start: currentRange.start, end: currentRange.end })) {
+                        return false;
+                    }
+                }
+            }
+
             const matchSearch = !searchTerm ||
                 (c.code && c.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (c.customerName && c.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -351,7 +368,7 @@ const Returns = () => {
 
             return matchSearch && matchOp && matchClient;
         });
-    }, [allActiveCreditNotes, searchTerm, operationFilter, clientFilter]);
+    }, [allActiveCreditNotes, period, currentRange, searchTerm, operationFilter, clientFilter]);
 
     // Nombre de retours non encore vus (nouveaux depuis dernier clic sur l'onglet)
     const newReturnsCount = Math.max(0, (returns || []).length - lastSeenReturnsCount);
@@ -1333,13 +1350,13 @@ const Returns = () => {
                         )}
                     </button>
 
-                    {/* Onglet 3 : Tous les Avoirs Actifs (indépendant de la date) */}
+                    {/* Onglet 3 : Tous les Avoirs Actifs */}
                     <button
                         type="button"
                         onClick={() => handleFilterChange(() => {
                             setActiveTab('activeVouchers');
                             setOperationFilter('none');
-                            setPeriod('today');
+                            setPeriod('all');
                             setCustomStartDate('');
                             setCustomEndDate('');
                         })}
@@ -1485,7 +1502,13 @@ const Returns = () => {
                                 <button
                                     key={opt.key}
                                     type="button"
-                                    onClick={() => handleFilterChange(setPeriod, opt.key)}
+                                    onClick={() => handleFilterChange(() => {
+                                        setPeriod(opt.key);
+                                        // Si le filtre actif sur le KPI Avoir Actifs est actif et qu'on clique sur Aujourd'hui (ou autre date), désactiver le KPI
+                                        if (selectedKpi === 'active_avoirs') {
+                                            setSelectedKpi(null);
+                                        }
+                                    })}
                                     className={`px-2.5 py-1 rounded-[4px] text-xs font-semibold transition-all cursor-pointer ${
                                         period === opt.key
                                             ? 'bg-[#001d35] text-white shadow-xs'
@@ -1502,14 +1525,20 @@ const Returns = () => {
                                 <input
                                     type="date"
                                     value={customStartDate}
-                                    onChange={e => handleFilterChange(setCustomStartDate, e.target.value)}
+                                    onChange={e => handleFilterChange(() => {
+                                        setCustomStartDate(e.target.value);
+                                        if (selectedKpi === 'active_avoirs') setSelectedKpi(null);
+                                    })}
                                     className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#001d35]"
                                 />
                                 <span className="text-gray-400 text-xs font-medium">à</span>
                                 <input
                                     type="date"
                                     value={customEndDate}
-                                    onChange={e => handleFilterChange(setCustomEndDate, e.target.value)}
+                                    onChange={e => handleFilterChange(() => {
+                                        setCustomEndDate(e.target.value);
+                                        if (selectedKpi === 'active_avoirs') setSelectedKpi(null);
+                                    })}
                                     className="px-2 py-1 text-xs border border-gray-300 rounded-[4px] font-medium text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#001d35]"
                                 />
                             </div>
@@ -1681,7 +1710,7 @@ const Returns = () => {
                             : selectedKpi === 'returns' ? "Grand Livre des Retours de Marchandises Effectués"
                             : activeTab === 'all' ? "Grand Livre Unifié — Toutes les Opérations (Retours & Avoirs)"
                             : activeTab === 'returns' ? "Grand Livre des Retours de Marchandises"
-                            : activeTab === 'activeVouchers' ? "Tous les Bons d'Avoir Actifs — Sans restriction de date"
+                            : activeTab === 'activeVouchers' ? (period !== 'all' ? `Bons d'Avoir Actifs (${periodLabel})` : "Tous les Bons d'Avoir Actifs — Sans restriction de date")
                             : "Portefeuille Officiel des Bons d'Avoir"}
                     </span>
                     <span className="text-[10px] font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-[4px] border border-gray-300">
@@ -2033,15 +2062,19 @@ const Returns = () => {
                             </table>
                         )
                     ) : activeTab === 'activeVouchers' ? (
-                        // ── Onglet Tous les Avoirs Actifs (indépendant de la période) ──
+                        // ── Onglet Tous les Avoirs Actifs ──
                         filteredAllActiveCreditNotes.length === 0 ? (
                             <div className="p-8 min-h-[160px] flex flex-col items-center justify-center text-center text-gray-400">
                                 <div className="flex items-center justify-center -space-x-2 mb-1.5 opacity-50">
                                     <Ticket className="w-8 h-8 text-gray-300" />
                                     <Ticket className="w-8 h-8 text-gray-300" />
                                 </div>
-                                <p className="text-xs font-semibold text-gray-600 uppercase">Aucun avoir actif en ce moment</p>
-                                <p className="text-[11px] text-gray-400 mt-0.5 font-normal">Les bons d'avoir actifs et partiels apparaîtront ici, quelle que soit leur date d'émission.</p>
+                                <p className="text-xs font-semibold text-gray-600 uppercase">
+                                    {period !== 'all' ? `Aucun avoir actif (${periodLabel})` : "Aucun avoir actif en ce moment"}
+                                </p>
+                                <p className="text-[11px] text-gray-400 mt-0.5 font-normal">
+                                    {period !== 'all' ? "Sélectionnez « Tout » pour voir l'ensemble des avoirs disponibles, ou ajustez la période." : "Les bons d'avoir actifs et partiels apparaîtront ici, quelle que soit leur date d'émission."}
+                                </p>
                             </div>
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
