@@ -22,7 +22,8 @@ import {
     startOfYear, 
     endOfYear, 
     isWithinInterval, 
-    parseISO 
+    parseISO,
+    isSameDay 
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -58,6 +59,18 @@ const Returns = () => {
         const count = returns.length;
         setLastSeenReturnsCount(count);
         try { localStorage.setItem('kblx_sidebar_seen_returns', String(count)); } catch {}
+    };
+
+    // ── Suivi des avoirs actifs consultés ──
+    const [lastSeenActiveAvoirsCount, setLastSeenActiveAvoirsCount] = useState(() => {
+        try { return parseInt(localStorage.getItem('kblx_seen_active_avoirs_count') || '0', 10); }
+        catch { return 0; }
+    });
+
+    const markActiveAvoirsAsSeen = () => {
+        const count = allActiveCreditNotes.length;
+        setLastSeenActiveAvoirsCount(count);
+        try { localStorage.setItem('kblx_seen_active_avoirs_count', String(count)); } catch {}
     };
     const [searchTerm, setSearchTerm] = useState('');
     const [operationFilter, setOperationFilter] = useState('none'); // 'none' (Aucun) | 'all' (Toutes) | options spécifiques
@@ -105,6 +118,7 @@ const Returns = () => {
                     setCustomEndDate('');
                     setActiveTab('activeVouchers');
                     setOperationFilter('none');
+                    markActiveAvoirsAsSeen();
                 } else {
                     setPeriod('today');
                     setCustomStartDate('');
@@ -372,6 +386,20 @@ const Returns = () => {
 
     // Nombre de retours non encore vus (nouveaux depuis dernier clic sur l'onglet)
     const newReturnsCount = Math.max(0, (returns || []).length - lastSeenReturnsCount);
+
+    // Détection s'il y a un nouvel avoir actif (émis aujourd'hui ou non encore consulté)
+    const hasNewActiveAvoir = useMemo(() => {
+        const hasToday = allActiveCreditNotes.some(c => {
+            const rawDate = c.createdAt || c.date || c.issuedAt;
+            if (!rawDate) return false;
+            const d = new Date(rawDate);
+            if (isNaN(d.getTime())) return false;
+            return isSameDay(d, new Date());
+        });
+        const hasUnseen = allActiveCreditNotes.length > lastSeenActiveAvoirsCount;
+        return hasToday || hasUnseen;
+    }, [allActiveCreditNotes, lastSeenActiveAvoirsCount]);
+
     // Avoirs actifs dans la période
     const activeInPeriodCount = periodCreditNotes.filter(c => c.status === 'active' || c.status === 'partial').length;
 
@@ -1327,14 +1355,17 @@ const Returns = () => {
                     {/* Onglet 2 : Portefeuille Bons d'Avoir */}
                     <button
                         type="button"
-                        onClick={() => handleFilterChange(() => {
-                            setActiveTab('creditNotes');
-                            setOperationFilter('none');
-                            setPeriod('today');
-                            setCustomStartDate('');
-                            setCustomEndDate('');
-                        })}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                        onClick={() => {
+                            handleFilterChange(() => {
+                                setActiveTab('creditNotes');
+                                setOperationFilter('none');
+                                setPeriod('today');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
+                            markActiveAvoirsAsSeen();
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
                             activeTab === 'creditNotes'
                                 ? 'bg-[#001d35] text-white shadow-xs'
                                 : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
@@ -1342,10 +1373,12 @@ const Returns = () => {
                     >
                         <Ticket className={`w-3.5 h-3.5 ${activeTab === 'creditNotes' ? 'text-[#f77500]' : 'text-gray-500'}`} />
                         <span>Portefeuille Bons d'Avoir</span>
-                        {/* Badge : uniquement les avoirs actifs/partiels dans la période */}
-                        {activeInPeriodCount > 0 && (
-                            <span className="min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                                {activeInPeriodCount}
+                        {hasNewActiveAvoir && (
+                            <span 
+                                className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
+                                title="Nouvel avoir disponible !"
+                            >
+                                <span className="text-white font-black text-xs leading-none select-none">!</span>
                             </span>
                         )}
                     </button>
@@ -1353,13 +1386,16 @@ const Returns = () => {
                     {/* Onglet 3 : Tous les Avoirs Actifs */}
                     <button
                         type="button"
-                        onClick={() => handleFilterChange(() => {
-                            setActiveTab('activeVouchers');
-                            setOperationFilter('none');
-                            setPeriod('all');
-                            setCustomStartDate('');
-                            setCustomEndDate('');
-                        })}
+                        onClick={() => {
+                            handleFilterChange(() => {
+                                setActiveTab('activeVouchers');
+                                setOperationFilter('none');
+                                setPeriod('all');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
+                            markActiveAvoirsAsSeen();
+                        }}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
                             activeTab === 'activeVouchers'
                                 ? 'bg-[#001d35] text-white shadow-xs'
@@ -1371,9 +1407,12 @@ const Returns = () => {
                             <Ticket className={`w-3.5 h-3.5 ${activeTab === 'activeVouchers' ? 'text-[#f77500]' : 'text-gray-500'}`} />
                         </span>
                         <span>Tous les Avoirs Actifs</span>
-                        {allActiveCreditNotes.length > 0 && (
-                            <span className="min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                                {allActiveCreditNotes.length}
+                        {hasNewActiveAvoir && (
+                            <span 
+                                className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
+                                title="Nouvel avoir actif disponible !"
+                            >
+                                <span className="text-white font-black text-xs leading-none select-none">!</span>
                             </span>
                         )}
                     </button>
