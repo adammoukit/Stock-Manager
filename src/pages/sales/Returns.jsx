@@ -1290,168 +1290,7 @@ const Returns = () => {
                 </div>
             </div>
 
-            {/* ── BARRE D'ONGLETS PRINCIPAUX & RECHERCHE (STYLE OFFICIEL KABLLIX ERP) ── */}
-            <div className="bg-white p-2 sm:p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-                {/* Onglets de sélection principale : Toutes les Opérations / Registre des Retours / Portefeuille Bons d'Avoir / Tous les Avoirs Actifs */}
-                <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-[4px] border-2 border-gray-300 flex-wrap">
-                    {/* Onglet 0 : Grand Livre - Toutes les Opérations */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleFilterChange(() => {
-                                setActiveTab('all');
-                                setOperationFilter('all');
-                                setPeriod('today');
-                                setCustomStartDate('');
-                                setCustomEndDate('');
-                            });
-                        }}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
-                            activeTab === 'all'
-                                ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
-                        }`}
-                    >
-                        <ClipboardList className={`w-3.5 h-3.5 ${activeTab === 'all' ? 'text-[#f77500]' : 'text-gray-500'}`} />
-                        <span>Toutes les Opérations</span>
-                        {periodUnifiedOperations.length > 0 && (
-                            <span className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs ${
-                                activeTab === 'all' ? 'bg-[#f77500] text-white' : 'bg-gray-200 text-gray-800'
-                            }`}>
-                                {periodUnifiedOperations.length}
-                            </span>
-                        )}
-                    </button>
-
-                    {/* Onglet 1 : Registre des Retours */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleFilterChange(() => {
-                                setActiveTab('returns');
-                                setOperationFilter('none');
-                                setPeriod('today');
-                                setCustomStartDate('');
-                                setCustomEndDate('');
-                            });
-                            markReturnsAsSeen();
-                        }}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
-                            activeTab === 'returns'
-                                ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
-                        }`}
-                    >
-                        <RotateCcw className={`w-3.5 h-3.5 ${activeTab === 'returns' ? 'text-[#f77500]' : 'text-gray-500'}`} />
-                        <span>Registre des Retours</span>
-                        {/* Badge : uniquement les nouveaux retours non encore vus */}
-                        {newReturnsCount > 0 && (
-                            <span className="min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold bg-red-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse">
-                                {newReturnsCount}
-                            </span>
-                        )}
-                    </button>
-
-                    {/* Onglet 2 : Portefeuille Bons d'Avoir */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleFilterChange(() => {
-                                setActiveTab('creditNotes');
-                                setOperationFilter('none');
-                                setPeriod('today');
-                                setCustomStartDate('');
-                                setCustomEndDate('');
-                            });
-                            markActiveAvoirsAsSeen();
-                        }}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
-                            activeTab === 'creditNotes'
-                                ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
-                        }`}
-                    >
-                        <Ticket className={`w-3.5 h-3.5 ${activeTab === 'creditNotes' ? 'text-[#f77500]' : 'text-gray-500'}`} />
-                        <span>Portefeuille Bons d'Avoir</span>
-                        {hasNewActiveAvoir && (
-                            <span 
-                                className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
-                                title="Nouvel avoir disponible !"
-                            >
-                                <span className="text-white font-black text-xs leading-none select-none">!</span>
-                            </span>
-                        )}
-                    </button>
-
-                    {/* Onglet 3 : Tous les Avoirs Actifs */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleFilterChange(() => {
-                                setActiveTab('activeVouchers');
-                                setOperationFilter('none');
-                                setPeriod('all');
-                                setCustomStartDate('');
-                                setCustomEndDate('');
-                            });
-                            markActiveAvoirsAsSeen();
-                        }}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
-                            activeTab === 'activeVouchers'
-                                ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
-                        }`}
-                    >
-                        <span className="flex items-center -space-x-1.5 flex-shrink-0">
-                            <Ticket className={`w-3.5 h-3.5 ${activeTab === 'activeVouchers' ? 'text-[#f77500]' : 'text-gray-500'}`} />
-                            <Ticket className={`w-3.5 h-3.5 ${activeTab === 'activeVouchers' ? 'text-[#f77500]' : 'text-gray-500'}`} />
-                        </span>
-                        <span>Tous les Avoirs Actifs</span>
-                        {hasNewActiveAvoir && (
-                            <span 
-                                className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
-                                title="Nouvel avoir actif disponible !"
-                            >
-                                <span className="text-white font-black text-xs leading-none select-none">!</span>
-                            </span>
-                        )}
-                    </button>
-                </div>
-
-                {/* Recherche à droite */}
-                <div className="relative w-full sm:w-64">
-                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder={
-                            activeTab === 'all'
-                                ? "Rechercher opération, N°, client..."
-                                : activeTab === 'returns'
-                                ? "Rechercher N° retour, client..."
-                                : "Rechercher code d'avoir, client..."
-                        }
-                        value={searchTerm}
-                        onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            setCurrentPage(1);
-                            setSelectedRowIds([]);
-                        }}
-                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 border-2 border-gray-300 focus:border-[#001d35] rounded-[4px] font-medium text-gray-800 focus:outline-none"
-                    />
-                    {searchTerm && (
-                        <button
-                            type="button"
-                            onClick={() => handleFilterChange(setSearchTerm, '')}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                            title="Effacer la recherche"
-                        >
-                            <X className="w-3.5 h-3.5" />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* ── BARRE D'OUTILS EN BAS DÉDIÉE (SÉLECTEUR COMPACT + CLIENT + FILTRES PAR DATE — IDENTIQUE À HISTORIQUE DES OPÉRATIONS) ── */}
+            {/* ── BARRE D'OUTILS DÉDIÉE (SÉLECTEUR COMPACT + CLIENT + FILTRES PAR DATE — IDENTIQUE À HISTORIQUE DES OPÉRATIONS) ── */}
             <div className="bg-white p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col gap-2.5 animate-in fade-in duration-150">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     {/* Sélecteur de type d'opération */}
@@ -1737,6 +1576,167 @@ const Returns = () => {
                         </button>
                     </div>
                 )}
+            </div>
+
+            {/* ── BARRE D'ONGLETS PRINCIPAUX & RECHERCHE (STYLE OFFICIEL KABLLIX ERP) ── */}
+            <div className="bg-white p-2 sm:p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Onglets de sélection principale : Toutes les Opérations / Registre des Retours / Portefeuille Bons d'Avoir / Tous les Avoirs Actifs */}
+                <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-[4px] border-2 border-gray-300 flex-wrap">
+                    {/* Onglet 0 : Grand Livre - Toutes les Opérations */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleFilterChange(() => {
+                                setActiveTab('all');
+                                setOperationFilter('all');
+                                setPeriod('today');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                            activeTab === 'all'
+                                ? 'bg-[#001d35] text-white shadow-xs'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
+                        }`}
+                    >
+                        <ClipboardList className={`w-3.5 h-3.5 ${activeTab === 'all' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                        <span>Toutes les Opérations</span>
+                        {periodUnifiedOperations.length > 0 && (
+                            <span className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs ${
+                                activeTab === 'all' ? 'bg-[#f77500] text-white' : 'bg-gray-200 text-gray-800'
+                            }`}>
+                                {periodUnifiedOperations.length}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Onglet 1 : Registre des Retours */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleFilterChange(() => {
+                                setActiveTab('returns');
+                                setOperationFilter('none');
+                                setPeriod('today');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
+                            markReturnsAsSeen();
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                            activeTab === 'returns'
+                                ? 'bg-[#001d35] text-white shadow-xs'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
+                        }`}
+                    >
+                        <RotateCcw className={`w-3.5 h-3.5 ${activeTab === 'returns' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                        <span>Registre des Retours</span>
+                        {/* Badge : uniquement les nouveaux retours non encore vus */}
+                        {newReturnsCount > 0 && (
+                            <span className="min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold bg-red-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse">
+                                {newReturnsCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Onglet 2 : Portefeuille Bons d'Avoir */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleFilterChange(() => {
+                                setActiveTab('creditNotes');
+                                setOperationFilter('none');
+                                setPeriod('today');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
+                            markActiveAvoirsAsSeen();
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
+                            activeTab === 'creditNotes'
+                                ? 'bg-[#001d35] text-white shadow-xs'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
+                        }`}
+                    >
+                        <Ticket className={`w-3.5 h-3.5 ${activeTab === 'creditNotes' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                        <span>Portefeuille Bons d'Avoir</span>
+                        {hasNewActiveAvoir && (
+                            <span 
+                                className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
+                                title="Nouvel avoir disponible !"
+                            >
+                                <span className="text-white font-black text-xs leading-none select-none">!</span>
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Onglet 3 : Tous les Avoirs Actifs */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleFilterChange(() => {
+                                setActiveTab('activeVouchers');
+                                setOperationFilter('none');
+                                setPeriod('all');
+                                setCustomStartDate('');
+                                setCustomEndDate('');
+                            });
+                            markActiveAvoirsAsSeen();
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-1.5 ${
+                            activeTab === 'activeVouchers'
+                                ? 'bg-[#001d35] text-white shadow-xs'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
+                        }`}
+                    >
+                        <span className="flex items-center -space-x-1.5 flex-shrink-0">
+                            <Ticket className={`w-3.5 h-3.5 ${activeTab === 'activeVouchers' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                            <Ticket className={`w-3.5 h-3.5 ${activeTab === 'activeVouchers' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                        </span>
+                        <span>Tous les Avoirs Actifs</span>
+                        {hasNewActiveAvoir && (
+                            <span 
+                                className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
+                                title="Nouvel avoir actif disponible !"
+                            >
+                                <span className="text-white font-black text-xs leading-none select-none">!</span>
+                            </span>
+                        )}
+                    </button>
+                </div>
+
+                {/* Recherche à droite */}
+                <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder={
+                            activeTab === 'all'
+                                ? "Rechercher opération, N°, client..."
+                                : activeTab === 'returns'
+                                ? "Rechercher N° retour, client..."
+                                : "Rechercher code d'avoir, client..."
+                        }
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                            setSelectedRowIds([]);
+                        }}
+                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 border-2 border-gray-300 focus:border-[#001d35] rounded-[4px] font-medium text-gray-800 focus:outline-none"
+                    />
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange(setSearchTerm, '')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                            title="Effacer la recherche"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* ── TABLEAU GRAND LIVRE DES RETOURS & AVOIRS ── */}
