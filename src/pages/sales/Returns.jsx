@@ -30,7 +30,8 @@ import {
     RotateCcw, Ticket, Banknote, ShieldAlert, ShieldCheck, CheckCircle2,
     AlertTriangle, Search, Plus, Filter, Printer, Eye, Copy, ArrowRight,
     Package, ArrowLeftRight, Clock, User, Calendar, Check, X, Building2,
-    Layers, AlertCircle, ClipboardList, CheckSquare, Download, ChevronLeft, ChevronRight
+    Layers, AlertCircle, ClipboardList, CheckSquare, Download, ChevronLeft, ChevronRight,
+    MoreVertical
 } from 'lucide-react';
 
 const Returns = () => {
@@ -41,12 +42,12 @@ const Returns = () => {
 
     const [nowTimestamp] = useState(() => Date.now());
 
-    // ── Filtre de Période (Par défaut : Aujourd'hui) ──
-    const [period, setPeriod] = useState('today'); // 'today' | '7days' | 'month' | 'all' | 'custom' | 'day' | 'week' ...
+    // ── Filtre de Période (Par défaut : Tout) ──
+    const [period, setPeriod] = useState('all'); // 'all' | 'today' | '7days' | 'month' | 'custom' | 'day' | 'week' ...
     const [customStartDate, setCustomStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [customEndDate, setCustomEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
-    const [activeTab, setActiveTab] = useState('returns'); // 'returns' | 'creditNotes' | 'activeVouchers'
+    const [activeTab, setActiveTab] = useState('all'); // 'all' (Toutes les opérations) | 'returns' | 'creditNotes' | 'activeVouchers'
 
     // ── Suivi des retours déjà vus (partagé avec Sidebar via localStorage) ──
     const [lastSeenReturnsCount, setLastSeenReturnsCount] = useState(() => {
@@ -73,7 +74,7 @@ const Returns = () => {
         try { localStorage.setItem('kblx_seen_active_avoirs_count', String(count)); } catch {}
     };
     const [searchTerm, setSearchTerm] = useState('');
-    const [operationFilter, setOperationFilter] = useState('none'); // 'none' (Aucun) | 'all' (Toutes) | options spécifiques
+    const [operationFilter, setOperationFilter] = useState('all'); // 'all' (Toutes les opérations) | 'none' | options spécifiques
     const [clientFilter, setClientFilter] = useState('all');
     const [selectedKpi, setSelectedKpi] = useState(null); // null | 'returns' | 'active_avoirs' | 'reintegrated' | 'damaged'
 
@@ -81,6 +82,49 @@ const Returns = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [selectedRowIds, setSelectedRowIds] = useState([]);
+
+    // ── Menu d'actions 3-dots pour les lignes de tableau ──
+    const [openActionMenuId, setOpenActionMenuId] = useState(null);
+    const actionMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
+                setOpenActionMenuId(null);
+            }
+        };
+        const handleScroll = () => setOpenActionMenuId(null);
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, []);
+
+    // ── Infobulle dynamique sur les KPI (comme dans Dashboard) ──
+    const [activeTooltip, setActiveTooltip] = useState(null);
+
+    const handleKpiMouseEnter = (e, tooltipId, title, text) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const TOOLTIP_W = 270;
+        const TOOLTIP_H = 80;
+        const MARGIN = 10;
+        const flipX = rect.left + TOOLTIP_W + MARGIN > window.innerWidth;
+        const flipY = rect.top - TOOLTIP_H - MARGIN < 0;
+        setActiveTooltip({
+            id: tooltipId,
+            pos: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom },
+            flipX,
+            flipY,
+            title,
+            text
+        });
+    };
+
+    const handleKpiMouseLeave = () => {
+        setActiveTooltip(null);
+    };
 
     // ── Loader de 1 seconde lors du clic sur les filtres ──
     const [filterLoading, setFilterLoading] = useState(false);
@@ -90,6 +134,7 @@ const Returns = () => {
         setFilterLoading(true);
         setCurrentPage(1);
         setSelectedRowIds([]);
+        setOpenActionMenuId(null);
         if (typeof setter === 'function') {
             if (value !== undefined) {
                 setter(value);
@@ -120,7 +165,7 @@ const Returns = () => {
                     setOperationFilter('none');
                     markActiveAvoirsAsSeen();
                 } else {
-                    setPeriod('today');
+                    setPeriod('all');
                     setCustomStartDate('');
                     setCustomEndDate('');
                     if (kpiKey === 'returns') {
@@ -1065,7 +1110,6 @@ const Returns = () => {
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('returns')}
-                    title="Cliquer pour afficher tous les retours effectués dans la liste"
                     className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
                         selectedKpi === 'returns'
                             ? 'bg-blue-50/50 border-blue-600 ring-2 ring-blue-500/30 shadow-md scale-[1.01]'
@@ -1084,7 +1128,17 @@ const Returns = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/80">Retours Effectués</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-600/80">Retours Effectués</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'returns_kpi', 'Retours Effectués', "Valeur financière totale des retours de marchandises enregistrés sur la période sélectionnée. Cliquez pour filtrer la liste.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'returns' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-blue-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Filtré
@@ -1127,7 +1181,6 @@ const Returns = () => {
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('active_avoirs')}
-                    title="Cliquer pour afficher tous les avoirs actifs au rachat dans la liste"
                     className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
                         selectedKpi === 'active_avoirs'
                             ? 'bg-amber-50/50 border-amber-600 ring-2 ring-amber-500/30 shadow-md scale-[1.01]'
@@ -1146,7 +1199,17 @@ const Returns = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-600/80">Avoirs Actifs</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-600/80">Avoirs Actifs</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'active_avoirs_kpi', 'Avoirs Actifs', "Montant total des bons d'avoir et reliquats actuellement utilisables comme moyen de rachat en caisse. Cliquez pour filtrer.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'active_avoirs' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-amber-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Filtré
@@ -1188,7 +1251,6 @@ const Returns = () => {
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('reintegrated')}
-                    title="Cliquer pour afficher les retours avec articles réintégrés en stock"
                     className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
                         selectedKpi === 'reintegrated'
                             ? 'bg-emerald-50/50 border-emerald-600 ring-2 ring-emerald-500/30 shadow-md scale-[1.01]'
@@ -1207,7 +1269,17 @@ const Returns = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-600/80">Articles Réintégrés</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-600/80">Articles Réintégrés</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'reintegrated_kpi', 'Articles Réintégrés', "Quantité totale d'articles restitués en bon état et remis en stock disponible à la vente.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'reintegrated' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-emerald-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Filtré
@@ -1241,7 +1313,6 @@ const Returns = () => {
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('damaged')}
-                    title="Cliquer pour afficher les retours contenant des articles avariés ou rebuts"
                     className={`p-3 rounded-sm border-2 shadow-sm relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
                         selectedKpi === 'damaged'
                             ? 'bg-rose-50/50 border-rose-600 ring-2 ring-rose-500/30 shadow-md scale-[1.01]'
@@ -1260,7 +1331,17 @@ const Returns = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-600/80">Avaries & Rebuts</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-600/80">Avaries & Rebuts</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'damaged_kpi', 'Avaries & Rebuts', "Quantité d'articles retournés cassés, abîmés ou défectueux, exclus de la vente et enregistrés en perte.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'damaged' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-rose-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Filtré
@@ -1306,7 +1387,7 @@ const Returns = () => {
                                 const val = e.target.value;
                                 handleFilterChange(() => {
                                     setOperationFilter(val);
-                                    setPeriod('today');
+                                    setPeriod('all');
                                     setCustomStartDate('');
                                     setCustomEndDate('');
                                     if (val === 'all' || val === 'cash_refund') {
@@ -1324,8 +1405,8 @@ const Returns = () => {
                             }}
                             className="px-3 py-1.5 text-xs font-semibold border-2 border-gray-300 rounded-[4px] focus:outline-none focus:ring-1 focus:ring-[#001d35] bg-white text-[#001d35] cursor-pointer shadow-2xs"
                         >
-                            <option value="none">Aucun (Par défaut)</option>
-                            <option value="all">📋 Toutes les opérations (Retours & Avoirs)</option>
+                            <option value="all">📋 Toutes les opérations (Par défaut)</option>
+                            <option value="none">Aucun filtre particulier</option>
                             <optgroup label="Retours de Marchandises">
                                 <option value="returns_all">📦 Tous les Retours de Marchandises</option>
                                 <option value="cash">💵 Remboursement Espèces</option>
@@ -1454,7 +1535,7 @@ const Returns = () => {
                 )}
 
                 {/* Ligne informative : Filtre actif(s) pour Retours & Avoirs */}
-                {(operationFilter !== 'none' || clientFilter !== 'all' || period !== 'all' || searchTerm || selectedKpi) && (
+                {(operationFilter !== 'all' && operationFilter !== 'none' || clientFilter !== 'all' || period !== 'all' || searchTerm || selectedKpi) && (
                     <div className="pt-2 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div className="flex flex-wrap items-center gap-1.5">
                             <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wider flex items-center gap-1">
@@ -1481,7 +1562,7 @@ const Returns = () => {
                                 </span>
                             )}
 
-                            {operationFilter !== 'none' && (
+                            {operationFilter !== 'none' && operationFilter !== 'all' && (
                                 <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
                                     <span>
                                         {operationFilter === 'all' && '📋 Toutes les opérations'}
@@ -1500,7 +1581,7 @@ const Returns = () => {
                                     </span>
                                     <button
                                         type="button"
-                                        onClick={() => handleFilterChange(setOperationFilter, 'none')}
+                                        onClick={() => handleFilterChange(setOperationFilter, 'all')}
                                         className="hover:text-rose-600 cursor-pointer ml-0.5"
                                         title="Retirer le filtre d'opération"
                                     >
@@ -1565,7 +1646,7 @@ const Returns = () => {
                             type="button"
                             onClick={() => handleFilterChange(() => {
                                 setSelectedKpi(null);
-                                setOperationFilter('none');
+                                setOperationFilter('all');
                                 setClientFilter('all');
                                 setPeriod('all');
                                 setSearchTerm('');
@@ -1589,7 +1670,7 @@ const Returns = () => {
                             handleFilterChange(() => {
                                 setActiveTab('all');
                                 setOperationFilter('all');
-                                setPeriod('today');
+                                setPeriod('all');
                                 setCustomStartDate('');
                                 setCustomEndDate('');
                             });
@@ -1618,7 +1699,7 @@ const Returns = () => {
                             handleFilterChange(() => {
                                 setActiveTab('returns');
                                 setOperationFilter('none');
-                                setPeriod('today');
+                                setPeriod('all');
                                 setCustomStartDate('');
                                 setCustomEndDate('');
                             });
@@ -1647,7 +1728,7 @@ const Returns = () => {
                             handleFilterChange(() => {
                                 setActiveTab('creditNotes');
                                 setOperationFilter('none');
-                                setPeriod('today');
+                                setPeriod('all');
                                 setCustomStartDate('');
                                 setCustomEndDate('');
                             });
@@ -1785,8 +1866,8 @@ const Returns = () => {
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
-                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                    <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-2 text-center border-r-2 border-white/20">
                                             <input
                                                 type="checkbox"
                                                 className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
@@ -1795,24 +1876,24 @@ const Returns = () => {
                                                 title="Tout cocher / Tout décocher"
                                             />
                                         </th>
-                                        <th className="py-1.5 px-2.5">Date & Heure</th>
-                                        <th className="py-1.5 px-2.5">Nature Opération</th>
-                                        <th className="py-1.5 px-2.5">Référence / Code</th>
-                                        <th className="py-1.5 px-2.5">Client & Chantier</th>
-                                        <th className="py-1.5 px-2.5 text-right">Montant Opération</th>
-                                        <th className="py-1.5 px-2.5 text-right">Solde Restant</th>
-                                        <th className="py-1.5 px-2.5 text-center">Statut</th>
-                                        <th className="py-1.5 px-2.5 text-center">Actions</th>
+                                        <th className="py-2.5 px-3 w-36">Date & Heure</th>
+                                        <th className="py-2.5 px-3 w-36">Type d'Opération</th>
+                                        <th className="py-2.5 px-3 w-44">Référence</th>
+                                        <th className="py-2.5 px-3 w-56">Client & Chantier</th>
+                                        <th className="py-2.5 px-3 text-right w-36">Montant</th>
+                                        <th className="py-2.5 px-3 text-right w-36">Solde / Reste</th>
+                                        <th className="py-2.5 px-3 text-center w-28">Statut</th>
+                                        <th className="py-2.5 px-2 text-center w-16">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-gray-100">
                                     {paginatedUnifiedOperations.map((op, opIdx) => {
                                         const isSelected = selectedRowIds.includes(op.id);
                                         return (
                                         <tr key={op.id} className={`transition-colors border-b border-gray-200 select-none ${
                                             isSelected ? 'bg-blue-50' : opIdx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
                                         }`}>
-                                            <td className="px-1 py-1.5 text-center w-10">
+                                            <td className="px-1 py-2 text-center w-10">
                                                 <input
                                                     type="checkbox"
                                                     className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
@@ -1820,22 +1901,26 @@ const Returns = () => {
                                                     onChange={() => handleSelectRow(op.id)}
                                                 />
                                             </td>
-                                            <td className="py-1.5 px-2.5 whitespace-nowrap">
-                                                <div className="font-semibold text-gray-900">
-                                                    {format(new Date(op.date), 'dd/MM/yyyy')}
+                                            <td className="py-2.5 px-3 whitespace-nowrap">
+                                                <div className="flex items-center gap-1.5 font-semibold text-gray-900 text-xs">
+                                                    <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                    <span>{format(new Date(op.date), 'dd/MM/yyyy')}</span>
                                                 </div>
-                                                <div className="text-[10px] text-gray-500 font-medium">
-                                                    {format(new Date(op.date), 'HH:mm')}
+                                                <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono pl-5">
+                                                    <Clock className="w-2.5 h-2.5" />
+                                                    <span>{format(new Date(op.date), 'HH:mm')}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-1.5 px-2.5 whitespace-nowrap">
-                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] border font-bold text-[10px] uppercase tracking-wider ${op.badgeColor}`}>
+                                            <td className="py-2.5 px-3 whitespace-nowrap">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] border font-semibold text-[10px] uppercase tracking-wider ${op.badgeColor}`}>
                                                     {op.badgeText}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-2.5 font-semibold text-[#001d35] whitespace-nowrap tracking-wide">
+                                            <td className="py-2.5 px-3 whitespace-nowrap">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span>{op.refCode}</span>
+                                                    <span className="font-mono text-[11px] font-bold text-[#001d35] bg-slate-100 px-1.5 py-0.5 rounded-[4px] border border-slate-200">
+                                                        {op.refCode}
+                                                    </span>
                                                     {(op.kind === 'credit_note' || op.kind === 'cash_refund') && (
                                                         <button onClick={() => handleCopyCode(op.refCode)} title="Copier le code" className="text-gray-400 hover:text-gray-700 cursor-pointer">
                                                             <Copy className="w-3 h-3" />
@@ -1843,103 +1928,156 @@ const Returns = () => {
                                                     )}
                                                 </div>
                                                 {op.kind === 'cash_refund' && op.transactionNumber ? (
-                                                    <div className="text-[10px] text-gray-500 font-normal">
-                                                        Bon source : {op.transactionNumber}
+                                                    <div className="text-[10px] text-gray-500 font-normal mt-0.5">
+                                                        Bon source : <span className="font-mono font-medium">{op.transactionNumber}</span>
                                                     </div>
                                                 ) : op.transactionNumber && (
-                                                    <div className="text-[10px] text-gray-500 font-normal">
-                                                        Vente : {op.transactionNumber}
+                                                    <div className="text-[10px] text-gray-500 font-normal mt-0.5">
+                                                        Vente : <span className="font-mono font-medium">{op.transactionNumber}</span>
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="py-1.5 px-2.5">
-                                                <p className="font-semibold text-gray-900">{op.customerName}</p>
-                                                {op.siteName && (
-                                                    <p className="text-[10px] text-gray-500 font-medium">Chantier : {op.siteName}</p>
+                                            <td className="py-2.5 px-3">
+                                                <div className="font-bold text-[#001d35] text-xs">
+                                                    {op.customerName || 'Client Comptoir'}
+                                                </div>
+                                                {op.siteName ? (
+                                                    <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-200 px-1.5 py-0.5 rounded-[4px] font-semibold text-[10px] mt-0.5">
+                                                        <Building2 className="w-2.5 h-2.5 text-blue-600 shrink-0" />
+                                                        <span className="truncate max-w-[130px]">{op.siteName}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-400 font-medium italic mt-0.5 block">
+                                                        Comptoir / Général
+                                                    </span>
                                                 )}
                                             </td>
-                                            <td className="py-1.5 px-2.5 text-right font-medium text-gray-700 whitespace-nowrap">
+                                            <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap text-xs">
                                                 {formatPrice(op.amount)}
                                             </td>
-                                            <td className="py-1.5 px-2.5 text-right font-semibold whitespace-nowrap text-xs tracking-tight">
+                                            <td className="py-2.5 px-3 text-right font-bold whitespace-nowrap text-xs tracking-tight">
                                                 {op.kind === 'credit_note' ? (
                                                     <span className={op.remainingAmount > 0 ? "text-emerald-700" : "text-gray-400"}>
                                                         {formatPrice(op.remainingAmount)}
                                                     </span>
                                                 ) : op.kind === 'cash_refund' ? (
-                                                    <span className="text-emerald-700 font-medium text-[11px]">
+                                                    <span className="text-emerald-700 font-semibold text-xs">
                                                         {formatPrice(op.remainingAmount)}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-gray-400 font-normal text-[11px]">—</span>
+                                                    <span className="text-gray-400 font-normal text-xs">—</span>
                                                 )}
                                             </td>
-                                            <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
+                                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider border ${op.statusColor}`}>
                                                     {op.statusLabel}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
-                                                {op.kind === 'return' ? (
+                                            <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                                                <div className="relative inline-block text-left" ref={openActionMenuId === op.id ? actionMenuRef : null}>
                                                     <button
                                                         type="button"
-                                                        onClick={() => setViewingReturn(op.rawReturn)}
-                                                        className="inline-flex items-center gap-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer"
-                                                        title="Voir le bon de retour"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenActionMenuId(openActionMenuId === op.id ? null : op.id);
+                                                        }}
+                                                        className="p-1.5 rounded-[4px] text-gray-500 hover:text-[#001d35] hover:bg-slate-200/70 transition-colors cursor-pointer"
+                                                        title="Plus d'actions"
                                                     >
-                                                        <Printer className="w-3 h-3 text-[#f77500]" />
-                                                        <span>Reçu</span>
+                                                        <MoreVertical className="w-4 h-4" />
                                                     </button>
-                                                ) : op.kind === 'cash_refund' ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setPrintedCashRefund(op.rawRefund)}
-                                                        className="inline-flex items-center gap-1 bg-white hover:bg-gray-100 text-emerald-800 border border-emerald-300 px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer active:scale-95"
-                                                        title="Imprimer la décharge de remboursement espèces"
-                                                    >
-                                                        <Printer className="w-3 h-3 text-emerald-600" />
-                                                        <span>Quittance</span>
-                                                    </button>
-                                                ) : (
-                                                    <div className="flex items-center justify-center gap-1.5">
-                                                        {op.rawCreditNote && op.remainingAmount > 0 && op.rawCreditNote.status !== 'cancelled' && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenCashRefund(op.rawCreditNote)}
-                                                                className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer active:scale-95"
-                                                                title="Rembourser cet avoir en espèces"
-                                                            >
-                                                                <Banknote className="w-3 h-3 text-emerald-100" />
-                                                                <span>Espèces</span>
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const c = op.rawCreditNote;
-                                                                const isReliquat = c.type === 'change_reliquat';
-                                                                const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
-                                                                setViewingReturn(parentReturn || {
-                                                                    returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
-                                                                    customerName: c.customerName,
-                                                                    date: c.createdAt,
-                                                                    refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
-                                                                    type: c.type,
-                                                                    totalAmount: c.initialAmount,
-                                                                    voucherCode: c.code,
-                                                                    items: [],
-                                                                    notes: c.notes || (isReliquat ? 'Reliquat monnaie converti en bon' : "Bon d'avoir émis")
-                                                                });
-                                                                setViewingCreditNote(c);
-                                                            }}
-                                                            className="inline-flex items-center gap-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer"
-                                                            title="Imprimer l'avoir"
-                                                        >
-                                                            <Printer className="w-3 h-3 text-[#f77500]" />
-                                                            <span>Imprimer</span>
-                                                        </button>
-                                                    </div>
-                                                )}
+
+                                                    {openActionMenuId === op.id && (
+                                                        <div className={`absolute right-0 ${opIdx >= paginatedUnifiedOperations.length - 2 && paginatedUnifiedOperations.length > 2 ? 'bottom-full mb-1' : 'top-full mt-1'} w-52 bg-white rounded-[4px] shadow-xl border border-gray-200 z-[70] py-1 text-left text-xs divide-y divide-gray-100 animate-in fade-in zoom-in-95 duration-100`}>
+                                                            <div className="py-0.5">
+                                                                {op.kind === 'return' ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setViewingReturn(op.rawReturn);
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#001d35] hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Printer className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                        <span>Voir / Imprimer le Reçu</span>
+                                                                    </button>
+                                                                ) : op.kind === 'cash_refund' ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setPrintedCashRefund(op.rawRefund);
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#001d35] hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Printer className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                        <span>Imprimer la Quittance</span>
+                                                                    </button>
+                                                                ) : (
+                                                                    <>
+                                                                        {op.rawCreditNote && op.remainingAmount > 0 && op.rawCreditNote.status !== 'cancelled' && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleOpenCashRefund(op.rawCreditNote);
+                                                                                    setOpenActionMenuId(null);
+                                                                                }}
+                                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer text-left"
+                                                                            >
+                                                                                <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                                                                                <span>Rembourser en Espèces</span>
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const c = op.rawCreditNote;
+                                                                                const isReliquat = c.type === 'change_reliquat';
+                                                                                const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
+                                                                                setViewingReturn(parentReturn || {
+                                                                                    returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
+                                                                                    customerName: c.customerName,
+                                                                                    date: c.createdAt,
+                                                                                    refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
+                                                                                    type: c.type,
+                                                                                    totalAmount: c.initialAmount,
+                                                                                    voucherCode: c.code,
+                                                                                    items: [],
+                                                                                    notes: c.notes || (isReliquat ? 'Reliquat monnaie converti en bon' : "Bon d'avoir émis")
+                                                                                });
+                                                                                setViewingCreditNote(c);
+                                                                                setOpenActionMenuId(null);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#001d35] hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                        >
+                                                                            <Printer className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                            <span>Imprimer l'Avoir</span>
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            <div className="py-0.5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleCopyCode(op.refCode);
+                                                                        setOpenActionMenuId(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                >
+                                                                    <Copy className="w-3.5 h-3.5 text-gray-500" />
+                                                                    <span>Copier la référence</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -1961,8 +2099,8 @@ const Returns = () => {
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
-                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                    <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-2 text-center border-r-2 border-white/20">
                                             <input
                                                 type="checkbox"
                                                 className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
@@ -1971,18 +2109,18 @@ const Returns = () => {
                                                 title="Tout cocher / Tout décocher"
                                             />
                                         </th>
-                                        <th className="py-1.5 px-2.5">Date & Heure</th>
-                                        <th className="py-1.5 px-2.5">N° de Retour</th>
-                                        <th className="py-1.5 px-2.5">Client & Chantier</th>
-                                        <th className="py-1.5 px-2.5">Vente Liée</th>
-                                        <th className="py-1.5 px-2.5">Articles Retournés</th>
-                                        <th className="py-1.5 px-2.5 text-right">Montant Remboursé</th>
-                                        <th className="py-1.5 px-2.5 text-center">Règlement</th>
-                                        <th className="py-1.5 px-2.5 text-center">Stock</th>
-                                        <th className="py-1.5 px-2.5 text-center">Actions</th>
+                                        <th className="py-2.5 px-3 w-40">Date & Heure</th>
+                                        <th className="py-2.5 px-3 w-44">N° de Retour</th>
+                                        <th className="py-2.5 px-3 w-56">Client & Chantier</th>
+                                        <th className="py-2.5 px-3 w-40">Vente Liée</th>
+                                        <th className="py-2.5 px-3">Articles Retournés</th>
+                                        <th className="py-2.5 px-3 text-right w-36">Montant Remboursé</th>
+                                        <th className="py-2.5 px-3 text-center w-32">Règlement</th>
+                                        <th className="py-2.5 px-3 text-center w-28">Stock</th>
+                                        <th className="py-2.5 px-2 text-center w-16">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-gray-100">
                                     {paginatedReturns.map((r, rIdx) => {
                                         const isSelected = selectedRowIds.includes(r.id);
                                         const isAvoir = r.refundMethod === 'avoir';
@@ -2000,7 +2138,7 @@ const Returns = () => {
                                             <tr key={r.id} className={`transition-all border-b border-gray-200 select-none ${dimmed ? 'opacity-45' : ''} ${
                                                 isSelected ? 'bg-blue-50' : rIdx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
                                             }`}>
-                                                <td className="px-1 py-1.5 text-center w-10">
+                                                <td className="px-1 py-2 text-center w-10">
                                                     <input
                                                         type="checkbox"
                                                         className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
@@ -2008,91 +2146,142 @@ const Returns = () => {
                                                         onChange={() => handleSelectRow(r.id)}
                                                     />
                                                 </td>
-                                                <td className="py-1.5 px-2.5 whitespace-nowrap">
-                                                    <div className="font-semibold text-gray-900">
-                                                        {format(new Date(r.date), 'dd/MM/yyyy')}
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5 font-semibold text-gray-900 text-xs">
+                                                        <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                        <span>{format(new Date(r.date), 'dd/MM/yyyy')}</span>
                                                     </div>
-                                                    <div className="text-[10px] text-gray-500 font-medium">
-                                                        {format(new Date(r.date), 'HH:mm')}
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono pl-5">
+                                                        <Clock className="w-2.5 h-2.5" />
+                                                        <span>{format(new Date(r.date), 'HH:mm')}</span>
                                                     </div>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 font-semibold text-[#001d35] whitespace-nowrap tracking-wide">
-                                                    {r.returnNumber}
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                    <span className="font-mono text-[11px] font-bold text-[#001d35] bg-slate-100 px-1.5 py-0.5 rounded-[4px] border border-slate-200">
+                                                        {r.returnNumber}
+                                                    </span>
                                                 </td>
-                                                <td className="py-1.5 px-2.5">
-                                                    <p className="font-semibold text-gray-900">{r.customerName || 'Client Comptoir'}</p>
-                                                    {r.siteName && (
-                                                        <p className="text-[10px] text-gray-500 font-medium">Chantier : {r.siteName}</p>
-                                                    )}
-                                                </td>
-                                                <td className="py-1.5 px-2.5 text-gray-600 whitespace-nowrap font-medium">
-                                                    {r.transactionNumber ? (
-                                                        <span className="bg-gray-100 border border-gray-300 px-1.5 py-0.5 rounded-[4px] font-semibold text-gray-800 text-[11px]">
-                                                             {r.transactionNumber}
+                                                <td className="py-2.5 px-3">
+                                                    <div className="font-bold text-[#001d35] text-xs">
+                                                        {r.customerName || 'Client Comptoir'}
+                                                    </div>
+                                                    {r.siteName ? (
+                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-200 px-1.5 py-0.5 rounded-[4px] font-semibold text-[10px] mt-0.5">
+                                                            <Building2 className="w-2.5 h-2.5 text-blue-600 shrink-0" />
+                                                            <span className="truncate max-w-[130px]">{r.siteName}</span>
                                                         </span>
                                                     ) : (
-                                                        <span className="text-gray-400 italic text-[11px]">Comptoir libre</span>
+                                                        <span className="text-[10px] text-gray-400 font-medium italic mt-0.5 block">
+                                                            Comptoir / Général
+                                                        </span>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 max-w-xs">
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                    {r.transactionNumber ? (
+                                                        <span className="font-mono text-[11px] font-medium text-gray-800 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded-[4px]">
+                                                            {r.transactionNumber}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-gray-400 italic">Comptoir libre</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-2.5 px-3 max-w-xs">
                                                     <div className="flex flex-wrap gap-1">
                                                         {(r.items || []).map((it, idx) => (
-                                                            <span key={idx} className="bg-gray-100 border border-gray-300 text-gray-700 px-1.5 py-0.5 rounded-[4px] text-[10px] font-medium flex items-center gap-1">
+                                                            <span key={idx} className="bg-gray-100 border border-gray-200 text-gray-700 px-1.5 py-0.5 rounded-[4px] text-[10px] font-medium flex items-center gap-1">
                                                                 {it.name} <strong className="text-gray-900 font-semibold">x{it.quantityReturned || it.quantity}</strong>
                                                             </span>
                                                         ))}
                                                     </div>
                                                     {r.reason && (
-                                                        <p className="text-[10px] text-gray-500 italic mt-0.5">Motif : {r.reason}</p>
+                                                        <p className="text-[10px] text-gray-500 italic mt-0.5 truncate max-w-[240px]" title={r.reason}>
+                                                            Motif : {r.reason}
+                                                        </p>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-right font-semibold text-[#001d35] whitespace-nowrap text-xs tracking-tight">
+                                                <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap text-xs">
                                                     {formatPrice(r.totalAmount)}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
+                                                <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                                     {isAvoir ? (
-                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200 px-1.5 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
                                                             <Ticket className="w-3 h-3 text-blue-600" />
                                                             Bon d'Avoir
                                                         </span>
                                                     ) : isCash ? (
-                                                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
                                                             <Banknote className="w-3 h-3 text-emerald-600" />
                                                             Espèces
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider">
                                                             Dette Déduite
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
+                                                <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                                     <div className="flex items-center justify-center gap-1">
                                                         {intactCount > 0 && (
-                                                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold px-1.5 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
+                                                            <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold px-1.5 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
                                                                 +{intactCount} remis
                                                             </span>
                                                         )}
                                                         {damagedCount > 0 && (
-                                                            <span className="bg-rose-100 text-rose-800 border border-rose-200 font-semibold px-1.5 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
+                                                            <span className="bg-rose-50 text-rose-800 border border-rose-200 font-semibold px-1.5 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
                                                                 {damagedCount} rebut
                                                             </span>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => {
-                                                            setViewingReturn(r);
-                                                            const note = creditNotes.find(c => c.returnNumber === r.returnNumber);
-                                                            setViewingCreditNote(note || null);
-                                                        }}
-                                                        title="Voir et imprimer le bon"
-                                                        className="inline-flex items-center gap-1 bg-[#001d35] hover:bg-[#00284a] text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
-                                                    >
-                                                        <Printer className="w-3 h-3 text-[#f77500]" />
-                                                        <span>Imprimer</span>
-                                                    </button>
+                                                <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                                                    <div className="relative inline-block text-left" ref={openActionMenuId === r.id ? actionMenuRef : null}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenActionMenuId(openActionMenuId === r.id ? null : r.id);
+                                                            }}
+                                                            className="p-1.5 rounded-[4px] text-gray-500 hover:text-[#001d35] hover:bg-slate-200/70 transition-colors cursor-pointer"
+                                                            title="Plus d'actions"
+                                                        >
+                                                            <MoreVertical className="w-4 h-4" />
+                                                        </button>
+
+                                                        {openActionMenuId === r.id && (
+                                                            <div className={`absolute right-0 ${rIdx >= paginatedReturns.length - 2 && paginatedReturns.length > 2 ? 'bottom-full mb-1' : 'top-full mt-1'} w-52 bg-white rounded-[4px] shadow-xl border border-gray-200 z-[70] py-1 text-left text-xs divide-y divide-gray-100 animate-in fade-in zoom-in-95 duration-100`}>
+                                                                <div className="py-0.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setViewingReturn(r);
+                                                                            const note = creditNotes.find(c => c.returnNumber === r.returnNumber);
+                                                                            setViewingCreditNote(note || null);
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#001d35] hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Printer className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                        <span>Voir / Imprimer le Bon</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div className="py-0.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleCopyCode(r.returnNumber);
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Copy className="w-3.5 h-3.5 text-gray-500" />
+                                                                        <span>Copier N° Retour</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -2118,8 +2307,8 @@ const Returns = () => {
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
-                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                    <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-2 text-center border-r-2 border-white/20">
                                             <input
                                                 type="checkbox"
                                                 className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
@@ -2128,25 +2317,25 @@ const Returns = () => {
                                                 title="Tout cocher / Tout décocher"
                                             />
                                         </th>
-                                        <th className="py-1.5 px-2.5">Code Bon d'Avoir</th>
-                                        <th className="py-1.5 px-2.5">Client Bénéficiaire</th>
-                                        <th className="py-1.5 px-2.5">Date Émission</th>
-                                        <th className="py-1.5 px-2.5">Validité (60J)</th>
-                                        <th className="py-1.5 px-2.5 text-right">Montant Initial</th>
-                                        <th className="py-1.5 px-2.5 text-right">Solde Restant</th>
-                                        <th className="py-1.5 px-2.5 text-center">Statut</th>
-                                        <th className="py-1.5 px-2.5 text-center">Actions</th>
+                                        <th className="py-2.5 px-3 w-48">Code Bon d'Avoir</th>
+                                        <th className="py-2.5 px-3 w-56">Client Bénéficiaire</th>
+                                        <th className="py-2.5 px-3 w-40">Date Émission</th>
+                                        <th className="py-2.5 px-3 w-40">Validité (60J)</th>
+                                        <th className="py-2.5 px-3 text-right w-36">Montant Initial</th>
+                                        <th className="py-2.5 px-3 text-right w-36">Solde Restant</th>
+                                        <th className="py-2.5 px-3 text-center w-28">Statut</th>
+                                        <th className="py-2.5 px-2 text-center w-16">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-gray-100">
                                     {paginatedAllActiveCreditNotes.map((c, cIdx) => {
                                         const isSelected = selectedRowIds.includes(c.id);
                                         const isExpired = new Date(c.expiresAt).getTime() < nowTimestamp;
                                         return (
                                             <tr key={c.id} className={`transition-colors border-b border-gray-200 select-none ${
-                                                isSelected ? 'bg-blue-50' : cIdx % 2 === 0 ? 'bg-white hover:bg-emerald-50/40' : 'bg-slate-50/70 hover:bg-emerald-50/40'
+                                                isSelected ? 'bg-blue-50' : cIdx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
                                             }`}>
-                                                <td className="px-1 py-1.5 text-center w-10">
+                                                <td className="px-1 py-2 text-center w-10">
                                                     <input
                                                         type="checkbox"
                                                         className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
@@ -2154,84 +2343,149 @@ const Returns = () => {
                                                         onChange={() => handleSelectRow(c.id)}
                                                     />
                                                 </td>
-                                                <td className="py-1.5 px-2.5 font-semibold text-gray-900 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="text-[#001d35] font-semibold tracking-wider">{c.code}</span>
+                                                        <span className="font-mono text-[11px] font-bold text-[#001d35] bg-slate-100 px-1.5 py-0.5 rounded-[4px] border border-slate-200">
+                                                            {c.code}
+                                                        </span>
                                                         <button onClick={() => handleCopyCode(c.code)} title="Copier le code" className="text-gray-400 hover:text-gray-700 cursor-pointer">
                                                             <Copy className="w-3 h-3" />
                                                         </button>
                                                     </div>
                                                     {c.type === 'change_reliquat' ? (
-                                                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.2 rounded-xs text-[9px] uppercase tracking-wider mt-0.5">
+                                                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded-[4px] text-[9px] uppercase tracking-wider mt-0.5">
                                                             🎟️ Reliquat Monnaie
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200 font-bold px-1.5 py-0.2 rounded-xs text-[9px] uppercase tracking-wider mt-0.5">
+                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200 font-bold px-1.5 py-0.5 rounded-[4px] text-[9px] uppercase tracking-wider mt-0.5">
                                                             📦 Retour Article
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5">
-                                                    <p className="font-semibold text-gray-900">{c.customerName || 'Client Comptoir'}</p>
-                                                    {c.siteName && <p className="text-[10px] text-gray-500 font-medium">Chantier : {c.siteName}</p>}
+                                                <td className="py-2.5 px-3">
+                                                    <div className="font-bold text-[#001d35] text-xs">
+                                                        {c.customerName || 'Client Comptoir'}
+                                                    </div>
+                                                    {c.siteName ? (
+                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-200 px-1.5 py-0.5 rounded-[4px] font-semibold text-[10px] mt-0.5">
+                                                            <Building2 className="w-2.5 h-2.5 text-blue-600 shrink-0" />
+                                                            <span className="truncate max-w-[130px]">{c.siteName}</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-gray-400 font-medium italic mt-0.5 block">
+                                                            Comptoir / Général
+                                                        </span>
+                                                    )}
                                                     {c.notes && (
                                                         <p className="text-[10px] text-gray-400 italic max-w-[240px] truncate mt-0.5" title={c.notes}>
                                                             {c.notes}
                                                         </p>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-gray-500 whitespace-nowrap font-medium">{format(new Date(c.createdAt), 'dd/MM/yyyy')}</td>
-                                                <td className="py-1.5 px-2.5 whitespace-nowrap">
-                                                    <span className={`text-[11px] font-semibold ${isExpired ? 'text-rose-600' : 'text-emerald-700'}`}>
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5 font-semibold text-gray-900 text-xs">
+                                                        <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                        <span>{format(new Date(c.createdAt), 'dd/MM/yyyy')}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono pl-5">
+                                                        <Clock className="w-2.5 h-2.5" />
+                                                        <span>{format(new Date(c.createdAt), 'HH:mm')}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                    <span className={`text-xs font-semibold ${isExpired ? 'text-rose-600' : 'text-emerald-700'}`}>
                                                         {format(new Date(c.expiresAt), 'dd/MM/yyyy')}{isExpired && ' (Expiré)'}
                                                     </span>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-right font-medium text-gray-600 whitespace-nowrap">{formatPrice(c.initialAmount)}</td>
-                                                <td className="py-1.5 px-2.5 text-right font-semibold text-emerald-700 whitespace-nowrap text-xs tracking-tight">{formatPrice(c.remainingAmount)}</td>
-                                                <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
+                                                <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap text-xs">
+                                                    {formatPrice(c.initialAmount)}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-bold text-emerald-700 whitespace-nowrap text-xs tracking-tight">
+                                                    {formatPrice(c.remainingAmount)}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                                     {c.status === 'active' ? (
-                                                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-300 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
                                                             <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Actif
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-200 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">Partiel</span>
+                                                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">Partiel</span>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
-                                                    <div className="flex items-center justify-center gap-1.5">
+                                                <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                                                    <div className="relative inline-block text-left" ref={openActionMenuId === c.id ? actionMenuRef : null}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleOpenCashRefund(c)}
-                                                            className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
-                                                            title="Rembourser ce bon en espèces"
-                                                        >
-                                                            <Banknote className="w-3 h-3 text-emerald-200" />
-                                                            <span>Rembourser Espèces</span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                const isReliquat = c.type === 'change_reliquat';
-                                                                const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
-                                                                setViewingReturn(parentReturn || {
-                                                                    returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
-                                                                    customerName: c.customerName,
-                                                                    date: c.createdAt,
-                                                                    refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
-                                                                    type: c.type,
-                                                                    totalAmount: c.initialAmount,
-                                                                    voucherCode: c.code,
-                                                                    reason: c.notes || (isReliquat ? 'Reliquat de monnaie non rendue en caisse' : "Bon d'avoir"),
-                                                                    cashierName: c.cashierName,
-                                                                    items: []
-                                                                });
-                                                                setViewingCreditNote(c);
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenActionMenuId(openActionMenuId === c.id ? null : c.id);
                                                             }}
-                                                            className="inline-flex items-center gap-1 bg-[#001d35] hover:bg-[#00284a] text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
-                                                            title="Imprimer le bon d'avoir"
+                                                            className="p-1.5 rounded-[4px] text-gray-500 hover:text-[#001d35] hover:bg-slate-200/70 transition-colors cursor-pointer"
+                                                            title="Plus d'actions"
                                                         >
-                                                            <Printer className="w-3 h-3 text-[#f77500]" />
-                                                            <span>Imprimer</span>
+                                                            <MoreVertical className="w-4 h-4" />
                                                         </button>
+
+                                                        {openActionMenuId === c.id && (
+                                                            <div className={`absolute right-0 ${cIdx >= paginatedAllActiveCreditNotes.length - 2 && paginatedAllActiveCreditNotes.length > 2 ? 'bottom-full mb-1' : 'top-full mt-1'} w-52 bg-white rounded-[4px] shadow-xl border border-gray-200 z-[70] py-1 text-left text-xs divide-y divide-gray-100 animate-in fade-in zoom-in-95 duration-100`}>
+                                                                <div className="py-0.5">
+                                                                    {c.remainingAmount > 0 && c.status !== 'cancelled' && !isExpired && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleOpenCashRefund(c);
+                                                                                setOpenActionMenuId(null);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer text-left"
+                                                                        >
+                                                                            <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                                                                            <span>Rembourser en Espèces</span>
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const isReliquat = c.type === 'change_reliquat';
+                                                                            const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
+                                                                            setViewingReturn(parentReturn || {
+                                                                                returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
+                                                                                customerName: c.customerName,
+                                                                                date: c.createdAt,
+                                                                                refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
+                                                                                type: c.type,
+                                                                                totalAmount: c.initialAmount,
+                                                                                voucherCode: c.code,
+                                                                                reason: c.notes || (isReliquat ? 'Reliquat de monnaie non rendue en caisse' : "Bon d'avoir"),
+                                                                                cashierName: c.cashierName,
+                                                                                items: []
+                                                                            });
+                                                                            setViewingCreditNote(c);
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#001d35] hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Printer className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                        <span>Imprimer le Bon d'Avoir</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div className="py-0.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleCopyCode(c.code);
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Copy className="w-3.5 h-3.5 text-gray-500" />
+                                                                        <span>Copier le Code Bon</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -2254,8 +2508,8 @@ const Returns = () => {
                         ) : (
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead>
-                                    <tr className="bg-[#001d35] text-white uppercase text-[10px] tracking-wider font-semibold divide-x divide-white/10 sticky top-0">
-                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-1.5 text-center border-r-2 border-white/20">
+                                    <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0">
+                                        <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-2 text-center border-r-2 border-white/20">
                                             <input
                                                 type="checkbox"
                                                 className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
@@ -2264,17 +2518,17 @@ const Returns = () => {
                                                 title="Tout cocher / Tout décocher"
                                             />
                                         </th>
-                                        <th className="py-1.5 px-2.5">Code Bon d'Avoir</th>
-                                        <th className="py-1.5 px-2.5">Client Bénéficiaire</th>
-                                        <th className="py-1.5 px-2.5">Date Émission</th>
-                                        <th className="py-1.5 px-2.5">Validité (60J)</th>
-                                        <th className="py-1.5 px-2.5 text-right">Montant Initial</th>
-                                        <th className="py-1.5 px-2.5 text-right">Solde Restant</th>
-                                        <th className="py-1.5 px-2.5 text-center">Statut</th>
-                                        <th className="py-1.5 px-2.5 text-center">Actions</th>
+                                        <th className="py-2.5 px-3 w-48">Code Bon d'Avoir</th>
+                                        <th className="py-2.5 px-3 w-56">Client Bénéficiaire</th>
+                                        <th className="py-2.5 px-3 w-40">Date Émission</th>
+                                        <th className="py-2.5 px-3 w-40">Validité (60J)</th>
+                                        <th className="py-2.5 px-3 text-right w-36">Montant Initial</th>
+                                        <th className="py-2.5 px-3 text-right w-36">Solde Restant</th>
+                                        <th className="py-2.5 px-3 text-center w-28">Statut</th>
+                                        <th className="py-2.5 px-2 text-center w-16">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-gray-100">
                                     {paginatedCreditNotes.map((c, cIdx) => {
                                         const isSelected = selectedRowIds.includes(c.id);
                                         const isExpired = new Date(c.expiresAt).getTime() < nowTimestamp;
@@ -2284,7 +2538,7 @@ const Returns = () => {
                                             <tr key={c.id} className={`transition-colors border-b border-gray-200 select-none ${
                                                 isSelected ? 'bg-blue-50' : cIdx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
                                             }`}>
-                                                <td className="px-1 py-1.5 text-center w-10">
+                                                <td className="px-1 py-2 text-center w-10">
                                                     <input
                                                         type="checkbox"
                                                         className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
@@ -2292,9 +2546,11 @@ const Returns = () => {
                                                         onChange={() => handleSelectRow(c.id)}
                                                     />
                                                 </td>
-                                                <td className="py-1.5 px-2.5 font-semibold text-gray-900 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="text-[#001d35] font-semibold tracking-wider">{c.code}</span>
+                                                        <span className="font-mono text-[11px] font-bold text-[#001d35] bg-slate-100 px-1.5 py-0.5 rounded-[4px] border border-slate-200">
+                                                            {c.code}
+                                                        </span>
                                                         <button
                                                             onClick={() => handleCopyCode(c.code)}
                                                             title="Copier le code"
@@ -2304,19 +2560,28 @@ const Returns = () => {
                                                         </button>
                                                     </div>
                                                     {c.type === 'change_reliquat' ? (
-                                                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.2 rounded-xs text-[9px] uppercase tracking-wider mt-0.5">
+                                                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded-[4px] text-[9px] uppercase tracking-wider mt-0.5">
                                                             🎟️ Reliquat Monnaie
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200 font-bold px-1.5 py-0.2 rounded-xs text-[9px] uppercase tracking-wider mt-0.5">
+                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 border border-blue-200 font-bold px-1.5 py-0.5 rounded-[4px] text-[9px] uppercase tracking-wider mt-0.5">
                                                             📦 Retour Article
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5">
-                                                    <p className="font-semibold text-gray-900">{c.customerName || 'Client Comptoir'}</p>
-                                                    {c.siteName && (
-                                                        <p className="text-[10px] text-gray-500 font-medium">Chantier : {c.siteName}</p>
+                                                <td className="py-2.5 px-3">
+                                                    <div className="font-bold text-[#001d35] text-xs">
+                                                        {c.customerName || 'Client Comptoir'}
+                                                    </div>
+                                                    {c.siteName ? (
+                                                        <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-900 border border-blue-200 px-1.5 py-0.5 rounded-[4px] font-semibold text-[10px] mt-0.5">
+                                                            <Building2 className="w-2.5 h-2.5 text-blue-600 shrink-0" />
+                                                            <span className="truncate max-w-[130px]">{c.siteName}</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-gray-400 font-medium italic mt-0.5 block">
+                                                            Comptoir / Général
+                                                        </span>
                                                     )}
                                                     {c.notes && (
                                                         <p className="text-[10px] text-gray-400 italic max-w-[240px] truncate mt-0.5" title={c.notes}>
@@ -2324,29 +2589,36 @@ const Returns = () => {
                                                         </p>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-gray-500 whitespace-nowrap font-medium">
-                                                    {format(new Date(c.createdAt), 'dd/MM/yyyy')}
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5 font-semibold text-gray-900 text-xs">
+                                                        <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                        <span>{format(new Date(c.createdAt), 'dd/MM/yyyy')}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono pl-5">
+                                                        <Clock className="w-2.5 h-2.5" />
+                                                        <span>{format(new Date(c.createdAt), 'HH:mm')}</span>
+                                                    </div>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 whitespace-nowrap">
-                                                    <span className={`text-[11px] font-semibold ${isExpired ? 'text-rose-600' : 'text-gray-600'}`}>
+                                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                                    <span className={`text-xs font-semibold ${isExpired ? 'text-rose-600' : 'text-gray-600'}`}>
                                                         {format(new Date(c.expiresAt), 'dd/MM/yyyy')}
                                                         {isExpired && ' (Expiré)'}
                                                     </span>
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-right font-medium text-gray-600 whitespace-nowrap">
+                                                <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap text-xs">
                                                     {formatPrice(c.initialAmount)}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-right font-semibold text-[#001d35] whitespace-nowrap text-xs tracking-tight">
+                                                <td className="py-2.5 px-3 text-right font-bold text-[#001d35] whitespace-nowrap text-xs tracking-tight">
                                                     {formatPrice(c.remainingAmount)}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
+                                                <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                                     {c.status === 'active' && !isExpired ? (
-                                                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-300 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
                                                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                                             Actif
                                                         </span>
                                                     ) : c.status === 'partial' && !isExpired ? (
-                                                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-200 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-300 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
                                                             Partiel
                                                         </span>
                                                     ) : isUsed ? (
@@ -2354,53 +2626,90 @@ const Returns = () => {
                                                             Utilisé
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 border border-rose-200 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
+                                                        <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-800 border border-rose-300 font-semibold px-2 py-0.5 rounded-[4px] text-[10px] uppercase tracking-wider">
                                                             Expiré
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="py-1.5 px-2.5 text-center whitespace-nowrap">
-                                                    <div className="flex items-center justify-center gap-1.5">
-                                                        {c.remainingAmount > 0 && c.status !== 'cancelled' && !isExpired && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenCashRefund(c)}
-                                                                className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
-                                                                title="Rembourser ce bon en espèces"
-                                                            >
-                                                                <Banknote className="w-3 h-3 text-emerald-200" />
-                                                                <span>Rembourser Espèces</span>
-                                                            </button>
-                                                        )}
+                                                <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                                                    <div className="relative inline-block text-left" ref={openActionMenuId === c.id ? actionMenuRef : null}>
                                                         <button
-                                                            onClick={() => {
-                                                                const isReliquat = c.type === 'change_reliquat';
-                                                                const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
-                                                                if (parentReturn) {
-                                                                    setViewingReturn(parentReturn);
-                                                                    setViewingCreditNote(c);
-                                                                } else {
-                                                                    setViewingReturn({
-                                                                        returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
-                                                                        customerName: c.customerName,
-                                                                        date: c.createdAt,
-                                                                        refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
-                                                                        type: c.type,
-                                                                        totalAmount: c.initialAmount,
-                                                                        voucherCode: c.code,
-                                                                        reason: c.notes || (isReliquat ? 'Reliquat de monnaie non rendue en caisse' : "Bon d'avoir"),
-                                                                        cashierName: c.cashierName,
-                                                                        items: []
-                                                                    });
-                                                                    setViewingCreditNote(c);
-                                                                }
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenActionMenuId(openActionMenuId === c.id ? null : c.id);
                                                             }}
-                                                            className="inline-flex items-center gap-1 bg-[#001d35] hover:bg-[#00284a] text-white px-2 py-0.5 rounded-[4px] text-[11px] font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
-                                                            title="Imprimer le bon d'avoir"
+                                                            className="p-1.5 rounded-[4px] text-gray-500 hover:text-[#001d35] hover:bg-slate-200/70 transition-colors cursor-pointer"
+                                                            title="Plus d'actions"
                                                         >
-                                                            <Printer className="w-3 h-3 text-[#f77500]" />
-                                                            <span>Imprimer</span>
+                                                            <MoreVertical className="w-4 h-4" />
                                                         </button>
+
+                                                        {openActionMenuId === c.id && (
+                                                            <div className={`absolute right-0 ${cIdx >= paginatedCreditNotes.length - 2 && paginatedCreditNotes.length > 2 ? 'bottom-full mb-1' : 'top-full mt-1'} w-52 bg-white rounded-[4px] shadow-xl border border-gray-200 z-[70] py-1 text-left text-xs divide-y divide-gray-100 animate-in fade-in zoom-in-95 duration-100`}>
+                                                                <div className="py-0.5">
+                                                                    {c.remainingAmount > 0 && c.status !== 'cancelled' && !isExpired && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleOpenCashRefund(c);
+                                                                                setOpenActionMenuId(null);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer text-left"
+                                                                        >
+                                                                            <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                                                                            <span>Rembourser en Espèces</span>
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const isReliquat = c.type === 'change_reliquat';
+                                                                            const parentReturn = returns.find(r => r.returnNumber === c.returnNumber);
+                                                                            if (parentReturn) {
+                                                                                setViewingReturn(parentReturn);
+                                                                                setViewingCreditNote(c);
+                                                                            } else {
+                                                                                setViewingReturn({
+                                                                                    returnNumber: isReliquat ? c.code : (c.returnNumber || c.code),
+                                                                                    customerName: c.customerName,
+                                                                                    date: c.createdAt,
+                                                                                    refundMethod: isReliquat ? 'change_reliquat' : 'avoir',
+                                                                                    type: c.type,
+                                                                                    totalAmount: c.initialAmount,
+                                                                                    voucherCode: c.code,
+                                                                                    reason: c.notes || (isReliquat ? 'Reliquat de monnaie non rendue en caisse' : "Bon d'avoir"),
+                                                                                    cashierName: c.cashierName,
+                                                                                    items: []
+                                                                                });
+                                                                                setViewingCreditNote(c);
+                                                                            }
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#001d35] hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Printer className="w-3.5 h-3.5 text-[#f77500]" />
+                                                                        <span>Imprimer l'Avoir</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div className="py-0.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleCopyCode(c.code);
+                                                                            setOpenActionMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                                                                    >
+                                                                        <Copy className="w-3.5 h-3.5 text-gray-500" />
+                                                                        <span>Copier le Code Bon</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -3165,6 +3474,41 @@ const Returns = () => {
                     onClose={() => setPrintedCashRefund(null)}
                 />
             )}
+
+            {/* Global KPI Tooltip (Style officiel Dashboard) */}
+            {activeTooltip && (() => {
+                const { pos, flipX, flipY, text, title } = activeTooltip;
+                const MARGIN = 8;
+                const leftStyle = flipX
+                    ? { right: window.innerWidth - pos.right }
+                    : { left: pos.left };
+                const topStyle = flipY
+                    ? { top: pos.bottom + MARGIN }
+                    : { top: pos.top - MARGIN, transform: 'translateY(-100%)' };
+
+                return (
+                    <div
+                        className="fixed z-[9999] w-64 bg-[#001d35] text-white text-xs rounded-[4px] p-3 shadow-2xl leading-relaxed pointer-events-none animate-in fade-in duration-150 border border-white/10"
+                        style={{ ...leftStyle, ...topStyle }}
+                    >
+                        {!flipY && (
+                            <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-r border-b border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {flipY && (
+                            <div className={`absolute -top-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-l border-t border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {title && (
+                            <div className="font-bold text-[#f77500] mb-1 uppercase text-[10px] tracking-wider flex items-center gap-1">
+                                <span>💡</span>
+                                <span>{title}</span>
+                            </div>
+                        )}
+                        <div className="text-gray-100 font-normal leading-relaxed text-[11px]">
+                            {text}
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };

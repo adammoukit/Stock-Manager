@@ -27,6 +27,7 @@ const Clients = () => {
     const handleFilterChange = (setterOrFn, value) => {
         setFilterLoading(true);
         setOpsPage(1); // Réinitialiser à la page 1 sur tout changement de filtre
+        setClientPage(1); // Réinitialiser à la page 1 pour le fichier clients
         if (typeof setterOrFn === 'function') {
             if (value !== undefined) {
                 setterOrFn(value);
@@ -66,13 +67,13 @@ const Clients = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all'); // 'all', 'particulier', 'artisan', 'entreprise', 'debtor'
     const [creditStatusFilter, setCreditStatusFilter] = useState('all'); // 'all', 'debtor', 'exceeded', 'avance', 'avoir', 'up_to_date'
-    const [clientPeriod, setClientPeriod] = useState('today'); // 'today' (par défaut) | '7days' | 'month' | 'all' | 'custom'
+    const [clientPeriod, setClientPeriod] = useState('all'); // 'all' (par défaut : Tout) | 'today' | '7days' | 'month' | 'custom'
     const [clientCustomStartDate, setClientCustomStartDate] = useState('');
     const [clientCustomEndDate, setClientCustomEndDate] = useState('');
     const [currentView, setCurrentView] = useState('clients'); // 'clients' | 'operations'
     const [operationFilter, setOperationFilter] = useState('none'); // 'none' (Aucun par défaut) | 'all' (Toutes les opérations) | 'reliquat_credit' | ...
     const [operationClientFilter, setOperationClientFilter] = useState('all'); // 'all' (Tous les clients) | nom du client
-    const [operationPeriod, setOperationPeriod] = useState('today'); // 'today' par défaut (pour ne pas surcharger le serveur) | '7days' | 'month' | 'all' | 'custom'
+    const [operationPeriod, setOperationPeriod] = useState('all'); // 'all' (par défaut : Tout) | 'today' | '7days' | 'month' | 'custom'
     const [operationCustomStartDate, setOperationCustomStartDate] = useState('');
     const [operationCustomEndDate, setOperationCustomEndDate] = useState('');
 
@@ -81,6 +82,34 @@ const Clients = () => {
 
     // ── Sélection multiple d'opérations (Checkbox & Bulk Check) ──
     const [selectedOperationIds, setSelectedOperationIds] = useState([]);
+
+    // ── Infobulle dynamique sur les KPI (comme dans Dashboard) ──
+    const [activeTooltip, setActiveTooltip] = useState(null);
+
+    const handleKpiMouseEnter = (e, tooltipId, title, text) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const TOOLTIP_W = 270;
+        const TOOLTIP_H = 80;
+        const MARGIN = 10;
+        const flipX = rect.left + TOOLTIP_W + MARGIN > window.innerWidth;
+        const flipY = rect.top - TOOLTIP_H - MARGIN < 0;
+        setActiveTooltip({
+            id: tooltipId,
+            pos: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom },
+            flipX,
+            flipY,
+            title,
+            text
+        });
+    };
+
+    const handleKpiMouseLeave = () => {
+        setActiveTooltip(null);
+    };
+
+    // ── Pagination pour le Fichier Clients (10 par page par défaut, identique à Retours & Bons d'Avoir) ──
+    const [clientPage, setClientPage] = useState(1);
+    const [clientsPerPage, setClientsPerPage] = useState(10);
 
     // ── Pagination pour l'Historique des opérations (10 par page par défaut) ──
     const [opsPage, setOpsPage] = useState(1);
@@ -287,6 +316,13 @@ const Clients = () => {
             return true;
         });
     }, [enrichedClients, searchTerm, typeFilter, creditStatusFilter, clientPeriod, clientCustomStartDate, clientCustomEndDate]);
+
+    // ── Pagination Fichier Clients (Style Retours d'Articles & Bons d'Avoir) ──
+    const totalClientPages = Math.max(1, Math.ceil(filteredClients.length / clientsPerPage));
+    const paginatedClients = useMemo(() => {
+        const start = (clientPage - 1) * clientsPerPage;
+        return filteredClients.slice(start, start + clientsPerPage);
+    }, [filteredClients, clientPage, clientsPerPage]);
 
     // Global KPI metrics
     const metrics = useMemo(() => {
@@ -944,7 +980,7 @@ const Clients = () => {
     // ── Gestion de la sélection par checkbox & Bulk Check ──
     const handleSelectAllClients = (e) => {
         if (e.target.checked) {
-            setSelectedClientIds(filteredClients.map(c => c.id));
+            setSelectedClientIds(paginatedClients.map(c => c.id));
         } else {
             setSelectedClientIds([]);
         }
@@ -1182,7 +1218,9 @@ const Clients = () => {
             {currentView === 'clients' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-150">
                     {/* 1. Total Comptes Clients */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1194,9 +1232,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">
-                                            Total Comptes Clients
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">
+                                                Total Comptes Clients
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'total_clients', 'Total Comptes Clients', "Nombre total de comptes clients répertoriés dans votre base (particuliers, artisans et entreprises).");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#001d35' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-[#001d35]">{metrics.totalClients}</h3>
                                         </div>
@@ -1213,7 +1261,9 @@ const Clients = () => {
                     </div>
 
                     {/* 2. Clients Débiteurs */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1225,9 +1275,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-700">
-                                            Clients Débiteurs
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-rose-700">
+                                                Clients Débiteurs
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'debtors_count', 'Clients Débiteurs', "Nombre de comptes clients ayant actuellement un reste à payer ou des factures à terme en attente de règlement.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#e11d48' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-rose-600">{metrics.debtorsCount}</h3>
                                         </div>
@@ -1244,7 +1304,9 @@ const Clients = () => {
                     </div>
 
                     {/* 3. Créances Totales (En-cours) */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1256,9 +1318,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-700">
-                                            Créances Totales (En-cours)
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-700">
+                                                Créances Totales (En-cours)
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'total_debt', 'Créances Totales (En-cours)', "Montant global des encours et dettes restant dus par les clients. Représente l'argent dehors à recouvrer.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#b45309' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-amber-600">{formatPrice(metrics.totalOutstandingDebt)}</h3>
                                         </div>
@@ -1275,7 +1347,9 @@ const Clients = () => {
                     </div>
 
                     {/* 4. Chantiers Actifs Suivis */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1287,9 +1361,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">
-                                            Chantiers Actifs Suivis
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">
+                                                Chantiers Actifs Suivis
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'active_sites', 'Chantiers Actifs Suivis', "Nombre de chantiers déclarés et actuellement en cours d'approvisionnement matériel par la quincaillerie.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#001d35' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-[#001d35]">{metrics.totalActiveSites}</h3>
                                         </div>
@@ -1308,7 +1392,9 @@ const Clients = () => {
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-150">
                     {/* 1. Total Opérations Auditées */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1320,9 +1406,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">
-                                            Opérations Auditées
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">
+                                                Opérations Auditées
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'ops_total', 'Opérations Auditées', "Traçabilité complète des événements clients : règlements, ventes à crédit, avances reliquats et chantiers.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#001d35' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-[#001d35]">{operationMetrics.totalOps}</h3>
                                         </div>
@@ -1339,7 +1435,9 @@ const Clients = () => {
                     </div>
 
                     {/* 2. Avances Reliquats Enregistrées */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1351,9 +1449,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-700">
-                                            Avances Reliquats Créditées
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-700">
+                                                Avances Reliquats Créditées
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'reliquat_total', 'Avances Reliquats Créditées', "Somme des monnaies non rendues et conservées comme avances affectées au crédit des clients pour de futurs achats.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#047857' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-emerald-600">{formatPrice(operationMetrics.totalReliquatAmount)}</h3>
                                         </div>
@@ -1370,7 +1478,9 @@ const Clients = () => {
                     </div>
 
                     {/* 3. Comptes Créés via Reliquat */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1382,9 +1492,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-700">
-                                            Comptes Créés via Reliquat
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-blue-700">
+                                                Comptes Créés via Reliquat
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'auto_client', 'Comptes Créés via Reliquat', "Fiches clients créées instantanément à la caisse pour associer un reliquat monétaire à un nom et numéro.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#1d4ed8' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-blue-600">{operationMetrics.autoClientCount}</h3>
                                         </div>
@@ -1401,7 +1521,9 @@ const Clients = () => {
                     </div>
 
                     {/* 4. Total Règlements Reçus */}
-                    <div className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center">
+                    <div
+                        className="bg-white p-3.5 rounded-[4px] border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-shadow overflow-hidden min-h-[120px] flex flex-col justify-center cursor-default"
+                    >
                         {filterLoading ? (
                             <div className="flex flex-col items-center justify-center py-4">
                                 <div className="relative h-8 w-8">
@@ -1413,9 +1535,19 @@ const Clients = () => {
                             <>
                                 <div className="flex justify-between items-start relative z-10">
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-700">
-                                            Règlements & Recouvrements
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-700">
+                                                Règlements & Recouvrements
+                                            </p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'payments_total', 'Règlements & Recouvrements', "Total des encaissements enregistrés pour apurer les créances et crédits en cours des clients.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         <div className="flex items-baseline mt-2 font-semibold" style={{ color: '#b45309' }}>
                                             <h3 className="text-xl sm:text-2xl font-semibold text-amber-600">{formatPrice(operationMetrics.totalPaymentsAmount)}</h3>
                                         </div>
@@ -1433,79 +1565,7 @@ const Clients = () => {
                 </div>
             )}
 
-            {/* ── BARRE D'ONGLETS PRINCIPAUX & RECHERCHE (STYLE OFFICIEL KABLLIX ERP - RETOURS & AVOIRS) ── */}
-            <div className="bg-white p-2 sm:p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-                {/* Onglets de sélection principale : Fichier Clients / Historique des opérations */}
-                <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-[4px] border-2 border-gray-300 flex-wrap">
-                    <button
-                        type="button"
-                        onClick={() => handleFilterChange(() => {
-                            setCurrentView('clients');
-                            setSearchTerm('');
-                        })}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
-                            currentView === 'clients'
-                                ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
-                        }`}
-                    >
-                        <Users className={`w-3.5 h-3.5 ${currentView === 'clients' ? 'text-[#f77500]' : 'text-gray-500'}`} />
-                        <span>Fichier Clients</span>
-                        <span className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs ${
-                            currentView === 'clients' ? 'bg-[#f77500] text-white' : 'bg-gray-200 text-gray-800'
-                        }`}>
-                            {clients.length}
-                        </span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => handleFilterChange(() => {
-                            setCurrentView('operations');
-                            setSearchTerm('');
-                        })}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
-                            currentView === 'operations'
-                                ? 'bg-[#001d35] text-white shadow-xs'
-                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
-                        }`}
-                    >
-                        <Clock className={`w-3.5 h-3.5 ${currentView === 'operations' ? 'text-[#f77500]' : 'text-gray-500'}`} />
-                        <span>Historique des opérations</span>
-                        {allOperationsList.length > 0 && (
-                            <span className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs ${
-                                currentView === 'operations' ? 'bg-[#f77500] text-white' : 'bg-amber-100 text-amber-900 border border-amber-300'
-                            }`}>
-                                {allOperationsList.length}
-                            </span>
-                        )}
-                    </button>
-                </div>
-
-                {/* Recherche à droite */}
-                <div className="relative w-full sm:w-64">
-                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder={currentView === 'operations' ? "Chercher par nom de client, réf..." : "Rechercher un client (nom, tél)..."}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 border-2 border-gray-300 focus:border-[#001d35] rounded-[4px] font-medium text-gray-800 focus:outline-none"
-                    />
-                    {searchTerm && (
-                        <button
-                            type="button"
-                            onClick={() => handleFilterChange(setSearchTerm, '')}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                            title="Effacer la recherche"
-                        >
-                            <X className="w-3.5 h-3.5" />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* ── BARRE D'OUTILS EN BAS DÉDIÉE (STYLE OFFICIEL RETOURS D'ARTICLES & BONS D'AVOIR) ── */}
+            {/* ── BARRE D'OUTILS DÉDIÉE (STYLE OFFICIEL RETOURS D'ARTICLES & BONS D'AVOIR) ── */}
             {currentView === 'clients' ? (
                 <div className="bg-white p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col gap-2.5 animate-in fade-in duration-150">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1887,7 +1947,7 @@ const Clients = () => {
                                             className="hover:text-rose-600 cursor-pointer ml-0.5"
                                             title="Retirer le filtre d'opération"
                                         >
-                                            <X className="w-3 h-3" />
+                                            <X className="w-3.5 h-3.5" />
                                         </button>
                                     </span>
                                 )}
@@ -1901,7 +1961,7 @@ const Clients = () => {
                                             className="hover:text-rose-600 cursor-pointer ml-0.5"
                                             title="Retirer le filtre client"
                                         >
-                                            <X className="w-3 h-3" />
+                                            <X className="w-3.5 h-3.5" />
                                         </button>
                                     </span>
                                 )}
@@ -1924,7 +1984,7 @@ const Clients = () => {
                                             className="hover:text-rose-600 cursor-pointer ml-0.5"
                                             title="Retirer le filtre de période"
                                         >
-                                            <X className="w-3 h-3" />
+                                            <X className="w-3.5 h-3.5" />
                                         </button>
                                     </span>
                                 )}
@@ -1938,7 +1998,7 @@ const Clients = () => {
                                             className="hover:text-rose-600 cursor-pointer ml-0.5"
                                             title="Effacer la recherche"
                                         >
-                                            <X className="w-3 h-3" />
+                                            <X className="w-3.5 h-3.5" />
                                         </button>
                                     </span>
                                 )}
@@ -1949,7 +2009,7 @@ const Clients = () => {
                                 onClick={() => handleFilterChange(() => {
                                     setOperationFilter('none');
                                     setOperationClientFilter('all');
-                                    setOperationPeriod('today');
+                                    setOperationPeriod('all');
                                     setOperationCustomStartDate('');
                                     setOperationCustomEndDate('');
                                     setSearchTerm('');
@@ -1962,6 +2022,82 @@ const Clients = () => {
                     )}
                 </div>
             )}
+
+            {/* ── BARRE D'ONGLETS PRINCIPAUX & RECHERCHE (STYLE OFFICIEL KABLLIX ERP - RETOURS & AVOIRS) ── */}
+            <div className="bg-white p-2 sm:p-2.5 rounded-[4px] border-2 border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Onglets de sélection principale : Fichier Clients / Historique des opérations */}
+                <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-[4px] border-2 border-gray-300 flex-wrap">
+                    <button
+                        type="button"
+                        onClick={() => handleFilterChange(() => {
+                            setCurrentView('clients');
+                            setSearchTerm('');
+                        })}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                            currentView === 'clients'
+                                ? 'bg-[#001d35] text-white shadow-xs'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
+                        }`}
+                    >
+                        <Users className={`w-3.5 h-3.5 ${currentView === 'clients' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                        <span>Fichier Clients</span>
+                        <span className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs ${
+                            currentView === 'clients' ? 'bg-[#f77500] text-white' : 'bg-gray-200 text-gray-800'
+                        }`}>
+                            {clients.length}
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => handleFilterChange(() => {
+                            setCurrentView('operations');
+                            setSearchTerm('');
+                        })}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[4px] transition-all cursor-pointer flex items-center gap-2 ${
+                            currentView === 'operations'
+                                ? 'bg-[#001d35] text-white shadow-xs'
+                                : 'text-gray-700 hover:text-[#001d35] hover:bg-gray-200/60'
+                        }`}
+                    >
+                        <Clock className={`w-3.5 h-3.5 ${currentView === 'operations' ? 'text-[#f77500]' : 'text-gray-500'}`} />
+                        <span>Historique des opérations</span>
+                        {allOperationsList.length > 0 && (
+                            <span className={`min-w-5 h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 shadow-xs ${
+                                currentView === 'operations' ? 'bg-[#f77500] text-white' : 'bg-amber-100 text-amber-900 border border-amber-300'
+                            }`}>
+                                {allOperationsList.length}
+                            </span>
+                        )}
+                    </button>
+                </div>
+
+                {/* Recherche à droite */}
+                <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder={currentView === 'operations' ? "Chercher par nom de client, réf..." : "Rechercher un client (nom, tél)..."}
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setClientPage(1);
+                            setOpsPage(1);
+                        }}
+                        className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 border-2 border-gray-300 focus:border-[#001d35] rounded-[4px] font-medium text-gray-800 focus:outline-none"
+                    />
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => handleFilterChange(setSearchTerm, '')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                            title="Effacer la recherche"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {/* ── CONTENU PRINCIPAL CONDITIONNEL : FICHIER CLIENTS OU JOURNAL D'AUDIT DES OPÉRATIONS ── */}
             {currentView === 'clients' ? (
@@ -2000,7 +2136,8 @@ const Clients = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <>
+                        <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0">
@@ -2008,7 +2145,7 @@ const Clients = () => {
                                         <input
                                             type="checkbox"
                                             className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
-                                            checked={filteredClients.length > 0 && selectedClientIds.length === filteredClients.length}
+                                            checked={paginatedClients.length > 0 && paginatedClients.every(c => selectedClientIds.includes(c.id))}
                                             onChange={handleSelectAllClients}
                                             title="Tout cocher / Tout décocher"
                                         />
@@ -2022,7 +2159,7 @@ const Clients = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredClients.map((client, idx) => {
+                                {paginatedClients.map((client, idx) => {
                                     const isSelected = selectedClientIds.includes(client.id);
                                     return (
                                         <tr 
@@ -2272,6 +2409,82 @@ const Clients = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* ── Barre de pagination (10 éléments par page par défaut, style officiel Retours d'Articles) ── */}
+                    {filteredClients.length > 0 && (
+                        <div className="bg-gray-50 px-3 py-2 border-t-2 border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs select-none">
+                            <div className="flex items-center gap-2 text-gray-600">
+                                <span>
+                                    Affichage de <strong className="text-[#001d35] font-semibold">{filteredClients.length === 0 ? 0 : (clientPage - 1) * clientsPerPage + 1}</strong> à <strong className="text-[#001d35] font-semibold">{Math.min(clientPage * clientsPerPage, filteredClients.length)}</strong> sur <strong className="text-[#001d35] font-semibold">{filteredClients.length}</strong> client(s)
+                                </span>
+                                <span className="text-gray-300">|</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[11px] text-gray-500 font-medium">Lignes :</span>
+                                    <select
+                                        value={clientsPerPage}
+                                        onChange={(e) => {
+                                            setClientsPerPage(Number(e.target.value));
+                                            setClientPage(1);
+                                        }}
+                                        className="px-2 py-0.5 text-xs font-semibold border border-gray-300 rounded-[4px] bg-white text-[#001d35] focus:outline-none focus:ring-1 focus:ring-[#001d35] cursor-pointer"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={25}>25</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setClientPage(p => Math.max(1, p - 1))}
+                                    disabled={clientPage === 1}
+                                    className="px-2.5 py-1 rounded-[4px] border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-semibold disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 transition-all active:scale-95"
+                                >
+                                    <ChevronLeft className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Précédent</span>
+                                </button>
+
+                                <div className="flex items-center gap-1 px-1">
+                                    {Array.from({ length: totalClientPages }, (_, i) => i + 1)
+                                        .filter(p => p === 1 || p === totalClientPages || Math.abs(p - clientPage) <= 1)
+                                        .map((p, pIdx, arr) => {
+                                            const prevP = arr[pIdx - 1];
+                                            const showEllipsis = prevP && p - prevP > 1;
+                                            return (
+                                                <React.Fragment key={p}>
+                                                    {showEllipsis && <span className="px-1 text-gray-400 font-bold">...</span>}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setClientPage(p)}
+                                                        className={`w-7 h-7 text-xs font-bold rounded-[4px] transition-all cursor-pointer ${
+                                                            clientPage === p
+                                                                ? 'bg-[#001d35] text-white shadow-xs'
+                                                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                                                        }`}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setClientPage(p => Math.min(totalClientPages, p + 1))}
+                                    disabled={clientPage === totalClientPages}
+                                    className="px-2.5 py-1 rounded-[4px] border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-semibold disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 transition-all active:scale-95"
+                                >
+                                    <span className="hidden sm:inline">Suivant</span>
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    </>
                 )}
             </div>
             ) : (
@@ -2308,7 +2521,7 @@ const Clients = () => {
                                         setSearchTerm('');
                                         setOperationFilter('none');
                                         setOperationClientFilter('all');
-                                        setOperationPeriod('today');
+                                        setOperationPeriod('all');
                                         setOperationCustomStartDate('');
                                         setOperationCustomEndDate('');
                                     })}
@@ -3977,6 +4190,41 @@ const Clients = () => {
                     </div>
                 </div>
             )}
+
+            {/* Global KPI Tooltip (Style officiel Dashboard) */}
+            {activeTooltip && (() => {
+                const { pos, flipX, flipY, text, title } = activeTooltip;
+                const MARGIN = 8;
+                const leftStyle = flipX
+                    ? { right: window.innerWidth - pos.right }
+                    : { left: pos.left };
+                const topStyle = flipY
+                    ? { top: pos.bottom + MARGIN }
+                    : { top: pos.top - MARGIN, transform: 'translateY(-100%)' };
+
+                return (
+                    <div
+                        className="fixed z-[9999] w-64 bg-[#001d35] text-white text-xs rounded-[4px] p-3 shadow-2xl leading-relaxed pointer-events-none animate-in fade-in duration-150 border border-white/10"
+                        style={{ ...leftStyle, ...topStyle }}
+                    >
+                        {!flipY && (
+                            <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-r border-b border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {flipY && (
+                            <div className={`absolute -top-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-l border-t border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {title && (
+                            <div className="font-bold text-[#f77500] mb-1 uppercase text-[10px] tracking-wider flex items-center gap-1">
+                                <span>💡</span>
+                                <span>{title}</span>
+                            </div>
+                        )}
+                        <div className="text-gray-100 font-normal leading-relaxed text-[11px]">
+                            {text}
+                        </div>
+                    </div>
+                );
+            })()}
 
         </div>
     );

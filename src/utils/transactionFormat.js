@@ -56,3 +56,49 @@ export const formatTransactionNumber = (transaction, prefix = 'REC') => {
 
     return `${prefix}-${dateStr}-${suffix}`;
 };
+
+/**
+ * Formate un identifiant ou numéro de commande d'approvisionnement en une référence
+ * de Bon de Commande officielle et normalisée (ex: BC-2026-0001).
+ * 
+ * @param {string|number} orderNumber Le numéro de commande existant ou brut
+ * @param {string|number} fallbackId Identifiant de secours si orderNumber est absent
+ * @param {string} fallbackDate Date de la commande pour l'année
+ * @returns {string} Numéro normalisé officiel (ex: BC-2026-0001)
+ */
+export const formatOrderNumber = (orderNumber, fallbackId, fallbackDate) => {
+    if (!orderNumber && !fallbackId) return 'BC-0001';
+
+    const numStr = String(orderNumber || '').trim();
+
+    // Si déjà au format BC-YYYY-XXXX ou BCF-YYYY-XXXX
+    if (/^BCF?-\d{4}-\d+/i.test(numStr)) {
+        return numStr.toUpperCase();
+    }
+
+    // Si c'est l'ancien format anglophone PO-YYYY-XXXX ou PO-XXXX
+    if (/^PO-/i.test(numStr)) {
+        return numStr.replace(/^PO-/i, 'BC-').toUpperCase();
+    }
+
+    // Si c'est une date pour l'année
+    const d = fallbackDate ? new Date(fallbackDate) : new Date();
+    const year = isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear();
+
+    // Si c'est un identifiant numérique ou un timestamp
+    if (/^\d+$/.test(numStr)) {
+        const suffix = numStr.slice(-4).padStart(4, '0');
+        return `BC-${year}-${suffix}`;
+    }
+
+    if (!numStr && fallbackId) {
+        const idStr = String(fallbackId);
+        const suffix = idStr.slice(-4).padStart(4, '0');
+        return `BC-${year}-${suffix}`;
+    }
+
+    if (numStr.startsWith('BC-')) return numStr.toUpperCase();
+
+    return `BC-${numStr}`;
+};
+

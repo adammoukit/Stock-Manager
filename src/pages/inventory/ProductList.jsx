@@ -735,7 +735,7 @@ const ProductList = () => {
                 <div 
                     onClick={lowStockCount > 0 ? handleFilterLowStockWithLoader : undefined}
                     className={`bg-white p-4 rounded-sm border-2 border-gray-300 shadow-sm relative group hover:shadow-md transition-all overflow-hidden flex flex-col justify-between ${
-                        lowStockCount > 0 ? 'cursor-pointer hover:border-amber-400' : ''
+                        lowStockCount > 0 ? 'cursor-pointer hover:border-red-400' : ''
                     }`}
                     title={lowStockCount > 0 ? "Cliquer pour filtrer les produits en alerte de stock" : "Alertes Stock"}
                 >
@@ -745,10 +745,10 @@ const ProductList = () => {
                             {lowStockCount > 0 && (
                                 <span 
                                     onClick={handleFilterLowStockWithLoader}
-                                    className="w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-black flex items-center justify-center animate-pulse flex-shrink-0 shadow-sm border border-amber-400 cursor-pointer hover:scale-110 active:scale-95 transition-transform" 
+                                    className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse cursor-pointer hover:scale-110 active:scale-95 transition-transform" 
                                     title="Cliquer pour filtrer les produits en alerte de stock"
                                 >
-                                    !
+                                    <span className="text-white font-black text-xs leading-none select-none">!</span>
                                 </span>
                             )}
                         </div>
@@ -895,6 +895,22 @@ const ProductList = () => {
                                 </button>
                             </div>
                         )}
+
+                        {showLowStockOnly && (
+                            <div className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 px-2 py-1 rounded-sm text-xs font-bold animate-in fade-in">
+                                <span className="w-4 h-4 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-white font-black text-[10px] leading-none select-none">!</span>
+                                </span>
+                                <span>Ruptures ({lowStockCount})</span>
+                                <button
+                                    onClick={() => setShowLowStockOnly(false)}
+                                    className="p-0.5 hover:bg-red-100 rounded-full text-red-600 hover:text-red-800 transition-colors cursor-pointer ml-0.5"
+                                    title="Désactiver le filtre des ruptures"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Actions Produits (Boutons compacts) */}
@@ -919,12 +935,20 @@ const ProductList = () => {
                             onClick={() => setShowLowStockOnly(!showLowStockOnly)}
                             className={`px-2.5 py-1.5 rounded-sm border text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
                                 showLowStockOnly 
-                                    ? 'bg-amber-600 text-white border-amber-700 shadow-2xs' 
+                                    ? 'bg-[#001d35] text-white border-[#001d35] shadow-xs' 
                                     : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
                             }`}
                         >
-                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <AlertTriangle className={`w-3.5 h-3.5 ${showLowStockOnly ? 'text-[#f77500]' : 'text-gray-500'}`} />
                             <span>Ruptures ({lowStockCount})</span>
+                            {lowStockCount > 0 && (
+                                <span 
+                                    className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse" 
+                                    title={`${lowStockCount} article(s) en alerte de stock`}
+                                >
+                                    <span className="text-white font-black text-xs leading-none select-none">!</span>
+                                </span>
+                            )}
                         </button>
 
                         {/* Imprimer & Export */}

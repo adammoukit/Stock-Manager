@@ -12,6 +12,7 @@ import {
 import { formatPrice } from '../../utils/currency';
 import { formatContainerStock } from '../../config/unitModels';
 import { calculateSmartReplenishment, getProductArchetype } from '../../utils/smartReplenishment';
+import { formatOrderNumber } from '../../utils/transactionFormat';
 import FinancialInput from '../../components/FinancialInput';
 import T from '../../utils/toast';
 
@@ -557,7 +558,9 @@ const Replenishment = () => {
             // 3. Recherche textuelle
             if (orderSearchQuery.trim()) {
                 const q = orderSearchQuery.toLowerCase().trim();
-                const matchNum = order.orderNumber?.toLowerCase().includes(q);
+                const numRaw = (order.orderNumber || '').toLowerCase();
+                const numFormatted = formatOrderNumber(order.orderNumber, order.id, order.date).toLowerCase();
+                const matchNum = numRaw.includes(q) || numFormatted.includes(q);
                 const matchSup = order.supplier?.toLowerCase().includes(q);
                 const matchItems = (order.items || []).some(item => item.name?.toLowerCase().includes(q));
                 if (!matchNum && !matchSup && !matchItems) return false;
@@ -1519,7 +1522,7 @@ const Replenishment = () => {
                                                 return (
                                                     <tr key={order.id} className="hover:bg-blue-50/40 transition-colors">
                                                         <td className="px-3 py-2.5 font-semibold text-[#001d35]">
-                                                            {order.orderNumber}
+                                                            {formatOrderNumber(order.orderNumber, order.id, order.date)}
                                                         </td>
                                                         <td className="px-3 py-2.5 text-gray-700 font-normal whitespace-nowrap">
                                                             <div className="font-semibold text-gray-900 flex items-center gap-1.5">
@@ -1763,7 +1766,7 @@ const Replenishment = () => {
                     <div className="bg-white rounded-[4px] shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border-2 border-[#001d35]">
                         <div className="p-3.5 border-b border-gray-200 bg-[#001d35] text-white flex justify-between items-center">
                             <div>
-                                <h3 className="text-sm font-semibold uppercase tracking-wide">Réception Commande {selectedOrder.orderNumber}</h3>
+                                <h3 className="text-sm font-semibold uppercase tracking-wide">Réception Bon de Commande {formatOrderNumber(selectedOrder.orderNumber, selectedOrder.id, selectedOrder.date)}</h3>
                                 <p className="text-[11px] text-gray-300 mt-0.5 font-normal">{selectedOrder.supplier} — {new Date(selectedOrder.date).toLocaleDateString('fr-FR')}</p>
                             </div>
                             <button onClick={() => setShowReceiveModal(false)} className="text-gray-300 hover:text-white cursor-pointer text-lg font-bold">
@@ -1860,7 +1863,7 @@ const Replenishment = () => {
                     <div className="bg-white rounded-[4px] shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border-2 border-[#001d35]">
                         <div className="p-3.5 border-b border-gray-200 bg-[#001d35] text-white flex justify-between items-center">
                             <div>
-                                <h3 className="text-sm font-semibold uppercase tracking-wide">Détails Commande {selectedOrder.orderNumber}</h3>
+                                <h3 className="text-sm font-semibold uppercase tracking-wide">Détails Bon de Commande {formatOrderNumber(selectedOrder.orderNumber, selectedOrder.id, selectedOrder.date)}</h3>
                                 <p className="text-[11px] text-gray-300 mt-0.5 font-normal">
                                     {selectedOrder.supplier} — {new Date(selectedOrder.date).toLocaleDateString('fr-FR')} à {new Date(selectedOrder.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                 </p>

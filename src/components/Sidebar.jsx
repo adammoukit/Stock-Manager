@@ -248,6 +248,11 @@ const Sidebar = ({ collapsed, onToggle }) => {
         return item.subItems.reduce((sum, sub) => sum + (sub.badge || 0), 0);
     };
 
+    const getParentAlertCount = (item) => {
+        if (!item.subItems) return item.badge || 0;
+        return item.subItems.reduce((sum, sub) => sum + (!sub.isCartBadge && sub.badge ? sub.badge : 0), 0);
+    };
+
     return (
         <>
             <aside className={clsx(
@@ -300,30 +305,37 @@ const Sidebar = ({ collapsed, onToggle }) => {
                                     <div className={clsx("flex items-center", collapsed ? '' : 'gap-3')}>
                                         <div className="relative">
                                             <item.icon className={clsx("w-5 h-5 flex-shrink-0", isActiveParent ? 'text-[#001d35]' : 'text-gray-300 group-hover:text-white')} />
-                                            {collapsed && (item.hasOverdueSession || item.hasLowStockWarning || item.hasCartItems || getParentBadge(item) > 0) && (
-                                                <span 
-                                                    title={item.hasCartItems ? `${item.cartCount} produit(s) en panier` : undefined}
-                                                    className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border border-[#001d35] animate-pulse"
-                                                ></span>
+                                            {collapsed && (
+                                                (item.hasLowStockWarning || item.hasOverdueSession || getParentAlertCount(item) > 0) ? (
+                                                    <span 
+                                                        title={`${getParentAlertCount(item) || lowStockCount} alerte(s)`}
+                                                        className="absolute -top-1.5 -right-2 w-4 h-4 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
+                                                    >
+                                                        <span className="text-white font-black text-[10px] leading-none select-none">!</span>
+                                                    </span>
+                                                ) : item.hasCartItems ? (
+                                                    <span 
+                                                        title={`${item.cartCount} produit(s) en panier`}
+                                                        className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border border-[#001d35] animate-pulse"
+                                                    ></span>
+                                                ) : null
                                             )}
                                         </div>
                                         {!collapsed && <span className="font-semibold tracking-wide uppercase text-[11px]">{item.label}</span>}
                                     </div>
                                     {!collapsed && (
                                         <div className="flex items-center gap-2">
-                                            {item.hasOverdueSession ? (
-                                                <span className="bg-amber-500 text-white text-xs font-black px-2.5 py-0.5 rounded-full shadow-sm animate-pulse flex items-center justify-center border border-amber-400" title="Session non clôturée">
-                                                    !{getParentBadge(item) > 0 && <span className="ml-1 text-[10px] font-bold">({getParentBadge(item)})</span>}
-                                                </span>
-                                            ) : item.hasCartItems ? (
+                                            {item.hasCartItems && (
                                                 <span className="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse flex items-center justify-center border border-amber-400" title="Panier en cours de vente">
                                                     {item.cartCount}
                                                 </span>
-                                            ) : item.hasLowStockWarning ? (
-                                                <span className="bg-amber-500 text-white text-xs font-black px-2.5 py-0.5 rounded-full shadow-sm animate-pulse flex items-center justify-center border border-amber-400" title="Stock faible détecté">
-                                                    !{getParentBadge(item) > 0 && <span className="ml-1 text-[10px] font-bold">({getParentBadge(item)})</span>}
+                                            )}
+                                            {(item.hasLowStockWarning || item.hasOverdueSession || getParentAlertCount(item) > 0) && (
+                                                <span 
+                                                    className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse" 
+                                                    title={`Alertes (${getParentAlertCount(item) || lowStockCount} élément(s))`}>
+                                                    <span className="text-white font-black text-xs leading-none select-none">!</span>
                                                 </span>
-                                            ) : getParentBadge(item) > 0 && (<span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">{getParentBadge(item)}</span>
                                             )}
                                             {isOpen ? <ChevronDown className={clsx("w-4 h-4", isActiveParent ? "text-[#001d35]" : "text-gray-300")} strokeWidth={3} /> : <ChevronRight className={clsx("w-4 h-4", isActiveParent ? "text-[#001d35]" : "text-gray-300")} strokeWidth={3} />}
                                         </div>
@@ -353,11 +365,10 @@ const Sidebar = ({ collapsed, onToggle }) => {
                                             {collapsed && item.badge > 0 && (
                                                 <span 
                                                     title={`${item.badge} anomalie(s) détectée(s)`}
-                                                    className={clsx(
-                                                        "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-[#001d35] animate-pulse",
-                                                        item.criticalCount > 0 ? "bg-red-500 ring-2 ring-red-400/50" : "bg-[#f77500]"
-                                                    )} 
-                                                />
+                                                    className="absolute -top-1.5 -right-2 w-4 h-4 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
+                                                >
+                                                    <span className="text-white font-black text-[10px] leading-none select-none">!</span>
+                                                </span>
                                             )}
                                         </div>
                                         {!collapsed && <span className="font-semibold tracking-wide uppercase text-[11px]">{item.label}</span>}
@@ -377,11 +388,11 @@ const Sidebar = ({ collapsed, onToggle }) => {
                                         </span>
                                     )}
                                     {!collapsed && item.badge > 0 && (
-                                        <span className={clsx(
-                                            "absolute -top-2 right-1 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1",
-                                            item.criticalCount > 0 ? "bg-red-600 animate-pulse border border-red-400" : "bg-[#f77500] border border-orange-400"
-                                        )}>
-                                            {item.badge}
+                                        <span 
+                                            className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse" 
+                                            title={`${item.badge} anomalie(s) détectée(s)`}
+                                        >
+                                            <span className="text-white font-black text-xs leading-none select-none">!</span>
                                         </span>
                                     )}
                                 </NavLink>
@@ -435,21 +446,15 @@ const Sidebar = ({ collapsed, onToggle }) => {
                                                             )}
                                                             <span className="font-semibold tracking-wide text-[11px]">{sub.label}</span>
                                                         </div>
-                                                        {sub.isOverdueBadge ? (
-                                                            <span className="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse flex items-center justify-center min-w-[20px] border border-amber-400" title={sub.badge > 0 ? "Session non clôturée et alertes audit" : "Session non clôturée"}>
-                                                                !{sub.badge > 0 && <span className="ml-1 text-[10px] font-bold">({sub.badge})</span>}
-                                                            </span>
-                                                        ) : sub.isCartBadge ? (
+                                                        {sub.isCartBadge ? (
                                                             <span className="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse flex items-center justify-center min-w-[20px] border border-amber-400" title="Articles dans le panier">
                                                                 {sub.badge}
                                                             </span>
-                                                        ) : sub.isLowStockBadge ? (
-                                                            <span className="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse flex items-center justify-center min-w-[20px] border border-amber-400" title="Alertes Stock Faible">
-                                                                !{sub.badge > 0 && <span className="ml-1 text-[10px] font-bold">({sub.badge})</span>}
-                                                            </span>
-                                                        ) : sub.badge > 0 && (
-                                                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                                                {sub.badge}
+                                                        ) : (sub.badge > 0 || sub.isLowStockBadge || sub.isOverdueBadge) && (
+                                                            <span 
+                                                                className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse" 
+                                                                title={`${sub.label} (${sub.badge || lowStockCount})`}>
+                                                                <span className="text-white font-black text-xs leading-none select-none">!</span>
                                                             </span>
                                                         )}
                                                     </NavLink>
@@ -569,13 +574,16 @@ const Sidebar = ({ collapsed, onToggle }) => {
                                     {hoveredItem.item.label}
                                 </span>
                             </div>
-                            {hoveredItem.item.hasCartItems ? (
+                            {hoveredItem.item.hasCartItems && (
                                 <span className="bg-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full animate-pulse">
                                     {hoveredItem.item.cartCount} en panier
                                 </span>
-                            ) : getParentBadge(hoveredItem.item) > 0 && (
-                                <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                    {getParentBadge(hoveredItem.item)}
+                            )}
+                            {(hoveredItem.item.hasLowStockWarning || hoveredItem.item.hasOverdueSession || getParentAlertCount(hoveredItem.item) > 0) && (
+                                <span 
+                                    className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse"
+                                    title={`Alertes détectées (${getParentAlertCount(hoveredItem.item) || lowStockCount} élément(s))`}>
+                                    <span className="text-white font-black text-xs leading-none select-none">!</span>
                                 </span>
                             )}
                         </div>
@@ -628,21 +636,15 @@ const Sidebar = ({ collapsed, onToggle }) => {
                                                 )}
                                                 <span className="text-[13px] font-medium tracking-wide">{sub.label}</span>
                                             </div>
-                                            {sub.isOverdueBadge ? (
-                                                <span className="bg-amber-500 text-white text-[11px] font-black px-2 py-0.5 rounded-full">
-                                                    !{sub.badge > 0 && <span className="ml-1 text-[10px] font-bold">({sub.badge})</span>}
-                                                </span>
-                                            ) : sub.isCartBadge ? (
+                                            {sub.isCartBadge ? (
                                                 <span className="bg-amber-500 text-white text-[11px] font-black px-2 py-0.5 rounded-full animate-pulse">
                                                     {sub.badge}
                                                 </span>
-                                            ) : sub.isLowStockBadge ? (
-                                                <span className="bg-amber-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse flex items-center justify-center min-w-[20px] border border-amber-400" title="Alertes Stock Faible">
-                                                    !{sub.badge > 0 && <span className="ml-1 text-[10px] font-bold">({sub.badge})</span>}
-                                                </span>
-                                            ) : sub.badge > 0 && (
-                                                <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
-                                                    {sub.badge}
+                                            ) : (sub.badge > 0 || sub.isLowStockBadge || sub.isOverdueBadge) && (
+                                                <span 
+                                                    className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse" 
+                                                    title={`${sub.label} (${sub.badge || lowStockCount})`}>
+                                                    <span className="text-white font-black text-xs leading-none select-none">!</span>
                                                 </span>
                                             )}
                                         </NavLink>

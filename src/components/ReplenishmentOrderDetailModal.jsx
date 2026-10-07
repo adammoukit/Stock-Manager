@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { formatPrice } from '../utils/currency';
 import { getProductArchetype } from '../utils/smartReplenishment';
+import { formatOrderNumber } from '../utils/transactionFormat';
 import T from '../utils/toast';
 
 /**
@@ -19,6 +20,7 @@ const ReplenishmentOrderDetailModal = ({ order, onClose, returnLabel = "Retour" 
 
     // Toujours synchroniser avec la version temps réel de la commande dans le contexte
     const currentOrder = (orders || []).find(o => String(o.id) === String(order?.id)) || order;
+    const formattedOrderNum = formatOrderNumber(currentOrder?.orderNumber, currentOrder?.id, currentOrder?.date);
 
     // Modales internes
     const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -91,7 +93,7 @@ const ReplenishmentOrderDetailModal = ({ order, onClose, returnLabel = "Retour" 
     const handleDeleteSubmit = async () => {
         setShowDeleteConfirm(false);
         deleteOrder(currentOrder.id);
-        T.success(`Le bon de réapprovisionnement ${currentOrder.orderNumber} a été supprimé.`);
+        T.success(`Le bon de commande ${formattedOrderNum} a été supprimé.`);
         if (onClose) onClose();
     };
 
@@ -119,9 +121,9 @@ const ReplenishmentOrderDetailModal = ({ order, onClose, returnLabel = "Retour" 
 
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[11px] uppercase tracking-wider text-gray-300 font-medium">Fiche Réapprovisionnement :</span>
+                            <span className="text-[11px] uppercase tracking-wider text-gray-300 font-medium">Bon de Commande :</span>
                             <h2 className="text-sm font-semibold text-white tracking-wide">
-                                {currentOrder.orderNumber}
+                                {formattedOrderNum}
                             </h2>
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] text-[10px] font-semibold uppercase tracking-wider border ${
                                 currentOrder.status === 'Completed' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400' :
@@ -404,7 +406,7 @@ const ReplenishmentOrderDetailModal = ({ order, onClose, returnLabel = "Retour" 
                     <div className="bg-white rounded-[4px] shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border-2 border-[#001d35]">
                         <div className="p-3.5 border-b border-gray-200 bg-[#001d35] text-white flex justify-between items-center">
                             <div>
-                                <h3 className="text-sm font-semibold uppercase tracking-wide">Réception Commande {currentOrder.orderNumber}</h3>
+                                <h3 className="text-sm font-semibold uppercase tracking-wide">Réception Bon de Commande {formattedOrderNum}</h3>
                                 <p className="text-[11px] text-gray-300 mt-0.5 font-normal">{currentOrder.supplier} — {new Date(currentOrder.date).toLocaleDateString('fr-FR')}</p>
                             </div>
                             <button onClick={() => setShowReceiveModal(false)} className="text-gray-300 hover:text-white cursor-pointer text-lg font-bold">
@@ -520,7 +522,7 @@ const ReplenishmentOrderDetailModal = ({ order, onClose, returnLabel = "Retour" 
 
                         <div className="p-4 space-y-3">
                             <p className="text-xs text-gray-700 leading-relaxed">
-                                Êtes-vous sûr de vouloir supprimer définitivement le bon de réapprovisionnement <strong>{currentOrder.orderNumber}</strong> ({currentOrder.supplier}) ?
+                                Êtes-vous sûr de vouloir supprimer définitivement le bon de commande <strong>{formattedOrderNum}</strong> ({currentOrder.supplier}) ?
                             </p>
                             <p className="text-[11px] text-gray-500">
                                 Cette action est irréversible et supprimera l'enregistrement du registre.
@@ -571,7 +573,7 @@ const ReplenishmentOrderDetailModal = ({ order, onClose, returnLabel = "Retour" 
 
                         <div className="p-4 space-y-3">
                             <p className="text-xs text-gray-700 leading-relaxed">
-                                Voulez-vous clore définitivement le bon <strong>{currentOrder.orderNumber}</strong> ?
+                                Voulez-vous clore définitivement le bon <strong>{formattedOrderNum}</strong> ?
                             </p>
                             <p className="text-[11px] text-gray-500">
                                 Le reliquat restant non livré sera abandonné et le statut de la commande passera à "Entièrement Reçu (Clôturé)".

@@ -33,6 +33,36 @@ import { useNavigate } from 'react-router-dom';
 const Dashboard = () => {
     const [showAlerts, setShowAlerts] = useState(true);
     const [activeTooltip, setActiveTooltip] = useState(null);
+
+    // ── Infobulle dynamique sur les KPI (comme dans Retours d'Articles & Bons d'Avoir) ──
+    const handleTooltipMouseEnter = (e, tooltipId, title, text) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const TOOLTIP_W = 270;
+        const TOOLTIP_H = 80;
+        const MARGIN = 10;
+        const flipX = rect.left + TOOLTIP_W + MARGIN > window.innerWidth;
+        const flipY = rect.top - TOOLTIP_H - MARGIN < 0;
+        setActiveTooltip({
+            id: tooltipId,
+            pos: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom },
+            flipX,
+            flipY,
+            title,
+            text
+        });
+    };
+
+    const handleTooltipMouseLeave = () => {
+        setActiveTooltip(null);
+    };
+
+    // Fermeture automatique de l'infobulle au défilement
+    useEffect(() => {
+        if (!activeTooltip) return;
+        const handleScroll = () => setActiveTooltip(null);
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [activeTooltip]);
     const [period, setPeriod] = useState('day'); // 'day' (Aujourd'hui par défaut), 'week', 'month', 'quarter', 'year', 'custom'
     const [customStartDate, setCustomStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
     const [customEndDate, setCustomEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -444,20 +474,15 @@ const Dashboard = () => {
 
     // Simplified StatCard to use standard formatting
     const StatCard = ({ tooltipId, title, titleBadge, value, icon, iconUrl, color, trend, trendSubtitle, subtitle, onAction, isCurrency, loading, tooltip, onHide, onClickTitle }) => {
-        const btnRef = React.useRef(null);
         const isOpen = activeTooltip?.id === tooltipId;
 
-        const handleToggle = () => {
-            if (isOpen) { setActiveTooltip(null); return; }
-            const rect = btnRef.current.getBoundingClientRect();
-            const TOOLTIP_W = 256; // w-64
-            const TOOLTIP_H = 90;  // estimated height
-            const MARGIN = 12;
-            // Flip horizontally if not enough space on the right
-            const flipX = rect.left + TOOLTIP_W + MARGIN > window.innerWidth;
-            // Flip vertically if not enough space above
-            const flipY = rect.top - TOOLTIP_H - MARGIN < 0;
-            setActiveTooltip({ id: tooltipId, pos: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom }, flipX, flipY, text: tooltip });
+        const handleIconClick = (e) => {
+            e.stopPropagation();
+            if (isOpen) {
+                setActiveTooltip(null);
+            } else if (tooltip) {
+                handleTooltipMouseEnter(e, tooltipId, title, tooltip);
+            }
         };
 
         return (
@@ -512,10 +537,19 @@ const Dashboard = () => {
                                     {titleBadge && titleBadge}
                                     {tooltip && (
                                         <button
-                                            ref={btnRef}
-                                            onClick={handleToggle}
-                                            className={`w-4 h-4 rounded-full text-[10px] font-black leading-none flex-shrink-0 flex items-center justify-center transition-colors cursor-pointer ${isOpen ? 'bg-[#001d35] text-white' : 'bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white'}`}
-                                        >?</button>
+                                            type="button"
+                                            onMouseEnter={(e) => handleTooltipMouseEnter(e, tooltipId, title, tooltip)}
+                                            onMouseLeave={handleTooltipMouseLeave}
+                                            onClick={handleIconClick}
+                                            className={`w-4 h-4 rounded-full text-[10px] font-black leading-none flex-shrink-0 flex items-center justify-center transition-colors cursor-help ${
+                                                isOpen
+                                                    ? 'bg-[#001d35] text-white shadow-xs'
+                                                    : 'bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white'
+                                            }`}
+                                            title="Informations sur cet indicateur"
+                                        >
+                                            ?
+                                        </button>
                                     )}
                                 </div>
                                 <div className="flex items-baseline mt-2 font-semibold opacity-85" style={{ color: color || '#001d35', opacity: 0.85 }}>
@@ -838,8 +872,11 @@ const Dashboard = () => {
                                 tooltipId="alertes"
                                 title="Alertes Stock"
                                 titleBadge={lowStockCount > 0 ? (
-                                    <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-black flex items-center justify-center animate-pulse flex-shrink-0 shadow-sm border border-amber-400" title="Stock faible détecté !">
-                                        !
+                                    <span 
+                                        className="w-5 h-5 rounded-full bg-red-600 border border-red-700 flex items-center justify-center flex-shrink-0 shadow-xs animate-pulse" 
+                                        title={`Stock faible détecté (${lowStockCount} article(s)) !`}
+                                    >
+                                        <span className="text-white font-black text-xs leading-none select-none">!</span>
                                     </span>
                                 ) : null}
                                 value={lowStockCount}
@@ -1059,9 +1096,9 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {/* Global KPI Tooltip */}
+            {/* Global KPI Tooltip (Style officiel Dashboard / Retours d'Articles & Bons d'Avoir) */}
             {activeTooltip && (() => {
-                const { pos, flipX, flipY, text } = activeTooltip;
+                const { pos, flipX, flipY, text, title } = activeTooltip;
                 const MARGIN = 8;
                 // Horizontal: anchor left by default, right if flipX
                 const leftStyle = flipX
@@ -1073,22 +1110,26 @@ const Dashboard = () => {
                     : { top: pos.top - MARGIN, transform: 'translateY(-100%)' };
 
                 return (
-                    <>
-                        <div className="fixed inset-0 z-[9998]" onClick={() => setActiveTooltip(null)} />
-                        <div
-                            className="fixed z-[9999] w-64 bg-[#001d35] text-white text-xs rounded-md p-3 shadow-2xl leading-relaxed"
-                            style={{ ...leftStyle, ...topStyle }}
-                        >
-                            {/* Arrow */}
-                            {!flipY && (
-                                <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#001d35] rotate-45 ${flipX ? 'right-3' : 'left-3'}`}></div>
-                            )}
-                            {flipY && (
-                                <div className={`absolute -top-1.5 w-3 h-3 bg-[#001d35] rotate-45 ${flipX ? 'right-3' : 'left-3'}`}></div>
-                            )}
+                    <div
+                        className="fixed z-[9999] w-64 bg-[#001d35] text-white text-xs rounded-[4px] p-3 shadow-2xl leading-relaxed pointer-events-none animate-in fade-in duration-150 border border-white/10"
+                        style={{ ...leftStyle, ...topStyle }}
+                    >
+                        {!flipY && (
+                            <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-r border-b border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {flipY && (
+                            <div className={`absolute -top-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-l border-t border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {title && (
+                            <div className="font-bold text-[#f77500] mb-1 uppercase text-[10px] tracking-wider flex items-center gap-1">
+                                <span>💡</span>
+                                <span>{title}</span>
+                            </div>
+                        )}
+                        <div className="text-gray-100 font-normal leading-relaxed text-[11px]">
                             {text}
                         </div>
-                    </>
+                    </div>
                 );
             })()}
         </div>

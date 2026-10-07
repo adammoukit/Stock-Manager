@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useInventory } from './InventoryContext';
 import { useSettings } from './SettingsContext';
 import { calculateSmartReplenishment } from '../utils/smartReplenishment';
+import { formatOrderNumber } from '../utils/transactionFormat';
 
 const PurchaseContext = createContext();
 
@@ -18,7 +19,14 @@ export const PurchaseProvider = ({ children }) => {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) return parsed.filter(o => o.storeId && String(o.storeId) === key);
+                if (Array.isArray(parsed)) {
+                    return parsed
+                        .filter(o => o.storeId && String(o.storeId) === key)
+                        .map(o => ({
+                            ...o,
+                            orderNumber: formatOrderNumber(o.orderNumber, o.id, o.date)
+                        }));
+                }
             } catch (e) {
                 console.error("Erreur lecture purchase_orders", e);
             }
@@ -89,10 +97,21 @@ export const PurchaseProvider = ({ children }) => {
     const suppliers = allSuppliers.filter(s => s.storeId != null && String(s.storeId) === storeKey);
 
     const createOrder = (supplier, items) => {
+        const currentYear = new Date().getFullYear();
+        let maxIndex = 0;
+        orders.forEach(o => {
+            const match = (o.orderNumber || '').match(/(?:BC|PO)-?\d{4}-?(\d+)/i);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (!isNaN(num) && num > maxIndex) maxIndex = num;
+            }
+        });
+        const nextIndex = Math.max(orders.length, maxIndex) + 1;
+
         const newOrder = {
             id: Date.now(),
             storeId: currentStoreId || storeKey,
-            orderNumber: `PO-${new Date().getFullYear()}-${String(orders.length + 1).padStart(4, '0')}`,
+            orderNumber: `BC-${currentYear}-${String(nextIndex).padStart(4, '0')}`,
             supplier,
             date: new Date().toISOString(),
             status: 'Ordered', // Draft, Ordered, Partial, Completed
@@ -395,7 +414,15 @@ export const PurchaseProvider = ({ children }) => {
 
         setAllOrders(prev => {
             const currentStoreOrders = prev.filter(o => o.storeId != null && String(o.storeId) === storeKey);
-            let nextIndex = currentStoreOrders.length + 1;
+            let maxIndex = 0;
+            currentStoreOrders.forEach(o => {
+                const match = (o.orderNumber || '').match(/(?:BC|PO)-?\d{4}-?(\d+)/i);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (!isNaN(num) && num > maxIndex) maxIndex = num;
+                }
+            });
+            let nextIndex = Math.max(currentStoreOrders.length, maxIndex) + 1;
             const newOrders = [];
 
             Object.entries(groupedBySupplier).forEach(([supplier, items], index) => {
@@ -403,7 +430,7 @@ export const PurchaseProvider = ({ children }) => {
                 const newOrder = {
                     id: now + index,
                     storeId: currentStoreId || storeKey,
-                    orderNumber: `PO-${currentYear}-${String(nextIndex).padStart(4, '0')}`,
+                    orderNumber: `BC-${currentYear}-${String(nextIndex).padStart(4, '0')}`,
                     supplier,
                     date: new Date().toISOString(),
                     status: 'Ordered', // Draft, Ordered, Partial, Completed

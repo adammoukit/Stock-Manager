@@ -5,9 +5,11 @@ import {
     Package, Plus, Search, X, Printer, Eye, Trash2, CheckCircle2,
     Clock, Truck, XCircle, ChevronDown, Filter, Calendar,
     Building2, ArrowDownToLine, PackageCheck, AlertCircle,
-    FileText, Edit3, RotateCcw, ClipboardList, Layers, Store as StoreIcon
+    FileText, Edit3, RotateCcw, ClipboardList, Layers, Store as StoreIcon,
+    ChevronLeft, ChevronRight, Copy
 } from 'lucide-react';
 import { formatPrice, formatRowPrice } from '../../utils/currency';
+import { formatOrderNumber } from '../../utils/transactionFormat';
 import T from '../../utils/toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -45,8 +47,9 @@ const printPurchaseOrder = (order, company) => {
     `).join('');
 
     const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG['Ordered'];
+    const formattedOrderNum = formatOrderNumber(order.orderNumber, order.id, order.date);
     win.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/>
-    <title>BC ${order.orderNumber}</title>
+    <title>${formattedOrderNum}</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Segoe UI',Arial,sans-serif; color:#1f2937; background:#fff; padding:40px; font-size:13px; }
@@ -75,7 +78,7 @@ const printPurchaseOrder = (order, company) => {
         </div>
         <div class="bc-meta">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:1px;margin-bottom:4px;">Bon de Commande</div>
-            <div class="bc-num">${order.orderNumber}</div>
+            <div class="bc-num">${formattedOrderNum}</div>
             <div style="color:#6b7280;font-size:12px;margin-top:6px;">Date : ${format(new Date(order.date), 'dd MMMM yyyy', { locale: fr })}</div>
             <div style="color:#6b7280;font-size:12px;">Statut : ${cfg.label}</div>
         </div>
@@ -214,6 +217,49 @@ const PurchaseOrders = () => {
         }
     }, [period, customStartDate, customEndDate]);
 
+    // ── Libellé compact de la période (pour les badges KPI épurés) ──
+    const periodShortLabel = useMemo(() => {
+        switch (period) {
+            case 'today': return "Aujourd'hui";
+            case '7days': return "7 jours";
+            case 'month': return "Ce mois";
+            case 'custom': return "Période";
+            case 'all':
+            default: return "Tout";
+        }
+    }, [period]);
+
+    // ── Infobulle dynamique sur les KPI (système officiel comme dans Retours & Clients) ──
+    const [activeTooltip, setActiveTooltip] = useState(null);
+
+    const handleKpiMouseEnter = (e, tooltipId, title, text) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const TOOLTIP_W = 270;
+        const TOOLTIP_H = 80;
+        const MARGIN = 10;
+        const flipX = rect.left + TOOLTIP_W + MARGIN > window.innerWidth;
+        const flipY = rect.top - TOOLTIP_H - MARGIN < 0;
+        setActiveTooltip({
+            id: tooltipId,
+            pos: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom },
+            flipX,
+            flipY,
+            title,
+            text
+        });
+    };
+
+    const handleKpiMouseLeave = () => {
+        setActiveTooltip(null);
+    };
+
+    // Fermeture automatique de l'infobulle au défilement
+    useEffect(() => {
+        const handleScroll = () => setActiveTooltip(null);
+        window.addEventListener('scroll', handleScroll, true);
+        return () => window.removeEventListener('scroll', handleScroll, true);
+    }, []);
+
     // ── Liste unique des fournisseurs ──
     const uniqueSuppliers = useMemo(() => {
         const list = new Set();
@@ -310,7 +356,9 @@ const PurchaseOrders = () => {
             // Recherche textuelle
             if (search.trim()) {
                 const q = search.toLowerCase();
-                const matchNum = (o.orderNumber || '').toLowerCase().includes(q);
+                const numRaw = (o.orderNumber || '').toLowerCase();
+                const numFormatted = formatOrderNumber(o.orderNumber, o.id, o.date).toLowerCase();
+                const matchNum = numRaw.includes(q) || numFormatted.includes(q);
                 const matchSupp = (o.supplier || '').toLowerCase().includes(q);
                 const matchItems = (o.items || []).some(item => (item.name || '').toLowerCase().includes(q));
                 if (!matchNum && !matchSupp && !matchItems) return false;
@@ -319,6 +367,40 @@ const PurchaseOrders = () => {
             return true;
         });
     }, [orders, activeTab, selectedKpi, operationFilter, supplierFilter, period, customStartDate, customEndDate, search]);
+
+    // ── Sélection par cases à cocher (Style Officiel KABLLIX ERP) ──
+    const [selectedRowIds, setSelectedRowIds] = useState([]);
+
+    // ── Pagination (10 éléments par page par défaut, style officiel Retours & Clients) ──
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Réinitialisation de la pagination lors d'un changement de filtre
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, activeTab, operationFilter, supplierFilter, selectedKpi, period, customStartDate, customEndDate]);
+
+    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
+    const paginatedOrders = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredOrders.slice(start, start + itemsPerPage);
+    }, [filteredOrders, currentPage, itemsPerPage]);
+
+    const handleSelectRow = (id) => {
+        setSelectedRowIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAll = () => {
+        const pageIds = paginatedOrders.map(o => o.id);
+        const allSelected = pageIds.length > 0 && pageIds.every(id => selectedRowIds.includes(id));
+        if (allSelected) {
+            setSelectedRowIds(prev => prev.filter(id => !pageIds.includes(id)));
+        } else {
+            setSelectedRowIds(prev => Array.from(new Set([...prev, ...pageIds])));
+        }
+    };
 
     const handleGenerateFromQueue = () => {
         if (replenishmentQueue.length === 0) {
@@ -376,23 +458,22 @@ const PurchaseOrders = () => {
                 )}
             </div>
 
-            {/* ── 4 STATCARDS KPI INTERACTIFS AVEC PÉRIODE APPRÊTÉE (STYLE CLIENTS & RETOURS) ── */}
+            {/* ── 4 STATCARDS KPI COMPACTS AVEC INFOBULLES OFFICIELLES (STYLE CLIENTS & RETOURS) ── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 print:hidden">
                 {/* 1. Total Commandes */}
                 <div
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('all')}
-                    title="Cliquer pour afficher toutes les commandes de la période"
-                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[96px] cursor-pointer select-none ${
                         selectedKpi === 'all'
                             ? 'bg-blue-50/50 border-[#001d35] ring-2 ring-[#001d35]/30 shadow-md scale-[1.01]'
                             : 'bg-white border-gray-300 hover:border-[#001d35] hover:shadow-md hover:scale-[1.005]'
                     }`}
                 >
                     {filterLoading ? (
-                        <div className="flex flex-col items-center justify-center py-4">
-                            <div className="relative h-8 w-8">
+                        <div className="flex flex-col items-center justify-center py-2">
+                            <div className="relative h-7 w-7">
                                 <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
                                 <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
                             </div>
@@ -402,7 +483,17 @@ const PurchaseOrders = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">Total Commandes</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#001d35]">Total Commandes</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'po_total_kpi', 'Total Commandes', "Volume total des bons de commande fournisseur émis sur la période sélectionnée et montant financier engagé. Cliquez pour filtrer la liste.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'all' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-[#001d35] text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Filtré
@@ -413,43 +504,42 @@ const PurchaseOrders = () => {
                                             </span>
                                         )}
                                     </div>
-                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#001d35' }}>
-                                        <h3 className="text-xl sm:text-2xl font-semibold">
-                                            {metrics.totalOrders} commande(s)
+                                    <div className="flex items-baseline gap-2 mt-1 font-semibold flex-wrap" style={{ color: '#001d35' }}>
+                                        <h3 className="text-xl sm:text-2xl font-bold">
+                                            {metrics.totalOrders}
                                         </h3>
                                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-blue-50 text-blue-800 border border-blue-200 uppercase tracking-wider">
-                                            {periodLabel}
+                                            {periodShortLabel}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1.5 font-medium">
-                                        Volume engagé : {formatPrice(metrics.totalValue)} ({periodLabel})
+                                    <p className="text-xs text-gray-500 mt-1 font-medium truncate">
+                                        Engagé : <strong className="text-gray-700">{formatPrice(metrics.totalValue)}</strong>
                                     </p>
                                 </div>
                             </div>
                             <img
                                 src="/icons8/fluency_240_tags.png"
                                 alt=""
-                                className="absolute bottom-2 right-2 w-16 h-16 opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all pointer-events-none"
+                                className="absolute bottom-2 right-2 w-14 h-14 opacity-20 group-hover:opacity-35 group-hover:scale-105 transition-all pointer-events-none"
                             />
                         </>
                     )}
                 </div>
 
-                {/* 2. En Cours d'Acheminement */}
+                {/* 2. En Cours / Livraison */}
                 <div
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('pending')}
-                    title="Cliquer pour afficher les commandes en cours d'expédition ou partiellement reçues"
-                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[96px] cursor-pointer select-none ${
                         selectedKpi === 'pending'
                             ? 'bg-amber-50/50 border-[#f77500] ring-2 ring-[#f77500]/30 shadow-md scale-[1.01]'
                             : 'bg-white border-gray-300 hover:border-[#f77500] hover:shadow-md hover:scale-[1.005]'
                     }`}
                 >
                     {filterLoading ? (
-                        <div className="flex flex-col items-center justify-center py-4">
-                            <div className="relative h-8 w-8">
+                        <div className="flex flex-col items-center justify-center py-2">
+                            <div className="relative h-7 w-7">
                                 <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
                                 <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500] opacity-60"></div>
                             </div>
@@ -459,7 +549,17 @@ const PurchaseOrders = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-800">En Cours / Livraison</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-amber-800">En Cours / Livraison</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'po_pending_kpi', 'En Cours / Livraison', "Commandes fournisseurs transmises en cours d'acheminement ou réceptions partielles. Cliquez pour filtrer la liste.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'pending' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-[#f77500] text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Filtré
@@ -470,23 +570,23 @@ const PurchaseOrders = () => {
                                             </span>
                                         )}
                                     </div>
-                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#b45309' }}>
-                                        <h3 className="text-xl sm:text-2xl font-semibold">
-                                            {metrics.pendingCount} en attente
+                                    <div className="flex items-baseline gap-2 mt-1 font-semibold flex-wrap" style={{ color: '#b45309' }}>
+                                        <h3 className="text-xl sm:text-2xl font-bold">
+                                            {metrics.pendingCount}
                                         </h3>
                                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-amber-50 text-amber-800 border border-amber-200 uppercase tracking-wider">
-                                            {periodLabel}
+                                            {periodShortLabel}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1.5 font-medium">
-                                        Valeur en transit : {formatPrice(metrics.pendingValue)} ({periodLabel})
+                                    <p className="text-xs text-gray-500 mt-1 font-medium truncate">
+                                        En transit : <strong className="text-amber-700">{formatPrice(metrics.pendingValue)}</strong>
                                     </p>
                                 </div>
                             </div>
                             <img
                                 src="/icons8/fluency_240_shopping-cart.png"
                                 alt=""
-                                className="absolute bottom-2 right-2 w-16 h-16 opacity-25 group-hover:opacity-40 group-hover:scale-105 transition-all pointer-events-none"
+                                className="absolute bottom-2 right-2 w-14 h-14 opacity-20 group-hover:opacity-35 group-hover:scale-105 transition-all pointer-events-none"
                             />
                         </>
                     )}
@@ -497,16 +597,15 @@ const PurchaseOrders = () => {
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('completed')}
-                    title="Cliquer pour afficher les commandes intégralement reçues"
-                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[96px] cursor-pointer select-none ${
                         selectedKpi === 'completed'
                             ? 'bg-emerald-50/50 border-emerald-600 ring-2 ring-emerald-500/30 shadow-md scale-[1.01]'
                             : 'bg-white border-gray-300 hover:border-emerald-500 hover:shadow-md hover:scale-[1.005]'
                     }`}
                 >
                     {filterLoading ? (
-                        <div className="flex flex-col items-center justify-center py-4">
-                            <div className="relative h-8 w-8">
+                        <div className="flex flex-col items-center justify-center py-2">
+                            <div className="relative h-7 w-7">
                                 <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
                                 <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
                             </div>
@@ -516,7 +615,17 @@ const PurchaseOrders = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-700">Réceptionnées Complètes</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-emerald-700">Réceptionnées</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'po_completed_kpi', 'Réceptionnées Complètes', "Bons de commande dont l'ensemble des marchandises a été intégralement réceptionné et intégré au stock. Cliquez pour filtrer.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'completed' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-emerald-600 text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Filtré
@@ -527,23 +636,23 @@ const PurchaseOrders = () => {
                                             </span>
                                         )}
                                     </div>
-                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#059669' }}>
-                                        <h3 className="text-xl sm:text-2xl font-semibold text-emerald-600">
-                                            {metrics.completedCount} commande(s)
+                                    <div className="flex items-baseline gap-2 mt-1 font-semibold flex-wrap" style={{ color: '#059669' }}>
+                                        <h3 className="text-xl sm:text-2xl font-bold text-emerald-600">
+                                            {metrics.completedCount}
                                         </h3>
                                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
-                                            {periodLabel}
+                                            {periodShortLabel}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1.5 font-medium">
-                                        Marchandises intégrées en stock ({periodLabel})
+                                    <p className="text-xs text-gray-500 mt-1 font-medium truncate">
+                                        En stock : <strong className="text-emerald-700">{formatPrice(metrics.completedValue)}</strong>
                                     </p>
                                 </div>
                             </div>
                             <img
                                 src="/icons8/fluency_240_banknotes.png"
                                 alt=""
-                                className="absolute bottom-2 right-2 w-16 h-16 opacity-30 group-hover:opacity-50 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+                                className="absolute bottom-2 right-2 w-14 h-14 opacity-20 group-hover:opacity-35 group-hover:scale-105 transition-all duration-500 pointer-events-none"
                             />
                         </>
                     )}
@@ -554,16 +663,15 @@ const PurchaseOrders = () => {
                     role="button"
                     tabIndex={0}
                     onClick={() => handleKpiClick('queue')}
-                    title="Articles en attente dans la file de réapprovisionnement"
-                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[120px] cursor-pointer select-none ${
+                    className={`p-3 rounded-sm border-2 shadow-xs relative group transition-all overflow-hidden flex flex-col justify-center min-h-[96px] cursor-pointer select-none ${
                         selectedKpi === 'queue'
                             ? 'bg-orange-50/50 border-[#f77500] ring-2 ring-[#f77500]/30 shadow-md scale-[1.01]'
                             : 'bg-white border-gray-300 hover:border-[#f77500] hover:shadow-md hover:scale-[1.005]'
                     }`}
                 >
                     {filterLoading ? (
-                        <div className="flex flex-col items-center justify-center py-4">
-                            <div className="relative h-8 w-8">
+                        <div className="flex flex-col items-center justify-center py-2">
+                            <div className="relative h-7 w-7">
                                 <div className="absolute inset-0 animate-spin rounded-full border-2 border-t-transparent border-[#001d35]"></div>
                                 <div className="absolute inset-1 animate-spin-reverse rounded-full border-2 border-b-transparent border-[#f77500]"></div>
                             </div>
@@ -573,7 +681,17 @@ const PurchaseOrders = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex-1">
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
-                                        <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#f77500]">File Réapprovisionnement</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold tracking-wide uppercase text-[11px] text-[#f77500]">File Réappro</p>
+                                            <span
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    handleKpiMouseEnter(e, 'po_queue_kpi', 'File de Réapprovisionnement', "Nombre d'articles en attente de commande dans la file de réapprovisionnement intelligent. Cliquez pour afficher.");
+                                                }}
+                                                onMouseLeave={handleKpiMouseLeave}
+                                                className="w-4 h-4 rounded-full text-[10px] font-black leading-none flex items-center justify-center transition-colors cursor-help bg-gray-200 hover:bg-[#001d35] text-gray-500 hover:text-white shrink-0"
+                                            >?</span>
+                                        </div>
                                         {selectedKpi === 'queue' ? (
                                             <span className="text-[9px] font-black px-1.5 py-0.5 rounded-[3px] bg-[#f77500] text-white uppercase tracking-wider shadow-2xs animate-in fade-in">
                                                 ✓ Actif
@@ -584,23 +702,23 @@ const PurchaseOrders = () => {
                                             </span>
                                         )}
                                     </div>
-                                    <div className="flex items-baseline gap-2 mt-1.5 font-semibold flex-wrap" style={{ color: '#c2410c' }}>
-                                        <h3 className="text-xl sm:text-2xl font-semibold text-[#f77500]">
-                                            {replenishmentQueue.length} article(s)
+                                    <div className="flex items-baseline gap-2 mt-1 font-semibold flex-wrap" style={{ color: '#c2410c' }}>
+                                        <h3 className="text-xl sm:text-2xl font-bold text-[#f77500]">
+                                            {replenishmentQueue.length}
                                         </h3>
                                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-[3px] bg-orange-50 text-[#f77500] border border-orange-200 uppercase tracking-wider">
-                                            À commander
+                                            En file
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1.5 font-medium">
-                                        {replenishmentQueue.length > 0 ? "Prêts pour génération groupée" : "Aucun article en attente"}
+                                    <p className="text-xs text-gray-500 mt-1 font-medium truncate">
+                                        {replenishmentQueue.length > 0 ? "Prêts à commander" : "Aucun article"}
                                     </p>
                                 </div>
                             </div>
                             <img
                                 src="/icons8/fluency_240_high-priority.png"
                                 alt=""
-                                className="absolute bottom-2 right-2 w-16 h-16 opacity-30 group-hover:opacity-50 group-hover:scale-105 transition-all duration-500 pointer-events-none"
+                                className="absolute bottom-2 right-2 w-14 h-14 opacity-20 group-hover:opacity-35 group-hover:scale-105 transition-all duration-500 pointer-events-none"
                             />
                         </>
                     )}
@@ -1023,64 +1141,117 @@ const PurchaseOrders = () => {
                         <table className="w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr className="bg-[#001d35] text-white font-semibold uppercase tracking-wider text-[10px] divide-x divide-white/20 sticky top-0">
-                                    <th className="py-2.5 px-3 w-32 whitespace-nowrap">N° Commande</th>
-                                    <th className="py-2.5 px-3">Fournisseur</th>
-                                    <th className="py-2.5 px-3 text-center w-28 whitespace-nowrap">Date</th>
-                                    <th className="py-2.5 px-3 text-center w-24 whitespace-nowrap">Articles</th>
+                                    <th style={{ width: '42px', minWidth: '42px' }} className="px-1 py-2 text-center border-r-2 border-white/20">
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded-sm border-white/20 accent-[#001d35] cursor-pointer"
+                                            checked={paginatedOrders.length > 0 && paginatedOrders.every(o => selectedRowIds.includes(o.id))}
+                                            onChange={handleSelectAll}
+                                            title="Tout cocher / Tout décocher"
+                                        />
+                                    </th>
+                                    <th className="py-2.5 px-3 w-40 whitespace-nowrap">Date & Heure</th>
+                                    <th className="py-2.5 px-3 w-44 whitespace-nowrap">N° Bon de Commande</th>
+                                    <th className="py-2.5 px-3 w-56">Fournisseur</th>
+                                    <th className="py-2.5 px-3 text-center w-28 whitespace-nowrap">Articles</th>
                                     <th className="py-2.5 px-3 text-right w-36 whitespace-nowrap">Montant Total</th>
                                     <th className="py-2.5 px-3 text-center w-36 whitespace-nowrap">Progression</th>
-                                    <th className="py-2.5 px-3 text-center w-36 whitespace-nowrap">Statut</th>
-                                    <th className="py-2.5 px-3 text-center w-28 whitespace-nowrap">Actions</th>
+                                    <th className="py-2.5 px-3 text-center w-32 whitespace-nowrap">Statut</th>
+                                    <th className="py-2.5 px-2 text-center w-36 whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredOrders.map((order, idx) => {
+                                {paginatedOrders.map((order, idx) => {
+                                    const isSelected = selectedRowIds.includes(order.id);
                                     const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG['Ordered'];
-                                    const completedItems = order.items.filter(i => (i.quantityReceived || 0) >= (i.quantityOrdered || 0)).length;
-                                    const pct = order.items.length > 0 ? Math.round((completedItems / order.items.length) * 100) : 0;
+                                    const completedItems = (order.items || []).filter(i => (i.quantityReceived || 0) >= (i.quantityOrdered || 0)).length;
+                                    const pct = (order.items || []).length > 0 ? Math.round((completedItems / order.items.length) * 100) : 0;
+                                    const orderDate = new Date(order.date);
+                                    const isValidDate = !isNaN(orderDate.getTime());
+                                    const dateStr = isValidDate ? format(orderDate, 'dd/MM/yyyy') : (order.date || 'N/A');
+                                    const timeStr = isValidDate ? format(orderDate, 'HH:mm') : '';
+                                    const orderCode = formatOrderNumber(order.orderNumber, order.id, order.date);
 
                                     return (
                                         <tr
-                                            key={order.id}
+                                            key={order.id || idx}
                                             onClick={() => setSelectedOrder(order)}
-                                            className={`hover:bg-blue-50/40 transition-colors border-b border-gray-200 cursor-pointer group ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}
+                                            className={`transition-colors border-b border-gray-200 select-none cursor-pointer ${
+                                                isSelected
+                                                    ? 'bg-blue-50'
+                                                    : idx % 2 === 0 ? 'bg-white hover:bg-blue-50/40' : 'bg-slate-50/70 hover:bg-blue-50/40'
+                                            }`}
                                         >
-                                            {/* N° Commande */}
-                                            <td className="py-2.5 px-3 font-mono font-bold text-[#001d35] whitespace-nowrap text-xs">
-                                                {order.orderNumber}
+                                            {/* Case à cocher */}
+                                            <td className="px-1 py-2 text-center w-10" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded-sm border-gray-300 accent-[#001d35] cursor-pointer"
+                                                    checked={isSelected}
+                                                    onChange={() => handleSelectRow(order.id)}
+                                                />
                                             </td>
 
-                                            {/* Fournisseur */}
-                                            <td className="py-2.5 px-3">
-                                                <div className="font-semibold text-gray-900 text-xs tracking-tight group-hover:text-blue-900 flex items-center gap-1.5">
-                                                    <Building2 className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#001d35]" />
-                                                    <span>{order.supplier || 'Fournisseur Inconnu'}</span>
+                                            {/* 1. Date & Heure */}
+                                            <td className="py-2.5 px-3 whitespace-nowrap">
+                                                <div className="flex items-center gap-1.5 font-semibold text-gray-900 text-xs">
+                                                    <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                    <span>{dateStr}</span>
+                                                </div>
+                                                {timeStr && timeStr !== '00:00' ? (
+                                                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono pl-5">
+                                                        <Clock className="w-2.5 h-2.5" />
+                                                        <span>{timeStr}</span>
+                                                    </div>
+                                                ) : null}
+                                            </td>
+
+                                            {/* 2. N° Bon de Commande */}
+                                            <td className="py-2.5 px-3 whitespace-nowrap">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-mono text-[11px] font-bold text-[#001d35] bg-slate-100 px-1.5 py-0.5 rounded-[4px] border border-slate-200">
+                                                        {orderCode}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigator.clipboard?.writeText(orderCode);
+                                                            T.success(`Code ${orderCode} copié !`);
+                                                        }}
+                                                        title="Copier le numéro de bon de commande"
+                                                        className="text-gray-400 hover:text-gray-700 cursor-pointer p-0.5 rounded hover:bg-gray-100 transition-colors"
+                                                    >
+                                                        <Copy className="w-3 h-3" />
+                                                    </button>
                                                 </div>
                                             </td>
 
-                                            {/* Date */}
-                                            <td className="py-2.5 px-3 text-center text-gray-600 whitespace-nowrap font-medium text-xs">
-                                                {formatDateHelper(order.date)}
+                                            {/* 3. Fournisseur */}
+                                            <td className="py-2.5 px-3">
+                                                <div className="font-bold text-[#001d35] text-xs">
+                                                    {order.supplier || 'Fournisseur Inconnu'}
+                                                </div>
                                             </td>
 
-                                            {/* Nb Articles */}
-                                            <td className="py-2.5 px-3 text-center whitespace-nowrap font-medium text-gray-600">
-                                                <span className="px-2 py-0.5 rounded-[3px] bg-gray-100 text-gray-700 text-[11px] font-semibold border border-gray-200">
+                                            {/* 4. Nb Articles */}
+                                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                                <span className="px-2 py-0.5 rounded-[4px] bg-gray-100 text-gray-700 text-[10px] font-bold border border-gray-200 uppercase tracking-wider">
                                                     {order.items?.length || 0} art.
                                                 </span>
                                             </td>
 
-                                            {/* Montant Total */}
-                                            <td className="py-2.5 px-3 text-right font-bold text-[#001d35] tabular-nums whitespace-nowrap text-xs">
+                                            {/* 5. Montant Total */}
+                                            <td className="py-2.5 px-3 text-right font-bold text-gray-900 whitespace-nowrap text-xs">
                                                 {formatPrice(order.totalAmount)}
                                             </td>
 
-                                            {/* Progression Réception */}
+                                            {/* 6. Progression Réception */}
                                             <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                                 <div className="w-28 mx-auto space-y-1">
                                                     <div className="flex justify-between text-[10px] font-semibold text-gray-600">
                                                         <span>{completedItems}/{order.items?.length || 0}</span>
-                                                        <span>{pct}%</span>
+                                                        <span className="font-mono font-bold text-gray-800">{pct}%</span>
                                                     </div>
                                                     <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                                         <div
@@ -1093,33 +1264,43 @@ const PurchaseOrders = () => {
                                                 </div>
                                             </td>
 
-                                            {/* Statut */}
+                                            {/* 7. Statut */}
                                             <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${cfg.color}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                                                    {cfg.label}
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] font-semibold uppercase tracking-wider border ${
+                                                    order.status === 'Completed'
+                                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                                        : order.status === 'Partial'
+                                                        ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                                        : order.status === 'Ordered'
+                                                        ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                                        : 'bg-gray-100 text-gray-700 border-gray-300'
+                                                }`}>
+                                                    {order.status === 'Completed' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                                                    {order.status === 'Partial' && <Clock className="w-3 h-3 text-amber-600" />}
+                                                    {order.status === 'Ordered' && <Truck className="w-3 h-3 text-blue-600" />}
+                                                    <span>{cfg.label}</span>
                                                 </span>
                                             </td>
 
-                                            {/* Actions */}
-                                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                                <div className="flex items-center justify-center gap-1" onClick={e => e.stopPropagation()}>
+                                            {/* 8. Actions */}
+                                            <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                                                <div className="flex items-center justify-center gap-1.5" onClick={e => e.stopPropagation()}>
                                                     <button
                                                         type="button"
                                                         onClick={() => setSelectedOrder(order)}
-                                                        className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-[4px] bg-[#001d35] hover:bg-[#00284a] text-white transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1"
+                                                        className="inline-flex items-center gap-1 bg-[#001d35] hover:bg-[#00284a] text-white px-2.5 py-1 rounded-[4px] text-[11px] font-semibold transition-all shadow-xs cursor-pointer active:scale-95"
                                                         title="Consulter le bon de commande"
                                                     >
-                                                        <Eye className="w-3 h-3" />
+                                                        <Eye className="w-3 h-3 text-[#f77500]" />
                                                         <span>Détails</span>
                                                     </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => printPurchaseOrder(order, company)}
-                                                        className="p-1 text-[#001d35] hover:bg-gray-100 rounded-[4px] border border-gray-200 transition-colors cursor-pointer"
+                                                        className="inline-flex items-center gap-1 bg-white hover:bg-gray-100 text-[#001d35] border border-gray-300 px-2 py-1 rounded-[4px] font-semibold text-[11px] shadow-2xs transition-colors cursor-pointer active:scale-95"
                                                         title="Imprimer le bon de commande"
                                                     >
-                                                        <Printer className="w-3.5 h-3.5" />
+                                                        <Printer className="w-3 h-3 text-[#f77500]" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -1131,14 +1312,77 @@ const PurchaseOrders = () => {
                     </div>
                 )}
 
-                {/* Footer Historique */}
+                {/* ── Barre de pagination (10 éléments par page par défaut, style officiel Retours & Clients) ── */}
                 {filteredOrders.length > 0 && !filterLoading && (
-                    <div className="p-3 bg-white border-t-2 border-gray-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                        <div className="text-xs text-gray-600 font-normal">
-                            <strong className="text-gray-900 font-semibold">{filteredOrders.length}</strong> commande(s) affichée(s)
+                    <div className="bg-gray-50 px-3 py-2 border-t-2 border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs select-none">
+                        <div className="flex items-center gap-2 text-gray-600">
+                            <span>
+                                Affichage de <strong className="text-[#001d35] font-semibold">{filteredOrders.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</strong> à <strong className="text-[#001d35] font-semibold">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</strong> sur <strong className="text-[#001d35] font-semibold">{filteredOrders.length}</strong> commande(s)
+                            </span>
+                            <span className="text-gray-300">|</span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] text-gray-500 font-medium">Lignes :</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => {
+                                        setItemsPerPage(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="px-2 py-0.5 text-xs font-semibold border border-gray-300 rounded-[4px] bg-white text-[#001d35] focus:outline-none focus:ring-1 focus:ring-[#001d35] cursor-pointer"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
                         </div>
-                        <div className="text-[11px] text-gray-500 font-medium">
-                            Cliquez sur une ligne pour ouvrir les détails et valider les réceptions
+
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-2.5 py-1 rounded-[4px] border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-semibold disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 transition-all active:scale-95"
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Précédent</span>
+                            </button>
+
+                            <div className="flex items-center gap-1 px-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                    .map((p, pIdx, arr) => {
+                                        const prevP = arr[pIdx - 1];
+                                        const showEllipsis = prevP && p - prevP > 1;
+                                        return (
+                                            <React.Fragment key={p}>
+                                                {showEllipsis && <span className="px-1 text-gray-400 font-bold">...</span>}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCurrentPage(p)}
+                                                    className={`w-7 h-7 text-xs font-bold rounded-[4px] transition-all cursor-pointer ${
+                                                        currentPage === p
+                                                            ? 'bg-[#001d35] text-white shadow-xs'
+                                                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                                                    }`}
+                                                >
+                                                    {p}
+                                                </button>
+                                            </React.Fragment>
+                                        );
+                                    })}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-2.5 py-1 rounded-[4px] border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 font-semibold disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 transition-all active:scale-95"
+                            >
+                                <span className="hidden sm:inline">Suivant</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
                         </div>
                     </div>
                 )}
@@ -1152,6 +1396,41 @@ const PurchaseOrders = () => {
                     onClose={() => setSelectedOrder(null)}
                 />
             )}
+
+            {/* Global KPI Tooltip (Style officiel Dashboard & Retours d'Articles) */}
+            {activeTooltip && (() => {
+                const { pos, flipX, flipY, text, title } = activeTooltip;
+                const MARGIN = 8;
+                const leftStyle = flipX
+                    ? { right: window.innerWidth - pos.right }
+                    : { left: pos.left };
+                const topStyle = flipY
+                    ? { top: pos.bottom + MARGIN }
+                    : { top: pos.top - MARGIN, transform: 'translateY(-100%)' };
+
+                return (
+                    <div
+                        className="fixed z-[9999] w-64 bg-[#001d35] text-white text-xs rounded-[4px] p-3 shadow-2xl leading-relaxed pointer-events-none animate-in fade-in duration-150 border border-white/10"
+                        style={{ ...leftStyle, ...topStyle }}
+                    >
+                        {!flipY && (
+                            <div className={`absolute -bottom-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-r border-b border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {flipY && (
+                            <div className={`absolute -top-1.5 w-3 h-3 bg-[#001d35] rotate-45 border-l border-t border-white/10 ${flipX ? 'right-4' : 'left-4'}`}></div>
+                        )}
+                        {title && (
+                            <div className="font-bold text-[#f77500] mb-1 uppercase text-[10px] tracking-wider flex items-center gap-1">
+                                <span>💡</span>
+                                <span>{title}</span>
+                            </div>
+                        )}
+                        <div className="text-gray-100 font-normal leading-relaxed text-[11px]">
+                            {text}
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
